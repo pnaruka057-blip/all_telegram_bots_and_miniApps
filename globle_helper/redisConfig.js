@@ -3,23 +3,23 @@ const Redis = require("ioredis");
 let redis;
 
 if (process.env.NODE_ENV === "production") {
-    // Production Redis (Railway)
     redis = new Redis({
         host: process.env.REDIS_HOST,
         port: process.env.REDIS_PORT,
-        password: process.env.REDIS_PASSWORD
+        username: "default", // Railway Redis default username
+        password: process.env.REDIS_PASSWORD,
+        tls: process.env.REDIS_TLS === "true" ? {} : undefined // if Railway requires TLS
     });
 } else {
-    redis = new Redis(); // defaults to 127.0.0.1:6379
+    redis = new Redis();
 }
 
-// Event listeners for connection status
 redis.on("connect", () => {
     console.log("✅ Redis connected successfully");
 });
 
 redis.on("error", (err) => {
-    console.error("❌ Redis connection error:", err);
+    console.error("❌ Redis connection error:", err.message);
 });
 
 redis.on("ready", () => {
