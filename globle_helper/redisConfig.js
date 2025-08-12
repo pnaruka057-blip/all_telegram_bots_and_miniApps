@@ -3,15 +3,9 @@ const Redis = require("ioredis");
 let redis;
 
 if (process.env.NODE_ENV === "production") {
-    redis = new Redis({
-        host: process.env.REDIS_HOST,
-        port: process.env.REDIS_PORT,
-        username: "default", // Railway Redis default username
-        password: process.env.REDIS_PASSWORD,
-        tls: process.env.REDIS_TLS === "true" ? {} : undefined // if Railway requires TLS
-    });
+    redis = new Redis(process.env.REDIS_URL);
 } else {
-    redis = new Redis();
+    redis = new Redis(); // Local default
 }
 
 redis.on("connect", () => {
@@ -19,7 +13,7 @@ redis.on("connect", () => {
 });
 
 redis.on("error", (err) => {
-    console.error("❌ Redis connection error:", err.message);
+    console.error("❌ Redis connection error:", err);
 });
 
 redis.on("ready", () => {
