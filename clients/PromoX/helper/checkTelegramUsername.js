@@ -1,5 +1,5 @@
 const axios = require("axios");
-const botToken = process.env.BOT_TOKEN
+const botToken = process.env.BOT_TOKEN_PROMOX
 async function checkTelegramUsername(username) {
     try {
         // Agar username me @ nahi hai to add karo
