@@ -1,13 +1,16 @@
 require('dotenv').config()
 let promoX_token = process.env.PROMOX_TOKEN
+let crypto_news_token = process.env.CRYPTO_NEWS_TOKEN
 const express = require('express')
 const app = express()
 const { Telegraf, Markup, Scenes, session } = require('telegraf');
 const path = require('path')
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const Redis = require('ioredis')
 const promoX_routes = require('./clients/PromoX/routes/all_routes')
 const promoX_all_actions = require('./clients/PromoX/bot_handler/promoX_bot')
+const crypto_news_all_actions = require('./clients/Crypto_news/bot_handler/crypto_news_bot')
 
 
 // all middleware
@@ -37,15 +40,20 @@ app.set('views', path.join(__dirname, 'public'));
 
 // clients bot instances
 const promoX_bot = new Telegraf(process.env.BOT_TOKEN_PROMOX);
+const crypto_news_bot = new Telegraf(process.env.BOT_TOKEN_CRYPTO_NEWS);
 promoX_all_actions(promoX_bot, promoX_token)
+crypto_news_all_actions(crypto_news_bot, crypto_news_token)
 
 
 // Start the bot
 promoX_bot.launch()
     .then(() => console.log("🤖 PromoX Bot started"))
     .catch(console.error);
+crypto_news_bot.launch()
+    .then(() => console.log("🤖 Crypto news Bot started"))
+    .catch(console.error);
 
-    
+
 // Express app to keep server alive
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
