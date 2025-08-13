@@ -54,6 +54,11 @@ crypto_news_bot.launch()
     .catch(console.error);
 
 
+app.get('/', (req, res) => {
+    res.send('✅ Bot is alive!');
+});
+
+
 // Express app to keep server alive
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
