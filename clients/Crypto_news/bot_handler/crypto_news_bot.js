@@ -54,16 +54,16 @@ module.exports = (bot) => {
     // /setTime command (only admin)
     bot.command('setTime', async (ctx) => {
         try {
-            const adminId = String(process.env.CRYPTO_NEWS_ADMIN_CHAT_ID || '');
-            const senderId = String(ctx.from && ctx.from.id ? ctx.from.id : ctx.chat.id);
+            // const adminId = String(process.env.CRYPTO_NEWS_ADMIN_CHAT_ID || '');
+            // const senderId = String(ctx.from && ctx.from.id ? ctx.from.id : ctx.chat.id);
 
-            if (!adminId) {
-                console.warn('⚠ CRYPTO_NEWS_ADMIN_CHAT_ID not set!');
-                return ctx.reply('❌ Server misconfigured: admin id missing.');
-            }
-            if (senderId !== adminId) {
-                return ctx.reply('🚫 You are not authorized to use this command.');
-            }
+            // if (!adminId) {
+            //     console.warn('⚠ CRYPTO_NEWS_ADMIN_CHAT_ID not set!');
+            //     return ctx.reply('❌ Server misconfigured: admin id missing.');
+            // }
+            // if (senderId !== adminId) {
+            //     return ctx.reply('🚫 You are not authorized to use this command.');
+            // }
 
             if (pendingReplies[adminId]) {
                 return ctx.reply('⚠ You already have a pending /setTime request. Please reply to that or wait until it times out.');
