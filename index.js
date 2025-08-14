@@ -49,7 +49,7 @@ if (process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.env.MESSAGE_AUTO_
     message_auto_save_and_post_bot.command('save', async (ctx) => { await ctx.reply('✅ Your message has been saved!') });
 
     // Webhook binding
-    app.use(message_auto_save_and_post_bot.webhookCallback('/telegram-webhook'));
+    app.use(message_auto_save_and_post_bot.webhookCallback('/telegram-webhook-for-message-auto-save-and-post'));
     message_auto_save_and_post_bot.telegram.setWebhook(
         `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-message-auto-save-and-post`
     );
