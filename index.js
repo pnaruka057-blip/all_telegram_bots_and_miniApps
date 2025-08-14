@@ -12,6 +12,10 @@ const promoX_all_actions = require('./clients/PromoX/bot_handler/promoX_bot')
 const message_auto_save_and_post = require('./clients/mr_akash/Message_auto_save_and_post/message_auto_save_and_post')
 const crypto_news_all_actions = require('./clients/mr_akash/Crypto_news/crypto_news_bot')
 
+// all system middleware
+app.use(cors())
+app.use(express.json());
+app.use(cookieParser());
 
 // all set
 app.set('view engine', 'ejs')
@@ -45,7 +49,7 @@ if (process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.env.MESSAGE_AUTO_
     // Webhook binding
     app.use(message_auto_save_and_post_bot.webhookCallback('/telegram-webhook'));
     message_auto_save_and_post_bot.telegram.setWebhook(
-        `${process.env.GLOBLE_DOMAIN}/telegram-webhook`
+        `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-message-auto-save-and-post`
     );
 }
 
@@ -53,15 +57,9 @@ app.get('/', (req, res) => {
     res.send('✅ Bot is alive!');
 });
 
-
-// all middleware
-app.use(cors())
-app.use(express.json());
-app.use(cookieParser());
+// all miniapp custom middleware
 app.use('/:token', (req, res, next) => {
     const tokenName = req.params.token;
-
-    message_auto_save_and_post_bot.command('save', async (ctx) => { await ctx.reply('✅ Your message has been saved!') });
 
     let token_array = [
         promoX_token

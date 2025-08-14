@@ -16,21 +16,6 @@ const cron = require('node-cron');
 const moment = require('moment-timezone');
 
 module.exports = (bot) => {
-    // /save - start waiting for a post
-  bot.command('save', async (ctx) => {
-    const userId = ctx.from && ctx.from.id;
-    try {
-      // authorization: check the user is admin in this chat
-      const isAdmin = await isUserAdminInChat(ctx, userId);
-      if (!isAdmin) return ctx.reply('Only admins can save posts.');
-
-      await redis.set(`${waitingForPostPrefix}${userId}`, 'true', 'EX', 3600);
-      await ctx.reply('Please send the post you want to save (photo, video, doc, audio, voice, sticker, or text).');
-    } catch (err) {
-      console.error('/save error:', err);
-      await ctx.reply('An error occurred. Please try again.');
-    }
-  });
   // --- configuration ---
   const defaultCron = '*/1 * * * *';
   const redisKeyPrefix = 'message_auto_save_and_post:';
