@@ -17,20 +17,20 @@ const crypto_news_all_actions = require('./clients/mr_akash/Crypto_news/crypto_n
 app.use(cors())
 app.use(express.json());
 app.use(cookieParser());
-app.use('/:token', (req, res, next) => {
-    const tokenName = req.params.token;
+// app.use('/:token', (req, res, next) => {
+//     const tokenName = req.params.token;
 
-    let token_array = [
-        promoX_token
-    ]
+//     let token_array = [
+//         promoX_token
+//     ]
 
-    if (!token_array.includes(tokenName)) {
-        res.render('404', { error_message: 'You are not allowed' });
-    } else {
-        next();
-    }
-});
-app.use(`/${promoX_token}`, promoX_routes)
+//     if (!token_array.includes(tokenName)) {
+//         res.render('404', { error_message: 'You are not allowed' });
+//     } else {
+//         next();
+//     }
+// });
+// app.use(`/${promoX_token}`, promoX_routes)
 
 
 // all set
