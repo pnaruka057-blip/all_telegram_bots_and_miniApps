@@ -61,9 +61,9 @@ if (process.env.CRYPTO_NEWS_NODE_ENV && process.env.CRYPTO_NEWS_NODE_ENV !== 'de
 if (process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV !== 'development') {
     const message_auto_save_and_post_bot = new Telegraf(process.env.BOT_TOKEN_MESSAGE_AUTO_SAVE_AND_POST);
     message_auto_save_and_post(message_auto_save_and_post_bot);
-    message_auto_save_and_post_bot.telegram.setWebhook(
-        `${process.env.GLOBLE_DOMAIN}/telegram-webhook`
-    );
+    app.use(message_auto_save_and_post_bot.webhookCallback('/telegram-webhook'));
+
+    message_auto_save_and_post_bot.telegram.setWebhook(`${process.env.GLOBLE_DOMAIN}/telegram-webhook`);
 }
 
 app.get('/', (req, res) => {
