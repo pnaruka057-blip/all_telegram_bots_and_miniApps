@@ -9,6 +9,7 @@ const user_module = require('../model/user_module');
 const user_groups_module = require('../model/groups_module');
 let promoX_token = process.env.PROMOX_TOKEN
 const expressEjsLayouts = require('express-ejs-layouts');
+const developer_telegram_username = process.env.DEVELOPER_TELEGRAM_USERNAME
 
 app.use(express.static(path.join(__dirname, '..', "public")))
 app.use(expressEjsLayouts);
@@ -20,6 +21,7 @@ app.set('layout', path.resolve(__dirname, '..', 'public', 'views', 'layout'));
 app.get('/promox', (req, res) => {
     res.render('pages/home', {
         currentPath: '/',
+        developer_telegram_username,
         current_url: process.env.GLOBLE_DOMAIN,
         token: promoX_token
     })
@@ -99,6 +101,7 @@ app.get('/promox/channels', async (req, res) => {
         res.render('pages/channels', {
             currentPath: '/channels',
             is_channel_page_locked,
+            developer_telegram_username,
             channels: user_channels_data,
             current_url: process.env.GLOBLE_DOMAIN,
             token: promoX_token
@@ -179,6 +182,7 @@ app.get('/promox/groups', async (req, res) => {
             currentPath: '/groups',
             is_group_page_locked,
             groups: user_groups_data,
+            developer_telegram_username,
             current_url: process.env.GLOBLE_DOMAIN,
             token: promoX_token
         });
@@ -214,6 +218,7 @@ app.get('/promox/unlock/groups', async (req, res) => {
 app.get('/promox/post', (req, res) => {
     res.render('pages/post', {
         currentPath: '/post', current_url: process.env.GLOBLE_DOMAIN,
+        developer_telegram_username,
         token: promoX_token
     })
 })
@@ -350,6 +355,7 @@ app.get('/promox/profile', async (req, res) => {
             channelsList: channels,
             groupsList: groups,
             is_profile_page_locked,
+            developer_telegram_username,
             current_url: process.env.GLOBLE_DOMAIN,
             token: promoX_token
         });

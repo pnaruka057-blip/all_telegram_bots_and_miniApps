@@ -23,7 +23,7 @@ module.exports = (bot) => {
   const scheduleCronKey = `${redisKeyPrefix}schedule_cron`;
   const notifierChatKey = `${redisKeyPrefix}notifier_chat`;
   const activeChatsKey = `${redisKeyPrefix}active_chats`; // Redis set (preferred) or JSON string (fallback)
-  const maxSavedPosts = 5; // keep only latest N posts
+  const maxSavedPosts = process.env.MESSAGE_AUTO_SAVE_AND_POST_MAX_POST; // keep only latest N posts
   const pendingPostPrefix = `${redisKeyPrefix}pending_post:`; // + userId
   const waitingForPostPrefix = `${redisKeyPrefix}waiting_for_post:`; // + userId
   const waitingForTimePrefix = `${redisKeyPrefix}waiting_for_time:`; // + userId
@@ -361,33 +361,43 @@ module.exports = (bot) => {
         // 2) waiting for time for scheduling
         if (waitingTime) {
           await redis.del(`${waitingForTimePrefix}${userId}`);
+
           const textRaw = (ctx.message && ctx.message.text) ? ctx.message.text.trim() : '';
           const timeStr = textRaw.toUpperCase();
 
-          // parse like 08:12AM or 12:00PM (case-insensitive)
-          const parsed = moment.tz(timeStr, 'hh:mmA', 'Asia/Kolkata');
-          if (!parsed.isValid()) {
+          // Parse as IST (Asia/Kolkata) in 12-hour format
+          const parsedIST = moment.tz(timeStr, 'hh:mmA', 'Asia/Kolkata');
+
+          if (!parsedIST.isValid()) {
             await ctx.reply('Invalid time format. Please use like 08:12AM or 12:00PM.');
             return;
           }
 
-          const utc = parsed.clone().utc();
-          const minute = utc.minute();
-          const hour = utc.hour();
-          const newCron = `${minute} ${hour} * * *`;
+          // Direct IST hours/minutes for cron
+          const minute = parsedIST.minute();
+          const hour = parsedIST.hour();
+
+          const newCron = `${minute} ${hour} * * *`; // daily schedule in IST
           if (!cron.validate(newCron)) {
             await ctx.reply('Generated cron expression is invalid. Please try another time.');
             return;
           }
 
           await redis.set(scheduleCronKey, newCron);
-          // set notifier chat to the chat where admin set it (so they receive confirmation), expire in 30 days
-          if (chatIdStr) await redis.set(notifierChatKey, chatIdStr, 'EX', 86400 * 30);
+
+          // Set notifier chat with 30 days expiry
+          if (chatIdStr) {
+            await redis.set(notifierChatKey, chatIdStr, 'EX', 86400 * 30);
+          }
+
           await updateSchedule();
-          await ctx.reply(`Scheduled time set to ${timeStr} IST (Cron: ${newCron}).`);
-          console.log(`[settime] Schedule updated by ${userId} to ${timeStr} IST (${newCron})`);
+
+          await ctx.reply(`✅ Scheduled time set to ${parsedIST.format('hh:mmA')} IST (Cron: ${newCron})`);
+          console.log(`[settime] Schedule updated by ${userId} to ${parsedIST.format('hh:mmA')} IST (${newCron})`);
+
           return;
         }
+
 
       } catch (err) {
         console.error('[message] workflow error:', err);
