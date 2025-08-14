@@ -17,6 +17,20 @@ const crypto_news_all_actions = require('./clients/mr_akash/Crypto_news/crypto_n
 app.use(cors())
 app.use(express.json());
 app.use(cookieParser());
+// app.use('/:token', (req, res, next) => {
+//     const tokenName = req.params.token;
+
+//     let token_array = [
+//         promoX_token
+//     ]
+
+//     if (!token_array.includes(tokenName)) {
+//         res.render('404', { error_message: 'You are not allowed' });
+//     } else {
+//         next();
+//     }
+// });
+// app.use(`/${promoX_token}`, promoX_routes)
 
 
 // all set
@@ -46,37 +60,11 @@ if (process.env.CRYPTO_NEWS_NODE_ENV && process.env.CRYPTO_NEWS_NODE_ENV !== 'de
 // Initialize and launch Message Auto Save and Post bot only if MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV is not 'development'
 if (process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV !== 'development') {
     const message_auto_save_and_post_bot = new Telegraf(process.env.BOT_TOKEN_MESSAGE_AUTO_SAVE_AND_POST);
-
-    // Custom command handler
-    message_auto_save_and_post_bot.command('save', async (ctx) => {
-        await ctx.reply('✅ Your message has been saved!');
-        // Yaha apna save logic likho (DB me store, file me save, etc.)
-    });
-
-    // Tumhare existing handlers
     message_auto_save_and_post(message_auto_save_and_post_bot);
-
-    // Webhook binding
-    app.use(message_auto_save_and_post_bot.webhookCallback('/telegram-webhook'));
     message_auto_save_and_post_bot.telegram.setWebhook(
         `${process.env.GLOBLE_DOMAIN}/telegram-webhook`
     );
 }
-
-app.use('/:token', (req, res, next) => {
-    const tokenName = req.params.token;
-
-    let token_array = [
-        promoX_token
-    ]
-
-    if (!token_array.includes(tokenName)) {
-        res.render('404', { error_message: 'You are not allowed' });
-    } else {
-        next();
-    }
-});
-app.use(`/${promoX_token}`, promoX_routes)
 
 app.get('/', (req, res) => {
     res.send('✅ Bot is alive!');
