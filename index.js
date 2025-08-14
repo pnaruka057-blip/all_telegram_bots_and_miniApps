@@ -28,8 +28,8 @@ if (process.env.PROMOX_NODE_ENV && process.env.PROMOX_NODE_ENV !== 'development'
     const promoX_bot = new Telegraf(process.env.BOT_TOKEN_PROMOX);
     promoX_all_actions(promoX_bot, promoX_token);
 
-    // Webhook binding
-    app.use(promoX_bot.webhookCallback('/telegram-webhook-for-promox'));
+    // Webhook binding (specific route)
+    app.post('/telegram-webhook-for-promox', promoX_bot.webhookCallback('/telegram-webhook-for-promox'));
     promoX_bot.telegram.setWebhook(
         `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-promox`
     );
@@ -40,8 +40,8 @@ if (process.env.CRYPTO_NEWS_NODE_ENV && process.env.CRYPTO_NEWS_NODE_ENV !== 'de
     const crypto_news_bot = new Telegraf(process.env.BOT_TOKEN_CRYPTO_NEWS);
     crypto_news_all_actions(crypto_news_bot);
 
-    // Webhook binding
-    app.use(crypto_news_bot.webhookCallback('/telegram-webhook-for-crypto-news'));
+    // Webhook binding (specific route)
+    app.post('/telegram-webhook-for-crypto-news', crypto_news_bot.webhookCallback('/telegram-webhook-for-crypto-news'));
     crypto_news_bot.telegram.setWebhook(
         `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-crypto-news`
     );
@@ -52,8 +52,8 @@ if (process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.env.MESSAGE_AUTO_
     const message_auto_save_and_post_bot = new Telegraf(process.env.BOT_TOKEN_MESSAGE_AUTO_SAVE_AND_POST);
     message_auto_save_and_post(message_auto_save_and_post_bot);
 
-    // Webhook binding
-    app.use(message_auto_save_and_post_bot.webhookCallback('/telegram-webhook-for-message-auto-save-and-post'));
+    // Webhook binding (specific route)
+    app.post('/telegram-webhook-for-message-auto-save-and-post', message_auto_save_and_post_bot.webhookCallback('/telegram-webhook-for-message-auto-save-and-post'));
     message_auto_save_and_post_bot.telegram.setWebhook(
         `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-message-auto-save-and-post`
     );
