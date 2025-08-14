@@ -500,43 +500,4 @@ module.exports = (bot) => {
       await ctx.reply('An error occurred while clearing saved posts.');
     }
   });
-
-  // /listposts - list saved posts count and preview info
-  bot.command('listposts', async (ctx) => {
-    try {
-      const posts = await redis.lrange(savedPostsKey, 0, -1);
-      if (!posts || posts.length === 0) return ctx.reply('No saved posts.');
-
-      // Reply with a brief summary + option to preview (we'll copy the saved message into the chat)
-      await ctx.reply(`Saved posts count: ${posts.length}. Sending a preview of the latest post...`);
-      const last = posts[posts.length - 1];
-      const post = JSON.parse(last);
-      try {
-        // The easiest way to preview: re-send using available file_id (no need to re-upload)
-        await sendPostToChannel(post, ctx.chat.id.toString());
-      } catch (e) {
-        await ctx.reply('Could not preview the latest saved post.');
-      }
-    } catch (err) {
-      console.error('/listposts error:', err);
-      await ctx.reply('An error occurred while fetching saved posts.');
-    }
-  });
-
-  // /setnotifier - set current chat to receive post-notifications
-  bot.command('setnotifier', async (ctx) => {
-    try {
-      const userId = ctx.from && ctx.from.id;
-      const isAdmin = await isUserAdminInChat(ctx, userId);
-      if (!isAdmin) return ctx.reply('Only admins can set notifier chat.');
-
-      await redis.set(notifierChatKey, ctx.chat.id.toString(), 'EX', 86400 * 30);
-      await ctx.reply('This chat will receive notifications after scheduled posting (expires in 30 days).');
-    } catch (err) {
-      console.error('/setnotifier error:', err);
-      await ctx.reply('An error occurred while setting notifier chat.');
-    }
-  });
-
-  console.log('Auto-post module loaded');
 };
