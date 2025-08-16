@@ -77,7 +77,8 @@ app.get('/', (req, res) => {
 // all miniapp custom middleware
 app.use('/:token', (req, res, next) => {
     const tokenName = req.params.token;
-
+    console.log("tokenName", tokenName);
+    console.log("req.params.token", req.params.token);
     let token_array = [
         promoX_token
     ]
