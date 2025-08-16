@@ -1,14 +1,13 @@
 const express = require('express')
 const app = express()
-require('../../../globle_helper/mongoDB_connection')(process.env.MONGO_URI_PROMOX)
 const upload = require('../../../globle_helper/multer_file_upload_mongoDB')
 const checkTelegramUsername = require('../helper/checkTelegramUsername')
 const path = require('path')
 const user_channels_module = require('../model/channels_module');
 const user_module = require('../model/user_module');
 const user_groups_module = require('../model/groups_module');
-let promoX_token = process.env.PROMOX_TOKEN
 const expressEjsLayouts = require('express-ejs-layouts');
+let promoX_token = process.env.PROMOX_TOKEN
 const developer_telegram_username = process.env.DEVELOPER_TELEGRAM_USERNAME
 
 app.use(express.static(path.join(__dirname, '..', "public")))

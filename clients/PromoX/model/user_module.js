@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { promoX_connection } = require('../../../globle_helper/mongoDB_connection')
 
 const telegramUserSchema = new mongoose.Schema({
     user_id: {
@@ -35,6 +36,6 @@ const telegramUserSchema = new mongoose.Schema({
     },
 });
 
-const user_module = mongoose.model('Telegram_user', telegramUserSchema);
+const user_module = promoX_connection.model('Telegram_user', telegramUserSchema);
 
 module.exports = user_module

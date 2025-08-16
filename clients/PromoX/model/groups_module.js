@@ -1,5 +1,6 @@
 // models/group.js
 const mongoose = require("mongoose");
+const { promoX_connection } = require('../../../globle_helper/mongoDB_connection')
 
 const groupSchema = new mongoose.Schema({
     userDB_id: {
@@ -43,6 +44,6 @@ const groupSchema = new mongoose.Schema({
 // TTL index on auto_delete_time
 groupSchema.index({ auto_delete_time: 1 }, { expireAfterSeconds: 0 });
 
-const user_groups = mongoose.model("user_groups", groupSchema);
+const user_groups = promoX_connection.model("user_groups", groupSchema);
 
 module.exports = user_groups

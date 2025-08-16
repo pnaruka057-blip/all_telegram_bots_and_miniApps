@@ -1,5 +1,6 @@
 // models/group.js
 const mongoose = require("mongoose");
+const { promoX_connection } = require('../../../globle_helper/mongoDB_connection')
 
 const channelSchema = new mongoose.Schema({
     userDB_id: {
@@ -43,6 +44,6 @@ const channelSchema = new mongoose.Schema({
 // TTL index on auto_delete_time
 channelSchema.index({ auto_delete_time: 1 }, { expireAfterSeconds: 0 });
 
-const user_channels = mongoose.model("user_channels", channelSchema);
+const user_channels = promoX_connection.model("user_channels", channelSchema);
 
 module.exports = user_channels

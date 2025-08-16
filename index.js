@@ -6,11 +6,11 @@ const { Telegraf, Markup, Scenes, session } = require('telegraf');
 const path = require('path')
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const Redis = require('ioredis')
 const promoX_routes = require('./clients/PromoX/routes/all_routes')
 const promoX_all_actions = require('./clients/PromoX/bot_handler/promoX_bot')
 const message_auto_save_and_post = require('./clients/mr_akash/Message_auto_save_and_post/message_auto_save_and_post')
 const crypto_news_all_actions = require('./clients/mr_akash/Crypto_news/crypto_news_bot')
+const movies_hub_all_actions = require('./own_projects/movies_hub/bot_index')
 
 // all system middleware
 app.use(cors())
@@ -22,7 +22,6 @@ app.set('view engine', 'ejs')
 app.set('views', path.join(__dirname, 'public'));
 
 
-// clients bot instances
 // Initialize and launch PromoX bot only if PROMOX_NODE_ENV is not 'development'
 if (process.env.PROMOX_NODE_ENV && process.env.PROMOX_NODE_ENV !== 'development') {
     const promoX_bot = new Telegraf(process.env.BOT_TOKEN_PROMOX);
@@ -59,6 +58,18 @@ if (process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.env.MESSAGE_AUTO_
     );
 }
 
+// Initialize and launch Message Auto Save and Post bot only if MOVIES_HUB_NODE_ENV is not 'development'
+if (process.env.MOVIES_HUB_NODE_ENV && process.env.MOVIES_HUB_NODE_ENV !== 'development') {
+    const movies_hub_bot = new Telegraf(process.env.BOT_TOKEN_MOVIEHUB);
+    movies_hub_all_actions(movies_hub_bot)
+
+    // Webhook binding (specific route)
+    app.post('/telegram-webhook-for-movies-hub', movies_hub_bot.webhookCallback('/telegram-webhook-for-movies-hub'));
+    movies_hub_bot.telegram.setWebhook(
+        `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-movies-hub`
+    );
+}
+
 app.get('/', (req, res) => {
     res.send('✅ Bot is alive!');
 });
@@ -77,6 +88,7 @@ app.use('/:token', (req, res, next) => {
         next();
     }
 });
+
 app.use(`/${promoX_token}`, promoX_routes)
 
 // Express app to keep server alive
