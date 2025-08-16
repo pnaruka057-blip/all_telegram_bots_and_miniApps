@@ -78,7 +78,7 @@ app.get('/', (req, res) => {
 app.use('/:token', (req, res, next) => {
     const tokenName = req.params.token;
     console.log("tokenName", tokenName);
-    console.log("req.params.token", req.params.token);
+    console.log("req.params", req.params);
     let token_array = [
         promoX_token
     ]
