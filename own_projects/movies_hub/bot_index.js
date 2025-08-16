@@ -1,0 +1,54 @@
+require('dotenv').config();
+const { Markup, Scenes, session } = require('telegraf');
+const select_language = require('./actions/select_language');
+const join_telegram_channel = require('./actions/join_telegram_channel');
+const check_channel_joined = require('./middleware/check_channel_joined');
+const addMovies = require('./actions/addMovies');
+const addShows = require('./actions/addShows');
+const addMovieWizard = require('./Scenes/add_movie_scenes');
+const addShowWizard = require('./Scenes/add_show_scenes');
+const editMovies = require('./actions/edit_movies');
+const editShows = require('./actions/edit_shows');
+const editMovieWizard = require('./Scenes/edit_movie_scenes');
+const editShowWizard = require('./Scenes/edit_show_scenes');
+const updateMovieWizard = require('./Scenes/update_movie_db_scenes');
+const updateShowWizard = require('./Scenes/update_show_db_scense');
+const manage_premium_users = require('./actions/manage_premium_users');
+const managePremiumUsersWizard = require('./Scenes/manage_premium_scenes');
+const findMovies = require('./actions/findMovies');
+const findShows = require('./actions/findShows');
+const earn_money_with_us = require('./actions/earn_money_with_us');
+const start_message = require('./helper/start_message');
+const user_menu = require('./actions/user_menu')
+const admin_menu = require('./actions/admin_menu')
+
+module.exports = (bot) => {
+
+    // Middleware to handle sessions and scenes
+    bot.use(session());
+    const stage = new Scenes.Stage([addMovieWizard, editMovieWizard, updateMovieWizard, managePremiumUsersWizard, addShowWizard, editShowWizard, updateShowWizard]);
+    bot.use(stage.middleware());
+
+    // Start command handler
+    bot.start(async (ctx) => {
+        await start_message(bot, ctx)
+    });
+
+    // action handlers
+    join_telegram_channel(bot);
+    addMovies(bot);
+    addShows(bot);
+    editShows(bot);
+    editMovies(bot);
+    admin_menu(bot);
+    manage_premium_users(bot);
+
+    // Middleware to check if user has joined the channel
+    check_channel_joined(bot, Markup);
+
+    select_language(bot, Markup);
+    findMovies(bot);
+    user_menu(bot);
+    findShows(bot);
+    earn_money_with_us(bot);
+}
