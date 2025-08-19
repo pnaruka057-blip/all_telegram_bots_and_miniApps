@@ -75,7 +75,6 @@ const editShowWizard = new Scenes.WizardScene(
             });
         }
 
-        await ctx.reply("✅ Choose a show above or start a new search anytime.", Markup.removeKeyboard());
         return ctx.scene.leave();
     }
 );

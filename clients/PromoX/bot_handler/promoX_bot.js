@@ -1,4 +1,4 @@
-const { Markup } = require("telegraf");
+const axios = require("axios");
 
 const requiredChannels = [
     process.env.CHANNEL_USERNAME_1_PROMOX,
@@ -31,10 +31,11 @@ const checkUserJoinedAllChannels = async (ctx, userId) => {
 
 // 🎁 Send Mini App welcome message
 const sendMiniAppIntro = async (ctx, promoX_token) => {
+    const res = await axios.get("https://res.cloudinary.com/dm8miilli/image/upload/v1754414545/photo_2025-08-05_22-50-34_mg99v5.jpg", {
+        responseType: "arraybuffer"
+    });
     await ctx.replyWithPhoto(
-        {
-            url: "https://res.cloudinary.com/dm8miilli/image/upload/v1754414545/photo_2025-08-05_22-50-34_mg99v5.jpg",
-        },
+        { source: Buffer.from(res.data) },
         {
             caption: `
 🌟 *Welcome to* 𝗣𝗥𝗢𝗠𝗢𝗫 💥  

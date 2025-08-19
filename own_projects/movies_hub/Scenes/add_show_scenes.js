@@ -5,9 +5,11 @@ const cancelWizard = require("../helper/cancelWizard");
 const scense_stepBack = require("../helper/scense_stepBack");
 const start_message = require("../helper/start_message");
 const bot = require("../bot_index");
+
 const BACK = "⬅ Back";
+const SKIP = "⏭ Skip";
 const CANCEL = "❌ Cancel";
-const keyboard = Markup.keyboard([[BACK, CANCEL]]).resize();
+const keyboard = Markup.keyboard([[BACK, SKIP, CANCEL]]).resize();
 
 const addShowWizard = new Scenes.WizardScene(
     "ADD_SHOW_SCENE",
@@ -17,7 +19,7 @@ const addShowWizard = new Scenes.WizardScene(
         ctx.wizard.state.showData = { series: [] };
         let message = await ctx.reply("🎬 Please enter the *Show Title*:", {
             parse_mode: "Markdown",
-            ...Markup.keyboard([[CANCEL]]).resize()
+            ...Markup.keyboard([[CANCEL, SKIP]]).resize()
         });
         ctx.session.title_add_show_message_id = message.message_id
         return ctx.wizard.next();
@@ -83,7 +85,7 @@ const addShowWizard = new Scenes.WizardScene(
             return start_message(bot, ctx)
         }
 
-        if (!/^[a-zA-Z\s]+$/.test(text)) {
+        if (!/^[a-zA-Z\s,]+$/.test(text)) {
             return ctx.reply("❌ Invalid language. Use only letters. Try again:");
         }
 
@@ -100,7 +102,7 @@ const addShowWizard = new Scenes.WizardScene(
         return ctx.wizard.next();
     },
 
-    // Step 4: Thumbnail
+    // Step 4: Thumbnail URL
     async (ctx) => {
         const text = ctx.message.text;
         if (text === CANCEL) return cancelWizard(ctx, "_add_show");
@@ -109,7 +111,7 @@ const addShowWizard = new Scenes.WizardScene(
             return start_message(bot, ctx)
         }
 
-        if (!/^[a-zA-Z\s]+$/.test(text)) {
+        if (!/^[a-zA-Z\s,]+$/.test(text)) {
             return ctx.reply("❌ Invalid genre. Use only letters. Try again:");
         }
 
@@ -126,22 +128,66 @@ const addShowWizard = new Scenes.WizardScene(
         return ctx.wizard.next();
     },
 
-    // Step 5: Thumbnail URL
+    // Step 5: Category
+    async (ctx) => {
+        const text = ctx.message.text;
+        if (text && text === CANCEL) return cancelWizard(ctx, "_add_movie");
+        if (text === BACK) return scense_stepBack(ctx, 4, "🎭 Enter the *Genre* again:", "_add_show");
+        if (text && text === '/start') return start_message(bot, ctx);
+
+        const urlRegex = /^(https?:\/\/[^\s]+)/;
+        if (!urlRegex.test(text)) {
+            return ctx.reply("❌ Invalid URL. Please send a valid image URL:");
+        }
+
+        ctx.wizard.state.showData.thumbnail = text;
+
+        // If category not yet selected, prompt user
+        let message = await ctx.reply(
+            "🎯 Please select the *Category* of the movie by sending the corresponding number:\n\n" +
+            "1️⃣ Bollywood\n" +
+            "2️⃣ Hollywood\n" +
+            "3️⃣ Hollywood Dual\n" +
+            "4️⃣ South Dual\n" +
+            "5️⃣ Anime\n" +
+            "6️⃣ Other",
+            { parse_mode: "Markdown" }
+        );
+
+        if (ctx?.session?.thumbnail_add_show_message_id) {
+            await ctx.deleteMessage(ctx.session.thumbnail_add_show_message_id).catch(console.error);
+            delete ctx.session.thumbnail_add_show_message_id;
+        }
+        ctx.session.category_add_show_message_id = message.message_id
+        return ctx.wizard.next();
+    },
+
+    // Step 6: Download links
     async (ctx) => {
         const text = ctx?.message?.text;
         if (text) {
             if (text === CANCEL) return cancelWizard(ctx, "_add_show");
-            if (text === BACK) return scense_stepBack(ctx, 4, "🎭 Enter the *Genre* again:", "_add_show");
+            if (text === BACK) return scense_stepBack(ctx, 5, "🖼️ Send the *Thumbnail URL* again:", "_add_show");
             if (ctx.message.text === '/start') {
                 return start_message(bot, ctx)
             }
 
-            const urlRegex = /^(https?:\/\/[^\s]+)/;
-            if (!urlRegex.test(text)) {
-                return ctx.reply("❌ Invalid URL. Please send a valid image URL:");
+            const categories = {
+                "1": "Bollywood",
+                "2": "Hollywood",
+                "3": "Hollywood Dual",
+                "4": "South Dual",
+                "5": "Anime",
+                "6": "Other"
+            };
+
+            if (!categories[text]) {
+                // Invalid input, ask again
+                await ctx.reply("❌ Invalid choice. Please send a number between 1 and 6 corresponding to the category.");
+                return; // Stay on same step
             }
 
-            ctx.wizard.state.showData.thumbnail = text;
+            ctx.wizard.state.showData.category = categories[text];
         }
         ctx.wizard.state.currentSeason = {};
 
@@ -149,19 +195,19 @@ const addShowWizard = new Scenes.WizardScene(
             parse_mode: "Markdown",
             ...keyboard
         });
-        if (ctx?.session?.thumbnail_add_show_message_id) {
-            await ctx.deleteMessage(ctx.session.thumbnail_add_show_message_id).catch(console.error);
-            delete ctx.session.thumbnail_add_show_message_id;
+        if (ctx?.session?.category_add_show_message_id) {
+            await ctx.deleteMessage(ctx.session.category_add_show_message_id).catch(console.error);
+            delete ctx.session.category_add_show_message_id;
         }
         ctx.session.download_link_add_show_message_id = message.message_id
         return ctx.wizard.next();
     },
 
-    // Step 6: Download links
+    // Step 7: Qualities
     async (ctx) => {
         const text = ctx.message.text;
         if (text === CANCEL) return cancelWizard(ctx, "_add_show");
-        if (text === BACK) return scense_stepBack(ctx, 5, "🖼️ Send the *Thumbnail URL* again:", "_add_show");
+        if (text && text === BACK) return scense_stepBack(ctx, 6, "🔗 Enter *Download Links* (one per line) again:", "_add_movie");
         if (ctx.message.text === '/start') {
             return start_message(bot, ctx)
         }
@@ -175,6 +221,7 @@ const addShowWizard = new Scenes.WizardScene(
         }
 
         ctx.wizard.state.currentSeason.download_link = links;
+
         let message = await ctx.reply("🎮 Enter *Qualities* for each download link (one per line):", {
             parse_mode: "Markdown",
             ...keyboard
@@ -187,7 +234,7 @@ const addShowWizard = new Scenes.WizardScene(
         return ctx.wizard.next();
     },
 
-    // Step 7: Qualities & Save
+    // Step 8: Save
     async (ctx) => {
         const text = ctx.message.text;
         if (text === CANCEL) return cancelWizard(ctx, "_add_show");
@@ -205,6 +252,7 @@ const addShowWizard = new Scenes.WizardScene(
         }
 
         ctx.wizard.state.currentSeason.quality = qualities;
+
         ctx.wizard.state.showData.series.push(ctx.wizard.state.currentSeason);
 
         await ctx.reply("✅ *Season added*. What would you like to do next?", {
@@ -236,7 +284,7 @@ const addShowWizard = new Scenes.WizardScene(
                 parse_mode: "Markdown",
                 reply_markup: Markup.inlineKeyboard([])
             });
-            return ctx.wizard.selectStep(6); // Jump to Step 6
+            return ctx.wizard.selectStep(7); // Jump to Step 7
         }
 
         if (data === "COMPLETE_SHOW_SETUP") {

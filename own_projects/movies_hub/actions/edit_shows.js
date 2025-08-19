@@ -25,4 +25,32 @@ module.exports = (bot) => {
         ctx.scene.enter("UPDATE_SHOW_SCENE");
     });
 
+    // EDIT existing season
+    bot.action(/EDIT_SEASON_(\d+)/, async (ctx) => {
+        const seasonIndex = parseInt(ctx.match[1]);
+        ctx.wizard.state.currentSeason = ctx.wizard.state.showData.series[seasonIndex];
+
+        await ctx.answerCbQuery(); // acknowledge
+
+        await ctx.editMessageText(`🔗 Enter *Download Links* for Season ${seasonIndex + 1}:`, {
+            parse_mode: "Markdown",
+            reply_markup: { remove_keyboard: true }
+        });
+
+        return ctx.wizard.selectStep(6); // jump to Download Links step
+    });
+
+    // ADD new season
+    bot.action("ADD_NEW_SEASON", async (ctx) => {
+        ctx.wizard.state.currentSeason = {};
+        await ctx.answerCbQuery();
+
+        await ctx.editMessageText("🔗 Enter *Download Links* for this season (one per line):", {
+            parse_mode: "Markdown",
+            reply_markup: { remove_keyboard: true }
+        });
+
+        return ctx.wizard.selectStep(6);
+    });
+
 };

@@ -1,0 +1,143 @@
+<!-- Main Wrapper -->
+<section class="w-full absolute bottom-0 top-0 max-w-7xl mx-auto bg-white rounded-xl shadow-2xl flex flex-col pb-10 ">
+    <!-- Main Content: Grid -->
+    <main id="contentGrid"
+        class="overflow-y-auto px-6 py-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 animate-background h-full content-start">
+
+        <% if (shows && shows.length> 0) { %>
+            <% shows.forEach(show=> { %>
+                <div class="bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition" data-type="show">
+                    <div class="w-full h-48">
+                        <img src="<%= show.thumbnail %>" alt="<%= show.title %>" class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-3 text-center">
+                        <h2 class="text-sm font-bold text-gray-800">
+                            <%= show.title %>
+                        </h2>
+                        <div class="flex flex-wrap justify-center gap-2 mt-2">
+                            <% show.language.split(",").forEach(lang=> { %>
+                                <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-600 rounded-full">
+                                    <%= lang.trim() %>
+                                </span>
+                                <% }) %>
+                        </div>
+                        <p class="text-xs text-gray-600 mt-2">
+                            <%= show.genre %>
+                        </p>
+                        <p class="text-xs text-purple-500 mt-1 font-semibold">
+                            <%= show.category %>
+                        </p>
+                    </div>
+                </div>
+                <% }) %>
+                    <% } else { %>
+                        <p class="text-center text-gray-500 col-span-full">No shows found.</p>
+                        <% } %>
+    </main>
+
+    <!-- Pagination -->
+    <footer id="pagination" class="px-6 mt-3 pb-3 flex justify-center space-x-2"></footer>
+
+    <!-- Navigation / Footer -->
+    <%- include('../partials/footer') %>
+</section>
+
+<script>
+    const contentGrid = document.getElementById('contentGrid');
+    const footer = document.getElementById('pagination');
+
+    let type = 'show';        // 👈 yaha fixed show hai
+    let category = '';        // category filter agar future me chahiye
+    let currentPage = 1;
+    let searchQuery = "<%= show_query %>";  // 👈 controller se aa raha hai
+
+    document.addEventListener("DOMContentLoaded", () => {
+        fetchContent(currentPage);
+    });
+
+    // Fetch shows
+    async function fetchContent(page = 1) {
+        currentPage = page;
+        try {
+            const url = `/<%= token %>/movies-hub/search?type=${type}&search=${encodeURIComponent(searchQuery)}&category=${encodeURIComponent(category)}&page=${page}`;
+            const res = await axios.get(url);
+
+            const { success, shows, totalPages } = res.data;
+
+            if (!success || !shows || shows.length === 0) {
+                contentGrid.innerHTML = `<p class="text-center text-gray-500 col-span-full">No shows found.</p>`;
+                footer.innerHTML = "";
+                return;
+            }
+
+            // Render shows
+            contentGrid.innerHTML = shows.map(show => `
+                <div class="content-item bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition" data-type="show">
+                    <div class="w-full h-48">
+                        <img src="${show.thumbnail}" alt="${show.title}" class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-3 text-center">
+                        <h2 class="text-sm font-bold text-gray-800">${show.title}</h2>
+                        <div class="flex flex-wrap justify-center gap-2 mt-2">
+                            ${show.language.split(",").map(lang => `
+                                <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-600 rounded-full">${lang.trim()}</span>
+                            `).join("")}
+                        </div>
+                        <p class="text-xs text-gray-600 mt-2">${show.genre}</p>
+                        <p class="text-xs text-purple-500 mt-1 font-semibold">${show.category}</p>
+                    </div>
+                </div>
+            `).join("");
+
+            renderPagination(totalPages);
+
+        } catch (err) {
+            console.error("Error fetching shows:", err);
+            contentGrid.innerHTML = `<p class="text-center text-red-500 col-span-full">Error loading shows.</p>`;
+            footer.innerHTML = "";
+        }
+    }
+
+    // Pagination rendering
+    function renderPagination(totalPages) {
+        footer.innerHTML = "";
+        if (!totalPages || totalPages <= 1) return;
+
+        // Prev
+        if (currentPage > 1) {
+            footer.innerHTML += `<a href="#" data-page="${currentPage - 1}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Prev</a>`;
+        }
+
+        let tokens = [];
+        if (totalPages <= 5) {
+            for (let i = 1; i <= totalPages; i++) tokens.push(i);
+        } else {
+            if (currentPage <= 3) tokens = [1, 2, 3, '...', totalPages];
+            else if (currentPage >= totalPages - 2) tokens = [1, '...', totalPages - 2, totalPages - 1, totalPages];
+            else tokens = [1, '...', currentPage, '...', totalPages];
+        }
+
+        tokens.forEach(token => {
+            if (token === '...') {
+                footer.innerHTML += `<span class="px-3 py-1 text-gray-500">...</span>`;
+            } else {
+                const isActive = token === currentPage;
+                footer.innerHTML += `<a href="#" data-page="${token}" class="px-3 py-1 rounded ${isActive ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}">${token}</a>`;
+            }
+        });
+
+        // Next
+        if (currentPage < totalPages) {
+            footer.innerHTML += `<a href="#" data-page="${currentPage + 1}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Next</a>`;
+        }
+
+        // Attach click handlers
+        footer.querySelectorAll('a[data-page]').forEach(link => {
+            link.addEventListener('click', e => {
+                e.preventDefault();
+                const page = parseInt(link.dataset.page);
+                if (!isNaN(page)) fetchContent(page);
+            });
+        });
+    }
+</script>

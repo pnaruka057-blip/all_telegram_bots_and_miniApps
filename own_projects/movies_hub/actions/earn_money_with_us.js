@@ -189,7 +189,7 @@ module.exports = (bot) => {
 
             const groupObj = {
                 groupId: chat.id.toString(),
-                groupName: chat.title.toString(),
+                groupName: chat.title?.toString(),
                 isAdmin: false
             };
 

@@ -5,6 +5,7 @@ const cancelWizard = require("../helper/cancelWizard");
 const scense_stepBack = require("../helper/scense_stepBack");
 const start_message = require("../helper/start_message");
 const bot = require("../bot_index");
+
 const BACK = "⬅ Back";
 const CANCEL = "❌ Cancel";
 const keyboard = Markup.keyboard([[BACK, CANCEL]]).resize();
@@ -83,8 +84,8 @@ const addMovieWizard = new Scenes.WizardScene(
             return start_message(bot, ctx)
         }
 
-        if (!/^[a-zA-Z\s]+$/.test(text)) {
-            return ctx.reply("❌ Invalid language. Use only letters. Try again:");
+        if (!/^[a-zA-Z\s,]+$/.test(text)) {
+            return ctx.reply("❌ Invalid language. Use only letters and commas. Try again:");
         }
 
         ctx.wizard.state.movieData.language = text;
@@ -109,7 +110,7 @@ const addMovieWizard = new Scenes.WizardScene(
             return start_message(bot, ctx)
         }
 
-        if (!/^[a-zA-Z\s]+$/.test(text)) {
+        if (!/^[a-zA-Z\s,]+$/.test(text)) {
             return ctx.reply("❌ Invalid genre. Use only letters. Try again:");
         }
 
@@ -184,14 +185,12 @@ const addMovieWizard = new Scenes.WizardScene(
         return ctx.wizard.next();
     },
 
-    // Step 7: Save
+    // Step 7: Category
     async (ctx) => {
         const text = ctx.message.text;
-        if (text === CANCEL) return cancelWizard(ctx, "_add_movie");
-        if (text === BACK) return scense_stepBack(ctx, 6, "🔗 Enter *Download Links* again:", "_add_movie");
-        if (ctx.message.text === '/start') {
-            return start_message(bot, ctx)
-        }
+        if (text && text === CANCEL) return cancelWizard(ctx, "_add_movie");
+        if (text && text === BACK) return scense_stepBack(ctx, 6, "🔗 Enter *Download Links* (one per line) again:", "_add_movie");
+        if (text && text === '/start') return start_message(bot, ctx);
 
         const qualities = text.split("\n").map(q => q.trim()).filter(Boolean);
         const links = ctx.wizard.state.movieData.download_link;
@@ -202,6 +201,46 @@ const addMovieWizard = new Scenes.WizardScene(
         }
 
         ctx.wizard.state.movieData.quality = qualities;
+
+        // If category not yet selected, prompt user
+        await ctx.reply(
+            "🎯 Please select the *Category* of the movie by sending the corresponding number:\n\n" +
+            "1️⃣ Bollywood\n" +
+            "2️⃣ Hollywood\n" +
+            "3️⃣ Hollywood Dual\n" +
+            "4️⃣ South Dual\n" +
+            "5️⃣ Anime\n" +
+            "6️⃣ Other",
+            { parse_mode: "Markdown" }
+        );
+        return ctx.wizard.next();
+    },
+
+    // Step 8: Save
+    async (ctx) => {
+        const text = ctx.message.text;
+        if (text === CANCEL) return cancelWizard(ctx, "_add_movie");
+        if (text === BACK) return scense_stepBack(ctx, 7, "📽️ Enter *Qualities* for each download link (one per line):", "_add_movie");
+        if (ctx.message.text === '/start') {
+            return start_message(bot, ctx)
+        }
+
+        const categories = {
+            "1": "Bollywood",
+            "2": "Hollywood",
+            "3": "Hollywood Dual",
+            "4": "South Dual",
+            "5": "Anime",
+            "6": "Other"
+        };
+
+        if (!categories[text]) {
+            // Invalid input, ask again
+            await ctx.reply("❌ Invalid choice. Please send a number between 1 and 6 corresponding to the category.");
+            return; // Stay on same step
+        }
+
+        ctx.wizard.state.movieData.category = categories[text];
 
         const movie = new movies_module(ctx.wizard.state.movieData);
         await movie.save();

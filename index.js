@@ -1,5 +1,6 @@
 require('dotenv').config()
 let promoX_token = process.env.PROMOX_TOKEN
+let movies_hub_token = process.env.MOVIES_HUB_TOKEN
 const express = require('express')
 const app = express()
 const { Telegraf, Markup, Scenes, session } = require('telegraf');
@@ -7,6 +8,7 @@ const path = require('path')
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const promoX_routes = require('./clients/PromoX/routes/all_routes')
+const movies_hub_routes = require('./own_projects/movies_hub/routes/all_routes')
 const promoX_all_actions = require('./clients/PromoX/bot_handler/promoX_bot')
 const message_auto_save_and_post = require('./clients/mr_akash/Message_auto_save_and_post/message_auto_save_and_post')
 const crypto_news_all_actions = require('./clients/mr_akash/Crypto_news/crypto_news_bot')
@@ -77,10 +79,9 @@ app.get('/', (req, res) => {
 // all miniapp custom middleware
 app.use('/:token', (req, res, next) => {
     const tokenName = req.params.token;
-    console.log("tokenName", tokenName);
-    console.log("req.params", req.params);
     let token_array = [
-        promoX_token
+        promoX_token,
+        movies_hub_token
     ]
 
     if (!token_array.includes(tokenName)) {
@@ -91,6 +92,7 @@ app.use('/:token', (req, res, next) => {
 });
 
 app.use(`/${promoX_token}`, promoX_routes)
+app.use(`/${movies_hub_token}`, movies_hub_routes)
 
 // Express app to keep server alive
 const PORT = process.env.PORT || 3000;

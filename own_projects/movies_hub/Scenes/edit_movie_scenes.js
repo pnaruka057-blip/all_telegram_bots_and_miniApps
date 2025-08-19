@@ -74,7 +74,6 @@ const editMovieWizard = new Scenes.WizardScene(
             });
         }
 
-        await ctx.reply("✅ Choose a movie above or start a new search anytime.", Markup.removeKeyboard());
         return ctx.scene.leave();
     }
 );

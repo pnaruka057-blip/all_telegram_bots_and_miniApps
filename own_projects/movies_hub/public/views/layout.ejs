@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src='//libtl.com/sdk.js' data-zone='9690148' data-sdk='show_9690148'></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script async src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        window.addEventListener("DOMContentLoaded", async () => {
+            const tg = window.Telegram.WebApp;
+
+            tg.ready();
+            tg.expand();
+            const initDataUnsafe = tg.initDataUnsafe;
+            const user = initDataUnsafe.user;
+
+            if (!user) {
+                document.body.innerHTML = '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
+                return;
+            }
+            try {
+                await axios.post("/<%= token %>/movie-hub/verify-telegram-user", user);
+            } catch (error) {
+                console.error("❌ Error verifying Telegram user:", error.response?.data || error.message);
+            }
+        });
+    </script>
+    <style>
+        .hidden {
+            display: none;
+        }
+
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .animate-background {
+            background: linear-gradient(-45deg, #e6faff, #5da6ff, #e6faff, #5da6ff);
+            background-size: 400% 400%;
+            animation: gradientShift 4s ease infinite;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-800 flex justify-center items-center select-none">
+    <!-- Page Loader -->
+    <div id="pageLoader"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center hidden">
+        <div class="flex space-x-2">
+            <div class="w-3 h-3 bg-white rounded-full animate-bounce [animation-delay:0s]"></div>
+            <div class="w-3 h-3 bg-white rounded-full animate-bounce [animation-delay:0.2s]"></div>
+            <div class="w-3 h-3 bg-white rounded-full animate-bounce [animation-delay:0.4s]"></div>
+        </div>
+    </div>
+
+    <%- body %> <!-- dynamic page content -->
+
+        <script>
+            // Show loader on every internal anchor tag click
+            document.querySelectorAll("a").forEach(link => {
+                link.addEventListener("click", function (e) {
+                    const href = link.getAttribute("href");
+                    if (href && !href.startsWith("http") && !href.startsWith("#") && !link.hasAttribute("target")) {
+                        document.getElementById("pageLoader").classList.remove("hidden");
+                    }
+                });
+            });
+        </script>
+</body>
+<script>
+
+</script>
+
+</html>

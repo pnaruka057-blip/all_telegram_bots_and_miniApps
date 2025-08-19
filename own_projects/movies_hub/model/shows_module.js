@@ -16,7 +16,8 @@ const showSchema = new mongoose.Schema({
     },
     download_count: { type: Number, default: 0 },
     thumbnail: { type: String, required: true },
-});
+    category: { type: String, required: true },
+}, { timestamps: true });
 
 const shows_module = Movies_hub_connection.model('shows_modules', showSchema);
 
