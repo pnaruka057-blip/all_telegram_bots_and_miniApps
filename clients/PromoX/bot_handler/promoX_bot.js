@@ -86,10 +86,11 @@ module.exports = (bot, promoX_token) => {
             await sendMiniAppIntro(ctx, promoX_token);
         } else {
             const firstName = ctx.from.first_name;
+            const res = await axios.get("https://static.vecteezy.com/system/resources/thumbnails/011/976/274/small/stick-figures-welcome-free-vector.jpg", {
+                responseType: "arraybuffer"
+            });
             await ctx.replyWithPhoto(
-                {
-                    url: "https://static.vecteezy.com/system/resources/thumbnails/011/976/274/small/stick-figures-welcome-free-vector.jpg",
-                },
+                { source: Buffer.from(res.data) },
                 {
                     caption: `👋 *Welcome, ${firstName}!*\n\nPlease join all channels below to continue.`,
                     parse_mode: "Markdown",
