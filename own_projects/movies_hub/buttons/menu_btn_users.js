@@ -31,7 +31,7 @@ async function saveMessage(namespace, chatId, messageId) {
 module.exports = async (ctx) => {
     const userMessage = `*Hi ${escapeMarkdownV2(ctx.from.first_name)}* 👋\n\n🎉 *Welcome to your ultimate entertainment hub\\!* Here, you can find your favorite 🎬 *Movies* and 📺 *Shows* absolutely *FREE* — no hidden charges, no premium, just pure content love\\. ❤️\n\n👇 Use the buttons below to get started:`;
 
-    const miniAppUrl = `${mini_app_link}/${movies_hub_token}/movies-hub`; 
+    const miniAppUrl = `${mini_app_link}/${movies_hub_token}/movies-hub?userId=${ctx.from.id}`;
 
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.webApp("🎬 Get Movies", miniAppUrl)], // ✅ Mini App button

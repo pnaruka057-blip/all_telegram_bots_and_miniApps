@@ -88,7 +88,7 @@ module.exports = (bot) => {
                             await saveMessage(ctx.chat.id, sendMsg.message_id);
                         } else if (otherLangMatches.length > 0) {
                             const miniAppUrlShows = `${mini_app_link}/${movies_hub_token}/movies-hub/find-shows/${encodeURIComponent(query)}`;
-                            const miniAppUrlRequestShows = `${mini_app_link}/${movies_hub_token}/movies-hub/send-request/${encodeURIComponent(query)}?show=true`;
+                            const miniAppUrlRequestShows = `${mini_app_link}/${movies_hub_token}/movies-hub/send-request/${encodeURIComponent(query)}?show=true&user_id=${ctx.from.id}`;
 
                             const keyboard = Markup.inlineKeyboard([
                                 [Markup.button.webApp("🔎 Show Matching Shows", miniAppUrlShows)],
@@ -104,7 +104,7 @@ module.exports = (bot) => {
                             // save for cron cleanup
                             await saveMessage(ctx.chat.id, sentMsg.message_id);
                         } else {
-                            const miniAppUrlShows = `${mini_app_link}/${movies_hub_token}/send-request/${encodeURIComponent(query)}?show=true`;
+                            const miniAppUrlShows = `${mini_app_link}/${movies_hub_token}/movies-hub/send-request/${encodeURIComponent(query)}?show=true&user_id=${ctx.from.id}`;
 
                             const keyboard = Markup.inlineKeyboard([
                                 [Markup.button.webApp("📺 Request This Show", miniAppUrlShows)],

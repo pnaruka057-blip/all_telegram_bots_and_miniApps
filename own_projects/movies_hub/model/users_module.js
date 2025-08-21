@@ -3,6 +3,7 @@ const { Movies_hub_connection } = require('../../../globle_helper/mongoDB_connec
 
 const userSchema = new mongooose.Schema({
     user_id: { type: Number, required: true },
+    user_logo: { type: String, required: true },
     name: { type: String, required: true },
     username: { type: String, required: true },
     language: { type: String },

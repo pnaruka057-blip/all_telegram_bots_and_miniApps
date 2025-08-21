@@ -9,7 +9,7 @@ module.exports = async (ctx) => {
         [Markup.button.callback("📺 Add Show", "ADD_SHOW_ADMIN_PANEL"), Markup.button.callback("📝 Edit Show", "EDIT_SHOW_ADMIN_PANEL")],
         [Markup.button.callback("⭐ Manage Premium Users", "MANAGE_PREMIUM_USERS")],
         [Markup.button.callback("🎯 Requested Movies", "VIEW_REQUESTED_MOVIES")],
-        [Markup.button.callback("🛠️ Manage Subadmins", "MANAGE_SUBADMINS")],
+        // [Markup.button.callback("🛠️ Manage Subadmins", "MANAGE_SUBADMINS")],
         [Markup.button.callback("🌐 Language Requests", "VIEW_LANGUAGE_REQUESTS")],
         [Markup.button.callback("📩 User Messages", "VIEW_USER_MESSAGES")],
     ]);

@@ -95,7 +95,7 @@ module.exports = (bot) => {
                             await saveMessage(ctx.chat.id, sendMsg.message_id);
                         } else if (otherLangMatches.length > 0) {
                             const miniAppUrlMovies = `${mini_app_link}/${movies_hub_token}/find-movies/${encodeURIComponent(query)}`;
-                            const miniAppUrlRequest = `${mini_app_link}/${movies_hub_token}/send-request/${encodeURIComponent(query)}?movie=true`;
+                            const miniAppUrlRequest = `${mini_app_link}/${movies_hub_token}/send-request/${encodeURIComponent(query)}?movie=true&user_id=${ctx.from.id}`;
 
                             const keyboard = Markup.inlineKeyboard([
                                 [Markup.button.webApp("🔎 Show Matching Movies", miniAppUrlMovies)],

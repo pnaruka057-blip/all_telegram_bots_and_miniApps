@@ -48,11 +48,29 @@
         }
 
         .animate-background {
-            background: linear-gradient(-45deg, #e6faff, #5da6ff, #e6faff, #5da6ff);
+            background: linear-gradient(-45deg, #0f0f0f, #1a1a40, #3d0000, #1a1a40);
             background-size: 400% 400%;
-            animation: gradientShift 4s ease infinite;
+            animation: gradientShift 8s ease infinite;
+            color: #f5f5f5;
+            /* text visible hoga white/gray me */
+        }
+
+        /* optional: text ko thoda neon effect dena */
+        .animate-background h1,
+        .animate-background p {
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+        }
+
+        .animate-background label {
+            color: white;
+        }
+
+        .animate-background input,
+        .animate-background select {
+            color: black;
         }
     </style>
+
 </head>
 
 <body class="bg-gray-800 flex justify-center items-center select-none">

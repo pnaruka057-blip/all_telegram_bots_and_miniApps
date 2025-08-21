@@ -39,7 +39,21 @@ module.exports = async (bot, ctx) => {
     if (ctx?.from?.id === parseInt(process.env.ADMIN_ID_MOVIEHUB)) {
         return menu_btn_admin(ctx)
     } else {
-        const user = await users_module.findOne({ user_id: ctx?.from?.id });
+
+        let profileUrl = "https://res.cloudinary.com/dm8miilli/image/upload/v1755791642/profile_hbb9k4.png"; // default profile image URL
+
+        try {
+            const photos = await ctx.telegram.getUserProfilePhotos(ctx.from.id, 0, 1);
+            if (photos.total_count > 0) {
+                const fileId = photos.photos[0][0].file_id; // sabse chhoti size wali photo
+                const file = await ctx.telegram.getFile(fileId);
+                profileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN_MOVIEHUB}/${file.file_path}`;
+            }
+        } catch (err) {
+            console.error("Profile fetch error:", err);
+        }
+
+        const user = await users_module.findOneAndUpdate({ user_id: ctx?.from?.id }, { user_logo: profileUrl }, { new: true });
 
         // Agar user nahi mila to DB me insert karo
         if (!user) {
@@ -47,7 +61,8 @@ module.exports = async (bot, ctx) => {
                 user_id: ctx.from.id,
                 name: ctx.from.first_name,
                 username: ctx.from.username,
-                language: null
+                language: null,
+                user_logo: profileUrl
             });
         }
 

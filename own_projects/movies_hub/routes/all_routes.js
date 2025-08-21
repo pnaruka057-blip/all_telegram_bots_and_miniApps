@@ -5,6 +5,8 @@ const path = require('path')
 const expressEjsLayouts = require('express-ejs-layouts');
 const shows_module = require('../model/shows_module');
 const movies_module = require('../model/movies_module');
+const users_module = require('../model/users_module');
+const other_modules = require('../model/other_module');
 let movies_hub_token = process.env.MOVIES_HUB_TOKEN
 const developer_telegram_username = process.env.DEVELOPER_TELEGRAM_USERNAME
 
@@ -17,6 +19,7 @@ app.set('layout', path.resolve(__dirname, '..', 'public', 'views', 'layout'));
 
 app.get("/movies-hub", async (req, res) => {
     try {
+        const user_id = req.query.userId
         const currentPage = 1;
         const limit = 12;
 
@@ -37,9 +40,10 @@ app.get("/movies-hub", async (req, res) => {
             .limit(limit);
 
         res.render("pages/home", {
-            currentPath: '/movies-hub',
+            currentPath: '/',
             movies,
             shows,
+            user_id,
             currentPage,
             totalMoviePages,
             totalShowPages,
@@ -151,6 +155,7 @@ app.get('/movies-hub/find-movies/:movie_query', async (req, res) => {
         const currentPage = 1;
         const limit = 12;
         const searchQuery = req.params.movie_query;
+        const user_id = req.query.userId
 
         // Regex based search (case-insensitive)
         const movieFilter = { title: { $regex: searchQuery, $options: 'i' } };
@@ -166,6 +171,7 @@ app.get('/movies-hub/find-movies/:movie_query', async (req, res) => {
         res.render("pages/find_movies", {
             currentPath: `/movies-hub/find-movies`,
             movies,
+            user_id,
             currentPage,
             totalMoviePages,
             movie_query: searchQuery,
@@ -184,6 +190,7 @@ app.get('/movies-hub/find-shows/:show_query', async (req, res) => {
         const currentPage = 1;
         const limit = 12;
         const searchQuery = req.params.show_query;
+        const user_id = req.query.userId
 
         // Regex based search (case-insensitive)
         const showFilter = { title: { $regex: searchQuery, $options: 'i' } };
@@ -199,6 +206,7 @@ app.get('/movies-hub/find-shows/:show_query', async (req, res) => {
         res.render("pages/find_shows", {
             currentPath: `/movies-hub/find-shows`,
             shows,
+            user_id,
             currentPage,
             totalShowPages,
             show_query: searchQuery,
@@ -231,6 +239,7 @@ app.get('/movies-hub/send-request/:query', async (req, res) => {
         res.render("pages/send_request", {
             currentPath: '/movies-hub/send-request',
             query,
+            user_id,
             type, // movie/show
             user, // {name, username, profile_logo, language}
             developer_telegram_username,
@@ -244,268 +253,99 @@ app.get('/movies-hub/send-request/:query', async (req, res) => {
     }
 });
 
-app.get('/promox/unlock/groups', async (req, res) => {
+app.get('/movies-hub/send-request', async (req, res) => {
     try {
-        const { user_id } = req.cookies;
-        if (!user_id) return res.status(401).json({ success: false, msg: "Unauthorized: No user_id cookie" });
+        const user_id = req.query.userId
+        const user = await users_module.findOne({ user_id }).lean().select("name username profile_logo language");
+        res.render("pages/send_request", {
+            currentPath: '/movies-hub/send-request',
+            type: "",
+            query: "",
+            user,
+            user_id,
+            developer_telegram_username,
+            current_url: process.env.GLOBLE_DOMAIN,
+            token: movies_hub_token
+        });
 
-        const user = await user_module.findOneAndUpdate(
-            { user_id },
-            { is_group_page_locked_date: new Date() },
-            { new: true }
-        ).lean();
-
-        if (!user) {
-            return res.status(404).json({ success: false, msg: "User not found" });
-        }
-
-        return res.json({ success: true, msg: "Group page unlocked" });
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({ success: false, msg: "Server error" });
+    } catch (error) {
+        console.error("Error rendering request page:", error);
+        res.status(500).send("Server Error");
     }
 });
 
-app.get('/promox/post', (req, res) => {
-    res.render('pages/post', {
-        currentPath: '/post', current_url: process.env.GLOBLE_DOMAIN,
-        developer_telegram_username,
-        token: promoX_token
-    })
-})
-
-app.post("/promox/post", upload.single("logo"), async (req, res) => {
+app.post('/movies-hub/send-request', async (req, res) => {
     try {
-        const { user_id } = req.cookies;
-        if (!user_id) return res.status(401).json({ message: "Unauthorized: Login required" });
+        const { title, language, user_id, type } = req.body;
 
-        // Find user to verify
-        const user = await user_module.findOne({ user_id }).lean();
-        if (!user) return res.status(401).json({ message: "User not found or unauthorized" });
-
-        const { type, name, username, category, description } = req.body;
-
-        if (!type || !name || !username || !category) {
-            return res.status(200).json({ message: "Missing required fields" });
+        if (!title || !language || !user_id || !type) {
+            return res.status(400).json({ success: false, msg: "All fields are required." });
         }
+        const user = await users_module.findOne({ user_id }).lean().select("_id");
+        const newRequest = new other_modules({
+            document_name: "request",
+            title,
+            language,
+            type,
+            status: false,
+            requested_by: user._id
+        });
 
-        // Step 1: Telegram username verification
-        const checkResult = await checkTelegramUsername(username);
-        if (!checkResult.valid) {
-            return res.status(200).json({ success: false, msg: `Invalid Telegram username: ${checkResult.reason}` });
-        }
+        await newRequest.save();
 
-        // Step 2: Type matching verification
-        if (type === "group" && !["supergroup", "group"].includes(checkResult.type)) {
-            return res.status(200).json({ success: false, msg: "This username does not belong to a group" });
-        }
-        if (type === "channel" && checkResult.type !== "channel") {
-            return res.status(200).json({ success: false, msg: "This username does not belong to a channel" });
-        }
+        return res.status(201).json({
+            success: true,
+            message: "Request submitted successfully.",
+            data: newRequest
+        });
 
-        // Username duplicate check
-        let existing;
-        if (type === "group") {
-            existing = await user_groups_module.findOne({ username: username.trim().toLowerCase() }).lean();
-        } else if (type === "channel") {
-            existing = await user_channels_module.findOne({ username: username.trim().toLowerCase() }).lean();
-        } else {
-            return res.status(200).json({ success: false, msg: "Invalid type selected" });
-        }
-
-        if (existing) {
-            return res.status(200).json({ success: false, msg: "Username already taken. Please choose another." });
-        }
-
-        // Prepare common data
-        const data = {
-            userDB_id: user._id,
-            username: username.trim().toLowerCase(),
-            category: category.trim(),
-            short_description: description ? description.trim() : "",
-            auto_delete_time: new Date(Date.now() + 2 * 60 * 60 * 1000), // auto delete after 2 Hours
-        };
-
-        // Add logo buffer if uploaded
-        if (req.file) {
-            data.logo = {
-                data: req.file.buffer,
-                contentType: req.file.mimetype
-            };
-        }
-
-        let savedDoc;
-        if (type === "group") {
-            savedDoc = await user_groups_module.create({
-                ...data,
-                group_name: name.trim(),
-            });
-        } else if (type === "channel") {
-            savedDoc = await user_channels_module.create({
-                ...data,
-                channel_name: name.trim(),
-            });
-        }
-
-        return res.status(201).json({ msg: `${type} created successfully`, data: savedDoc });
-
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({ msg: "Server error", error: err.message });
+    } catch (error) {
+        console.error("Error while saving request:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server Error"
+        });
     }
 });
 
-app.get('/promox/profile', async (req, res) => {
+app.get('/movies-hub/profile', async (req, res) => {
     try {
-        const { user_id } = req.cookies;
+        const { userId } = req.query;
 
-        if (!user_id) {
-            return res.status(401).render('pages/error', {
-                message: "Unauthorized: Please login to view your profile"
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing userId"
             });
         }
 
-        const user = await user_module.findOne({ user_id }).lean();
+        const user = await users_module
+            .findOne({ user_id: userId })
+            .select("name username user_logo language user_id") 
+            .lean();
+
         if (!user) {
-            return res.status(404).render('pages/error', {
+            return res.status(404).json({
+                success: false,
                 message: "User not found"
             });
         }
 
-        // Fetch user channels & groups
-        const [channels, groups] = await Promise.all([
-            user_channels_module.find({ userDB_id: user._id }).lean(),
-            user_groups_module.find({ userDB_id: user._id }).lean()
-        ]);
-
-        // Total post counts
-        const totalStats = {
-            channels: channels.length,
-            groups: groups.length
-        };
-
-        // Default lock value
-        let is_profile_page_locked = true;
-
-        if (user && user.is_profile_page_locked) {
-            let lockedDate = new Date(user.is_profile_page_locked);
-            let now = new Date();
-
-            // difference in hours
-            let diffHours = (now - lockedDate) / (1000 * 60 * 60);
-
-            if (diffHours <= 24) {
-                is_profile_page_locked = false; // Lock khol do
-            }
-        }
-
-        res.render('pages/profile', {
-            currentPath: '/profile',
+        res.render("pages/profile", {
+            currentPath: '/movies-hub/profile',
             user,
-            totalStats,
-            channelsList: channels,
-            groupsList: groups,
-            is_profile_page_locked,
+            user_id: userId,
             developer_telegram_username,
-            current_url: process.env.GLOBLE_DOMAIN,
-            token: promoX_token
+            current_url: process.env.GLOBLE_DOMAIN || "",
+            token: movies_hub_token
         });
 
-    } catch (err) {
-        console.error("Error loading profile:", err);
-        res.status(500).render('pages/error', {
-            message: "Server error while loading profile"
+    } catch (error) {
+        console.error("Error while fetching profile:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
         });
-    }
-});
-
-app.get('/promox/unlock/profile', async (req, res) => {
-    try {
-        const { user_id } = req.cookies;
-
-        if (!user_id) return res.status(401).json({ success: false, msg: "Unauthorized: No user_id cookie" });
-
-        const user = await user_module.findOneAndUpdate(
-            { user_id },
-            { is_profile_page_locked: new Date() },
-            { new: true }
-        ).lean();
-
-        if (!user) {
-            return res.status(404).json({ success: false, msg: "User not found" });
-        }
-
-        return res.json({ success: true, msg: "Channel page unlocked" });
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({ success: false, msg: "Server error" });
-    }
-});
-
-app.post('/promox/deletepost', async (req, res) => {
-    try {
-        const { id } = req.body;
-        const { user_id } = req.cookies;
-
-        if (!user_id) {
-            return res.status(401).json({ success: false, msg: "Unauthorized: Login required" });
-        }
-
-        const user = await user_module.findOne({ user_id }).lean();
-        if (!user) {
-            return res.status(401).json({ success: false, msg: "User not found" });
-        }
-
-        // Try deleting from channels or groups
-        let deleted = await user_channels_module.findOneAndDelete({ _id: id, userDB_id: user._id });
-        if (!deleted) {
-            deleted = await user_groups_module.findOneAndDelete({ _id: id, userDB_id: user._id });
-        }
-
-        if (!deleted) {
-            return res.status(404).json({ success: false, msg: "Post not found or not owned by you" });
-        }
-
-        return res.json({ success: true, msg: "Post deleted successfully" });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ success: false, msg: "Server error", error: err.message });
-    }
-});
-
-app.post('/promox/increaseautodelete', async (req, res) => {
-    try {
-        const { id } = req.body;
-        const { user_id } = req.cookies;
-
-        if (!user_id) {
-            return res.status(401).json({ success: false, msg: "Unauthorized: Login required" });
-        }
-
-        const user = await user_module.findOne({ user_id }).lean();
-        if (!user) {
-            return res.status(401).json({ success: false, msg: "User not found" });
-        }
-
-        // Pehle channel me check karo
-        let post = await user_channels_module.findOne({ _id: id, userDB_id: user._id });
-        if (!post) {
-            post = await user_groups_module.findOne({ _id: id, userDB_id: user._id });
-        }
-
-        if (!post) {
-            return res.status(404).json({ success: false, msg: "Post not found or not owned by you" });
-        }
-
-        // Auto delete time +1 hours
-        post.auto_delete_time = new Date(post.auto_delete_time.getTime() + (1 * 60 * 60 * 1000));
-        await post.save();
-
-        return res.json({ success: true, msg: "Auto delete time increased by 24 hours" });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ success: false, msg: "Server error", error: err.message });
     }
 });
 

@@ -1,5 +1,5 @@
 <!-- Main Wrapper -->
-<section class="w-full max-w-7xl mx-auto bg-white rounded-xl shadow-2xl flex flex-col pb-10">
+<section class="w-full max-w-sm bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col min-h-[100svh]">
 
     <!-- Header: Toggle Movies / Shows + Categories + Search -->
     <header class="px-6 py-4 space-y-4">
@@ -105,7 +105,7 @@
     </main>
 
     <!-- Pagination -->
-    <footer id="pagination" class="px-6 mt-3 pb-3 flex justify-center space-x-2"></footer>
+    <footer id="pagination" class="px-6 flex justify-center space-x-2"></footer>
 
     <!-- Navigation / Footer -->
     <%- include('../partials/footer') %>
@@ -220,7 +220,12 @@
     function renderPagination(totalPages) {
         footer.innerHTML = "";
 
-        if (!totalPages || totalPages <= 1) return;
+        if (!totalPages || totalPages <= 1) {
+            footer.classList.add("hidden"); // hide if only 1 or no page
+            return;
+        }
+
+        footer.classList.remove("hidden"); // show only if multiple pages
 
         // Prev
         if (currentPage > 1) {
