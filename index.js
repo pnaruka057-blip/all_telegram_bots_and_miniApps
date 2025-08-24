@@ -75,24 +75,39 @@ if (process.env.MOVIES_HUB_NODE_ENV && process.env.MOVIES_HUB_NODE_ENV !== 'deve
 }
 
 app.get('/', (req, res) => {
-    const [mini_app_or_bot_type] = atob(req?.query?.tgWebAppStartParam)?.toString()?.split(':');
-    if (mini_app_or_bot_type === 'movies-hub') {
-        const [_, type, query, fromId, user_id] = atob(req.query.tgWebAppStartParam).toString().split(':');
+    try {
+        const param = req.query?.tgWebAppStartParam;
+        if (!param) {
+            return res.send('✅ Bot is alive!');
+        }
+
+        // Decode and split the parameter
+        const decodedParam = atob(param);
+        const parts = decodedParam.split(':');
+        const [miniAppOrBotType, type, query, fromId, userId] = parts;
+
+        if (miniAppOrBotType !== 'movies-hub') {
+            return res.send('✅ Bot is alive!');
+        }
+
+        // Define the base path using a secure token (ensure this variable exists)
+        const basePath = `/${movies_hub_token}/movies-hub`;
+
+        // Handle redirection based on `type`
         switch (type) {
             case 'movies':
-                res.redirect(`/${movies_hub_token}/movies-hub/find-movies/${query}?userId=${user_id}&fromId=${fromId}`);
-                break;
+                return res.redirect(`${basePath}/find-movies/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
             case 'shows':
-                res.redirect(`/${movies_hub_token}/movies-hub/find-shows/${query}?userId=${user_id}&fromId=${fromId}`);
-                break;
+                return res.redirect(`${basePath}/find-shows/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
             case 'request':
-                res.redirect(`/${movies_hub_token}/movies-hub/send-request/${query}?userId=${user_id}&fromId=${fromId}`);
-                break;
+                return res.redirect(`${basePath}/send-request/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
             default:
-                res.send('✅ Bot is alive!');
-                break;
+                return res.send('✅ Bot is alive!');
         }
-    } else res.send('✅ Bot is alive!')
+    } catch (error) {
+        console.error('Error processing request:', error);
+        return res.status(400).send('❌ Invalid or corrupted parameters.');
+    }
 });
 
 // all miniapp custom middleware
