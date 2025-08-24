@@ -13,11 +13,13 @@ const promoX_all_actions = require('./clients/PromoX/bot_handler/promoX_bot')
 const message_auto_save_and_post = require('./clients/mr_akash/Message_auto_save_and_post/message_auto_save_and_post')
 const crypto_news_all_actions = require('./clients/mr_akash/Crypto_news/crypto_news_bot')
 const movies_hub_all_actions = require('./own_projects/movies_hub/bot_index')
+const globle_domain = process.env.GLOBLE_DOMAIN
 
 // all system middleware
 app.use(cors())
 app.use(express.json());
 app.use(cookieParser());
+app.use(express.urlencoded({ extended: true }));
 
 // all set
 app.set('view engine', 'ejs')
@@ -73,7 +75,24 @@ if (process.env.MOVIES_HUB_NODE_ENV && process.env.MOVIES_HUB_NODE_ENV !== 'deve
 }
 
 app.get('/', (req, res) => {
-    res.send('✅ Bot is alive!');
+    const [mini_app_or_bot_type] = atob(req?.query?.tgWebAppStartParam)?.toString()?.split(':');
+    if (mini_app_or_bot_type === 'movies-hub') {
+        const [_, type, query, fromId, user_id] = atob(req.query.tgWebAppStartParam).toString().split(':');
+        switch (type) {
+            case 'movies':
+                res.redirect(`/${movies_hub_token}/movies-hub/find-movies/${query}?userId=${user_id}&fromId=${fromId}`);
+                break;
+            case 'shows':
+                res.redirect(`/${movies_hub_token}/movies-hub/find-shows/${query}?userId=${user_id}&fromId=${fromId}`);
+                break;
+            case 'request':
+                res.redirect(`/${movies_hub_token}/movies-hub/send-request/${query}?userId=${user_id}&fromId=${fromId}`);
+                break;
+            default:
+                res.send('✅ Bot is alive!');
+                break;
+        }
+    } else res.send('✅ Bot is alive!')
 });
 
 // all miniapp custom middleware
@@ -83,7 +102,6 @@ app.use('/:token', (req, res, next) => {
         promoX_token,
         movies_hub_token
     ]
-
     if (!token_array.includes(tokenName)) {
         res.render('404', { error_message: 'You are not allowed' });
     } else {

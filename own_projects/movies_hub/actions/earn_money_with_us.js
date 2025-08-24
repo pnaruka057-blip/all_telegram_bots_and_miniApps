@@ -2,6 +2,7 @@ const { Markup } = require("telegraf");
 const users_module = require("../model/users_module");
 const menu_btn_earn_money_with_us = require("../buttons/menu_btn_earn_money_with_us");
 const escapeMarkdownV2 = require("../helper/escapeMarkdownV2");
+const redis_save_message_id = require("../helper/redis_save_message_id");
 
 // Utility functions for validation
 const isValidApiLink = (url) => {
@@ -10,6 +11,11 @@ const isValidApiLink = (url) => {
 
 const isValidQuickLink = (url) => {
     return /^https:\/\/[^\/]+\/st\?api=[a-zA-Z0-9]{40}&url=/.test(url);
+};
+
+const extractBaseApiLink = (url) => {
+    const match = url.match(/^(https:\/\/[^\/]+\/(?:api|st)\?api=[a-zA-Z0-9]{40}&url=)/);
+    return match ? match[1] : null;
 };
 
 module.exports = (bot) => {
@@ -22,20 +28,22 @@ module.exports = (bot) => {
             const buttons = Markup.inlineKeyboard([
                 [Markup.button.callback("✅ I Understand. Start Setup", "START_EARN_SETUP")],
             ]);
-            await ctx.editMessageText(text, { parse_mode: "Markdown", ...buttons });
+            let message = await ctx.editMessageText(text, { parse_mode: "Markdown", ...buttons });
+            redis_save_message_id(message.message_id, message.chat.id);
         }
     });
 
     bot.action("START_EARN_SETUP", async (ctx) => {
         ctx.session.earnStep = "get_api_link";
         ctx.session.messageId = ctx.update.callback_query.message.message_id;
-        await ctx.editMessageText(`🔗 *Step 1: Send Your URL Shortener Developer API Link*\n\n\`\`\`\nhttps://example.com/api?api=YOUR_API_KEY&url=yourdestination.com\n\`\`\`\n\n📝 Please send your full Developer API Link below.`, {
+        const message = await ctx.editMessageText(`🔗 *Step 1: Send Your URL Shortener Developer API Link*\n\n\`\`\`\nhttps://example.com/api?api=YOUR_API_KEY&url=yourdestination.com\n\`\`\`\n\n📝 Please send your full Developer API Link below.`, {
             parse_mode: "Markdown",
             ...Markup.inlineKeyboard([
                 [Markup.button.callback("🔙 Back", "USER_EARN_MONEY")],
                 [Markup.button.callback("🏠 Main Menu", "MAIN_MENU")],
             ])
         });
+        ctx.session.messageId = message.message_id;
 
         bot.on("message", async (ctx, next) => {
             const text = ctx.message.text;
@@ -45,7 +53,7 @@ module.exports = (bot) => {
             if (ctx.session.earnStep === "get_api_link") {
                 if (!isValidApiLink(text)) return ctx.reply("❌ Invalid API Link.");
                 ctx.deleteMessage(ctx.session.messageId);
-                ctx.session.userApiLink = text;
+                ctx.session.userApiLink = extractBaseApiLink(text);
                 ctx.session.earnStep = "get_quick_link";
                 let message = await ctx.reply(`⚡ *Step 2: Send Your Quick Link Format*\n\n\`\`\`\nhttps://example.com/st?api=YOUR_API_KEY&url=yourdestination.com\n\`\`\``, {
                     parse_mode: "Markdown",
@@ -107,7 +115,6 @@ module.exports = (bot) => {
         });
     });
 
-
     bot.on("my_chat_member", async (ctx) => {
         const update = ctx.update;
         const newStatus = update.my_chat_member.new_chat_member.status;
@@ -138,7 +145,8 @@ module.exports = (bot) => {
                         { user_id: userId, "groupsLists.groupId": chat.id.toString() },
                         {
                             $set: {
-                                "groupsLists.$.groupName": chat.id.toString(),
+                                "groupsLists.$.groupName": chat.title.toString(),
+                                "groupsLists.$.groupId": chat.id.toString(),
                                 "groupsLists.$.isAdmin": true
                             }
                         }
@@ -158,28 +166,52 @@ module.exports = (bot) => {
 
             if (!userConfig || !userConfig?.link_shortner_api_link || !userConfig?.link_shortner_quick_link) {
                 try {
-                    await ctx.sendMessage(`⚠️ You've added the bot as *admin* in the group *${chat.title}*, but your earning system isn't fully setup yet.\n\n🛠️ Please complete the shortner setup first to activate the earning system.`, {
-                        parse_mode: "Markdown",
-                        ...Markup.inlineKeyboard([
-                            [Markup.button.callback("🚀 Complete Setup", "START_EARN_SETUP")],
-                            [Markup.button.callback("🏠 Main Menu", "MAIN_MENU")]
-                        ])
-                    });
+                    // 🔹 Send in user DM with buttons
+                    const message = await ctx.telegram.sendMessage(
+                        userId,
+                        `⚠️ You've added the bot as *admin* in the group *${chat.title}*, but your earning system isn't fully setup yet.\n\n🛠️ Please complete the shortner setup first to activate the earning system.`,
+                        {
+                            parse_mode: "Markdown",
+                            ...Markup.inlineKeyboard([
+                                [Markup.button.callback("🚀 Complete Setup", "START_EARN_SETUP")],
+                                [Markup.button.callback("🏠 Main Menu", "MAIN_MENU")]
+                            ])
+                        }
+                    );
+                    redis_save_message_id(message.message_id, message.chat.id);
+
+                    // 🔹 Send plain text in group (no buttons)
+                    await ctx.telegram.sendMessage(
+                        chat.id,
+                        `⚠️ Bot is added as *admin* here, but earning system is not yet configured. Please complete setup in bot DM.`
+                    );
                 } catch (err) {
-                    console.log("❌ Can't send setup reminder to user.");
+                    console.log("❌ Can't send setup reminder.");
                 }
                 return;
             }
 
             try {
-                await ctx.sendMessage(`✅ Thank you for making the bot an admin in *${chat.title}* group!\n\n🔗 Your earning system is now fully set up and ready to use.`, {
-                    parse_mode: "Markdown",
-                    ...Markup.inlineKeyboard([
-                        [Markup.button.callback("🏠 Main Menu", "MAIN_MENU")]
-                    ])
-                });
+                // 🔹 Send in user DM with buttons
+                const message = await ctx.telegram.sendMessage(
+                    userId,
+                    `✅ Thank you for making the bot an admin in *${chat.title}* group!\n\n🔗 Your earning system is now fully set up and ready to use.`,
+                    {
+                        parse_mode: "Markdown",
+                        ...Markup.inlineKeyboard([
+                            [Markup.button.callback("🏠 Main Menu", "MAIN_MENU")]
+                        ])
+                    }
+                );
+                redis_save_message_id(message.message_id, message.chat.id);
+
+                // 🔹 Send plain text in group (no buttons)
+                await ctx.telegram.sendMessage(
+                    chat.id,
+                    `✅ Bot is now activated in this group! Earnings will work from here.`
+                );
             } catch (err) {
-                console.log("❌ Can't send DM to user.");
+                console.log("❌ Can't notify user/group on admin add.");
             }
         }
 
@@ -222,13 +254,18 @@ module.exports = (bot) => {
 
             if (!user?.link_shortner_config || !user?.link_shortner_config?.link_shortner_api_link || !user?.link_shortner_config?.link_shortner_quick_link) {
                 try {
-                    await ctx.sendMessage(`🚫 Your earning system was not properly set up.\n\n🛠️ Please complete your earning setup before re-adding the bot.`, {
-                        parse_mode: "Markdown",
-                        ...Markup.inlineKeyboard([
-                            [Markup.button.callback("🚀 Complete Setup", "START_EARN_SETUP")],
-                            [Markup.button.callback("🏠 Main Menu", "MAIN_MENU")]
-                        ])
-                    });
+                    const message = await ctx.telegram.sendMessage(
+                        userId,
+                        `🚫 Your earning system was not properly set up.\n\n🛠️ Please complete your earning setup before re-adding the bot.`,
+                        {
+                            parse_mode: "Markdown",
+                            ...Markup.inlineKeyboard([
+                                [Markup.button.callback("🚀 Complete Setup", "START_EARN_SETUP")],
+                                [Markup.button.callback("🏠 Main Menu", "MAIN_MENU")]
+                            ])
+                        }
+                    );
+                    redis_save_message_id(message.message_id, message.chat.id);
                 } catch (err) {
                     console.log("❌ Can't notify user (setup not complete, admin removed).");
                 }
@@ -236,12 +273,17 @@ module.exports = (bot) => {
             }
 
             try {
-                await ctx.sendMessage(`⚠️ The bot has been removed as admin from *${chat.title}* group.\n\n➡️ Please make the bot an *admin* in the group to resume earnings.`, {
-                    parse_mode: "Markdown",
-                    ...Markup.inlineKeyboard([
-                        [Markup.button.callback("🏠 Main Menu", "MAIN_MENU")]
-                    ])
-                });
+                const message = await ctx.telegram.sendMessage(
+                    userId,
+                    `⚠️ The bot has been removed as admin from *${chat.title}* group.\n\n➡️ Please make the bot an *admin* in the group to resume earnings.`,
+                    {
+                        parse_mode: "Markdown",
+                        ...Markup.inlineKeyboard([
+                            [Markup.button.callback("🏠 Main Menu", "MAIN_MENU")]
+                        ])
+                    }
+                );
+                redis_save_message_id(message.message_id, message.chat.id);
             } catch (err) {
                 console.log("❌ Can't notify user on admin removal.");
             }
@@ -254,17 +296,21 @@ module.exports = (bot) => {
                 return;
             }
             try {
-                await ctx.sendMessage(`❌ The bot has been removed or kicked from *${chat.title}* group.\n\n🚫 Your earning system will no longer work.\n\n➡️ Please re-add the bot to the group and make it *admin* to continue earning.`, {
-                    parse_mode: "Markdown",
-                    ...Markup.inlineKeyboard([
-                        [Markup.button.url("➕ Add Again", `https://t.me/${ctx.botInfo.username}?startgroup=true`)],
-                        [Markup.button.callback("🏠 Main Menu", "MAIN_MENU")]
-                    ])
-                });
+                const message = await ctx.telegram.sendMessage(
+                    userId,
+                    `❌ The bot has been removed or kicked from *${chat.title}* group.\n\n🚫 Your earning system will no longer work.\n\n➡️ Please re-add the bot to the group and make it *admin* to continue earning.`,
+                    {
+                        parse_mode: "Markdown",
+                        ...Markup.inlineKeyboard([
+                            [Markup.button.url("➕ Add Again", `https://t.me/${ctx.botInfo.username}?startgroup=true`)],
+                            [Markup.button.callback("🏠 Main Menu", "MAIN_MENU")]
+                        ])
+                    }
+                );
+                redis_save_message_id(message.message_id, message.chat.id);
             } catch (err) {
-                console.log("❌ Can't notify user on bot removal.");
+                console.log("❌ Can't notify user on bot removal.", err.message);
             }
         }
-
     });
 };

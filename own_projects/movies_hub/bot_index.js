@@ -21,6 +21,7 @@ const earn_money_with_us = require('./actions/earn_money_with_us');
 const start_message = require('./helper/start_message');
 const user_menu = require('./actions/user_menu')
 const admin_menu = require('./actions/admin_menu')
+const find_movies_shows_in_group = require('./actions/group_message_listner')
 const cron_jobs = require('./helper/cron_jobs')
 
 module.exports = (bot) => {
@@ -28,14 +29,14 @@ module.exports = (bot) => {
     bot.use(session());
     const stage = new Scenes.Stage([addMovieWizard, editMovieWizard, updateMovieWizard, managePremiumUsersWizard, addShowWizard, editShowWizard, updateShowWizard]);
     bot.use(stage.middleware());
-
+    
     // Start command handler
     bot.start(async (ctx) => {
         if (ctx.chat.type === 'private') {
             await start_message(bot, ctx)
         }
     });
-
+    
     // action handlers
     join_telegram_channel(bot);
     addMovies(bot);
@@ -44,16 +45,17 @@ module.exports = (bot) => {
     editMovies(bot);
     admin_menu(bot);
     manage_premium_users(bot);
-
+    find_movies_shows_in_group(bot);
+    
     // Middleware to check if user has joined the channel
     check_channel_joined(bot, Markup);
-
+    
     select_language(bot, Markup);
     findMovies(bot);
     user_menu(bot);
     findShows(bot);
     earn_money_with_us(bot);
-
+    
     // cron for shows
     cron_jobs(bot)
 }

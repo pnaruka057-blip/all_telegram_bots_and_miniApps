@@ -1,9 +1,10 @@
 const cron = require('node-cron')
 const redis = require('../../../globle_helper/redisConfig')
+const redis_delete_message = require('./redis_delete_message_id')
 
 // ✅ Start cron for FIND_SHOWS auto delete
 async function startCron(bot) {
-    cronJob = cron.schedule("*/15 * * * *", async () => {
+    cronJob = cron.schedule("*/10 * * * *", async () => {
         try {
             const keys_shows = await redis.keys("find_shows:*");
             const keys_movies = await redis.keys("find_movies:*");
@@ -159,6 +160,8 @@ async function startCron(bot) {
                     await redis.del(key).catch(() => { });
                 }
             }
+            redis_delete_message(bot)
+            console.log("✅ Cleanup cron completed");
         } catch (err) {
             console.error("Cron error:", err.message);
         }

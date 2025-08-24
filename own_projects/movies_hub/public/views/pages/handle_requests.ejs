@@ -1,0 +1,58 @@
+<!-- Pending Section -->
+<div id="pending-section">
+    <h2 class="text-xl font-bold mb-3 text-yellow-700">⏳ Pending Requests</h2>
+    <div id="pending-requests" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <% pending_requests.forEach(req=> { %>
+            <div id="req-<%= req._id %>" class="p-4 bg-white rounded-xl shadow-md flex flex-col gap-2">
+                <h3 class="text-lg font-bold">
+                    <%= req.title %> (<%= req.type %>)
+                </h3>
+                <p class="text-sm text-gray-600">Lang: <%= req.language %>
+                </p>
+                <p class="text-sm text-gray-600">Requested by: <%= req.requested_by %>
+                </p>
+                <span class="px-2 py-1 text-xs rounded-md bg-yellow-200 text-yellow-800">⏳ Pending</span>
+                <form onsubmit="return updateRequest(event, '<%= req._id %>')" class="flex flex-col gap-2 mt-2">
+                    <select name="status" class="border rounded p-1">
+                        <option value="true">Completed</option>
+                        <option value="false" selected>Pending</option>
+                    </select>
+                    <textarea name="message" placeholder="Send message (optional)"
+                        class="border rounded p-2 text-sm"></textarea>
+                    <button type="submit"
+                        class="bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-md py-1 px-3">Update</button>
+                </form>
+            </div>
+            <% }) %>
+    </div>
+</div>
+
+<script>
+    const token = "<%= token %>";
+    async function updateRequest(e, requestId) {
+        e.preventDefault();
+        const form = e.target;
+        const status = form.status.value;
+        const message = form.message.value;
+
+        try {
+            const res = await axios.post(`/${token}/movies-hub/update_request`, {
+                requestId,
+                status,
+                message
+            });
+
+            if (res.data.success) {
+                // Pending se remove karo
+                document.getElementById("req-" + requestId)?.remove();
+
+                alert("✅ Request updated successfully!");
+            } else {
+                alert("❌ Failed: " + res.data.message);
+            }
+        } catch (err) {
+            console.error("Error updating request:", err);
+            alert("⚠️ Something went wrong!");
+        }
+    }
+</script>

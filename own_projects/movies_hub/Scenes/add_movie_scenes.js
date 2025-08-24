@@ -33,10 +33,6 @@ const addMovieWizard = new Scenes.WizardScene(
             return start_message(bot, ctx)
         }
 
-        if (!/^[a-zA-Z0-9\s]+$/.test(text)) {
-            return ctx.reply("❌ Invalid title. Only letters and numbers allowed. Try again:");
-        }
-
         ctx.wizard.state.movieData.title = text;
         let message = await ctx.reply("📅 Enter the *Release Date* (e.g., 01 Jan 2025):", {
             parse_mode: "Markdown",

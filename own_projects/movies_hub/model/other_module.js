@@ -13,8 +13,7 @@ const otherSchema = new mongooose.Schema({
     title: { type: String },
     language: { type: String },
     type: { type: String, enum: ['movie', 'show'] },
-    status: { type: Boolean, default: false },
-    requested_by: { type: mongooose.Schema.Types.ObjectId },
+    requested_by: { type: mongooose.Schema.Types.ObjectId, ref: 'users_modules' },
 }, { timestamps: true });
 
 const other_modules = Movies_hub_connection.model('other_modules', otherSchema);

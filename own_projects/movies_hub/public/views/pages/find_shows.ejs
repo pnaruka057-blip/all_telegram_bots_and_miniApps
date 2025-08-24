@@ -6,7 +6,8 @@
 
         <% if (shows && shows.length> 0) { %>
             <% shows.forEach(show=> { %>
-                <div class="bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition" data-type="show">
+                <a href="/<%= token %>/movies-hub/show_details?userId=<%= user_id %>&show_id=<%= show._id %>&fromId=<%= fromId %>"
+                    class="bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition" data-type="show">
                     <div class="w-full h-48">
                         <img src="<%= show.thumbnail %>" alt="<%= show.title %>" class="w-full h-full object-cover">
                     </div>
@@ -28,7 +29,7 @@
                             <%= show.category %>
                         </p>
                     </div>
-                </div>
+                </a>
                 <% }) %>
                     <% } else { %>
                         <p class="text-center text-gray-500 col-span-full">No shows found.</p>
@@ -59,7 +60,7 @@
     async function fetchContent(page = 1) {
         currentPage = page;
         try {
-            const url = `/<%= token %>/movies-hub/search?type=${type}&search=${encodeURIComponent(searchQuery)}&category=${encodeURIComponent(category)}&page=${page}`;
+            const url = `/<%= token %>/movies-hub/search?type=${type}&search=${encodeURIComponent(searchQuery)}&category=${encodeURIComponent(category)}&page=${page}&fromId=<%= fromId %>`;
             const res = await axios.get(url);
 
             const { success, shows, totalPages } = res.data;
@@ -72,7 +73,8 @@
 
             // Render shows
             contentGrid.innerHTML = shows.map(show => `
-                <div class="content-item bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition" data-type="show">
+                <a href="/<%= token %>/movies-hub/show_details?userId=<%= user_id %>&show_id=${show._id}&fromId=<%= fromId %>"
+                     class="content-item bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition" data-type="show">
                     <div class="w-full h-48">
                         <img src="${show.thumbnail}" alt="${show.title}" class="w-full h-full object-cover">
                     </div>
@@ -86,7 +88,7 @@
                         <p class="text-xs text-gray-600 mt-2">${show.genre}</p>
                         <p class="text-xs text-purple-500 mt-1 font-semibold">${show.category}</p>
                     </div>
-                </div>
+                </a>
             `).join("");
 
             renderPagination(totalPages);

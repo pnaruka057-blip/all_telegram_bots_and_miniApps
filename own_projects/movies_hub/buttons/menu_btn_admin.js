@@ -8,12 +8,18 @@ module.exports = async (ctx) => {
         [Markup.button.callback("🎬 Add Movie", "ADD_MOVIE_ADMIN_PANEL"), Markup.button.callback("📝 Edit Movie", "EDIT_MOVIE_ADMIN_PANEL")],
         [Markup.button.callback("📺 Add Show", "ADD_SHOW_ADMIN_PANEL"), Markup.button.callback("📝 Edit Show", "EDIT_SHOW_ADMIN_PANEL")],
         [Markup.button.callback("⭐ Manage Premium Users", "MANAGE_PREMIUM_USERS")],
-        [Markup.button.callback("🎯 Requested Movies", "VIEW_REQUESTED_MOVIES")],
+        [
+            Markup.button.webApp(
+                "🎯 Requested Movies",
+                `${process.env.GLOBLE_DOMAIN || ""}/${process.env.MOVIES_HUB_TOKEN}/movies-hub/view_requests`
+            )
+        ],
         // [Markup.button.callback("🛠️ Manage Subadmins", "MANAGE_SUBADMINS")],
         [Markup.button.callback("🌐 Language Requests", "VIEW_LANGUAGE_REQUESTS")],
         [Markup.button.callback("📩 User Messages", "VIEW_USER_MESSAGES")],
     ]);
-    let message_id
+
+    let message_id;
     try {
         ctx.session = {};
         message_id = await ctx.editMessageText(adminMessage, {
@@ -25,7 +31,7 @@ module.exports = async (ctx) => {
             parse_mode: "MarkdownV2",
             reply_markup: keyboard.reply_markup,
         });
-    } finally{
-        ctx.session.admin_menu_message_id = message_id.message_id
+    } finally {
+        ctx.session.admin_menu_message_id = message_id.message_id;
     }
 };

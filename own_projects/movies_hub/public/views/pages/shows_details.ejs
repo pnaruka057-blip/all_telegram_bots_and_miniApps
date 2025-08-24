@@ -1,0 +1,97 @@
+<!-- Main Wrapper -->
+<section class="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col min-h-[100svh]">
+
+    <!-- Show Thumbnail -->
+    <div class="relative w-full">
+        <img src="<%= updatedShowDetails.thumbnail %>" alt="<%= updatedShowDetails.title %>"
+            class="w-full h-auto object-contain">
+    </div>
+
+    <!-- Main Content -->
+    <main id="contentGrid" class="flex-1 overflow-y-auto px-6 py-4 bg-gray-50">
+
+        <!-- Title -->
+        <h1 class="text-xl font-bold text-gray-800 leading-tight">
+            <%= updatedShowDetails.title %>
+        </h1>
+
+        <!-- Release Date + Category -->
+        <div class="flex justify-between items-center mt-2 text-sm text-gray-600">
+            <span>📅 Release Date: <%= updatedShowDetails.release_date %></span>
+            <span class="px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full text-xs font-medium">
+                <%= updatedShowDetails.category %>
+            </span>
+        </div>
+
+        <!-- Languages -->
+        <div class="mt-3 flex flex-wrap gap-2">
+            <% updatedShowDetails.language.split(",").forEach(lang=> { %>
+                <span class="px-2 py-1 bg-green-100 text-green-600 text-xs rounded-full">
+                    <%= lang.trim() %>
+                </span>
+                <% }) %>
+        </div>
+
+        <!-- Genre -->
+        <p class="mt-3 text-sm text-gray-700">
+            🎭 <%= updatedShowDetails.genre %>
+        </p>
+
+        <!-- Seasons with Episodes -->
+        <div class="mt-5">
+            <h2 class="text-md font-semibold text-gray-800 mb-3">📺 Seasons & Episodes</h2>
+
+            <% updatedShowDetails.series.forEach((season, seasonIndex)=> { %>
+                <div class="mb-6 p-4 bg-white rounded-lg shadow">
+
+                    <!-- Season Header -->
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="font-semibold text-gray-800">Season <%= seasonIndex + 1 %></span>
+                        <span class="px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full text-xs font-medium">
+                            <%= season.quality.join(", ") %>
+                        </span>
+                    </div>
+
+                    <!-- Episodes -->
+                    <% season.download_link.forEach((link, epIndex) => { %>
+                        <button
+                            class=" download-btn block w-full text-center py-2 mb-2 bg-purple-600 text-white rounded-lg
+                                shadow hover:bg-purple-700 transition" data-url="<%= link %>">
+                                Episode <%= epIndex + 1 %>
+                                    </button>
+                                    <% }) %>
+                    </div>
+                    <% }) %>
+                </div>
+
+    </main>
+
+    <!-- Footer -->
+    <%- include('../partials/footer') %>
+</section>
+
+<script>
+    document.querySelectorAll(".download-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
+            const originalUrl = btn.dataset.url;
+
+            try {
+                // Backend par POST request
+                const res = await axios.post("/<%= token %>/movies-hub/get_shortlink", {
+                    url: originalUrl,
+                    fromId: "<%= fromId %>",
+                });
+
+                if (res.data && res.data.success && res.data.short_link) {
+                    // Shortlink new tab mein open karo
+                    window.open(res.data.short_link, "_blank", "noopener,noreferrer");
+                } else {
+                    alert("Error: Could not generate shortlink.");
+                }
+            } catch (err) {
+                console.error("Shortlink error:", err);
+                alert("Failed to generate shortlink. Please try again.");
+            }
+        });
+    });
+</script>

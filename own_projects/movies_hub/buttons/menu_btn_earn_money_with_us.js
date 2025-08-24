@@ -16,14 +16,14 @@ module.exports = async (ctx, userMessage = '', is_backbtn_show = true) => {
             if (adminGroups.length > 0) {
                 groupInfo += `\n\n👑 *Bot as Admin in Groups:*\n`;
                 adminGroups.forEach((g, index) => {
-                    groupInfo += `${index + 1}\\. ${g.groupName}\n`;
+                    groupInfo += `${index + 1}\\. ${escapeMarkdownV2(g.groupName)}\n`;
                 });
             }
 
             if (nonAdminGroups.length > 0) {
                 groupInfo += `\n🚫 *Bot Not Admin in*\\:\n`;
                 nonAdminGroups.forEach((g, index) => {
-                    groupInfo += `${index + 1}\\. ${g.groupName}\n`;
+                    groupInfo += `${index + 1}\\. ${escapeMarkdownV2(g.groupName)}\n`;
                 });
             }
         } else {

@@ -9,6 +9,8 @@ const users_module = require('../model/users_module');
 const other_modules = require('../model/other_module');
 let movies_hub_token = process.env.MOVIES_HUB_TOKEN
 const developer_telegram_username = process.env.DEVELOPER_TELEGRAM_USERNAME
+const axios = require("axios");
+const { Telegraf } = require('telegraf');
 
 app.use(express.static(path.join(__dirname, '..', "public")))
 app.use(expressEjsLayouts);
@@ -17,9 +19,16 @@ app.set('view engine', 'ejs')
 app.set('views', path.resolve(__dirname, '..', 'public', 'views'));
 app.set('layout', path.resolve(__dirname, '..', 'public', 'views', 'layout'));
 
+let movies_hub_bot;
+
+if (process.env.MOVIES_HUB_NODE_ENV && process.env.MOVIES_HUB_NODE_ENV !== "development") {
+    movies_hub_bot = new Telegraf(process.env.BOT_TOKEN_MOVIEHUB);
+}
+
 app.get("/movies-hub", async (req, res) => {
     try {
         const user_id = req.query.userId
+        const fromId = req.query.fromId
         const currentPage = 1;
         const limit = 12;
 
@@ -42,6 +51,7 @@ app.get("/movies-hub", async (req, res) => {
         res.render("pages/home", {
             currentPath: '/',
             movies,
+            fromId,
             shows,
             user_id,
             currentPage,
@@ -65,13 +75,19 @@ app.get('/movies-hub/search', async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = 12;
         const search = req.query.search ? req.query.search.trim() : '';
+        const fromId = req.query.fromId ? req.query.fromId.trim() : '';
         const category = req.query.category && req.query.category !== 'All'
             ? req.query.category.trim()
             : '';
 
-        let filter = {};
+        // Correct Model select karo
+        const Model = type === 'show' ? shows_module : movies_module;
 
-        // Title search filter
+        let filter = {};
+        let items = [];
+        let totalItems = 0;
+
+        // ---------------- Step 1: Full regex search ----------------
         if (search) {
             filter.title = { $regex: search, $options: 'i' };
         }
@@ -81,23 +97,51 @@ app.get('/movies-hub/search', async (req, res) => {
             filter.category = { $regex: category, $options: 'i' };
         }
 
-        // Correct Model select karo
-        const Model = type === 'show' ? shows_module : movies_module;
-
-        // Total items count
-        const totalItems = await Model.countDocuments(filter);
-        const totalPages = Math.ceil(totalItems / limit);
-
-        // Pagination + sorting
-        const items = await Model.find(filter)
+        totalItems = await Model.countDocuments(filter);
+        items = await Model.find(filter)
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
-            .limit(limit);
+            .limit(limit)
+            .lean();
+
+        // ---------------- Step 2: Word-to-word search (ignore numbers) ----------------
+        if (search && items.length === 0) {
+            const words = search
+                .split(/\s+/)          // whitespace se split
+                .map(w => w.trim())    // trim
+                .filter(w => /^[a-zA-Z]+$/.test(w)); // sirf alphabets allow
+
+            if (words.length > 0) {
+                const regexWords = words.map(w => ({ title: { $regex: w, $options: "i" } }));
+
+                filter = { $or: regexWords };
+
+                // Agar category diya hai to usko bhi add karo
+                if (category) {
+                    filter = {
+                        $and: [
+                            { $or: regexWords },
+                            { category: { $regex: category, $options: "i" } }
+                        ]
+                    };
+                }
+
+                totalItems = await Model.countDocuments(filter);
+                items = await Model.find(filter)
+                    .sort({ createdAt: -1 })
+                    .skip((page - 1) * limit)
+                    .limit(limit)
+                    .lean();
+            }
+        }
+
+        const totalPages = Math.ceil(totalItems / limit);
 
         // JSON Response
         res.json({
             success: true,
             currentPage: page,
+            fromId,
             totalPages,
             totalItems,
             type,
@@ -116,61 +160,52 @@ app.get('/movies-hub/search', async (req, res) => {
     }
 });
 
-app.post("/movies-hub/verify-telegram-user", async (req, res) => {
-    try {
-        console.log(req.body);
-        let { id, first_name, last_name, username, allows_write_to_pm, photo_url } = req.body;
-        console.log("Verified Telegram User:", req.body);
-
-        // Pehle check karo user already exist karta hai ya nahi
-        const existingUser = await user_module.findOne({ user_id: id });
-
-        if (!existingUser) {
-            // User nahi hai, create karo
-            await new user_module({
-                user_id: id,
-                first_name,
-                last_name,
-                username,
-                allows_write_to_pm,
-                photo_url
-            }).save();
-            console.log("New user created:", id);
-        } else {
-            console.log("User already exists:", id);
-        }
-        res.cookie("user_id", id);
-        res.json({
-            success: true,
-            msg: "User verified successfully"
-        });
-    } catch (err) {
-        console.error("Verification failed", err);
-        res.status(500).send("Verification failed");
-    }
-});
-
 app.get('/movies-hub/find-movies/:movie_query', async (req, res) => {
     try {
         const currentPage = 1;
         const limit = 12;
         const searchQuery = req.params.movie_query;
-        const user_id = req.query.userId
+        const user_id = req.query.userId;
+        const fromId = req.query.fromId;
 
-        // Regex based search (case-insensitive)
-        const movieFilter = { title: { $regex: searchQuery, $options: 'i' } };
+        let movies = [];
+        let totalMovies = 0;
 
-        // Movies ke liye pagination
-        const totalMovies = await movies_module.countDocuments(movieFilter);
-        const totalMoviePages = Math.ceil(totalMovies / limit);
+        // ---------------- Step 1: Full regex search ----------------
+        let movieFilter = { title: { $regex: searchQuery, $options: 'i' } };
 
-        const movies = await movies_module.find(movieFilter)
+        totalMovies = await movies_module.countDocuments(movieFilter);
+        movies = await movies_module.find(movieFilter)
             .skip((currentPage - 1) * limit)
-            .limit(limit);
+            .limit(limit)
+            .lean();
+
+        // ---------------- Step 2: Word-to-word search (ignore numbers) ----------------
+        if (movies.length === 0) {
+            const words = searchQuery
+                .split(/\s+/)          // whitespace se split
+                .map(w => w.trim())    // trim
+                .filter(w => /^[a-zA-Z]+$/.test(w)); // sirf alphabets allow
+
+            if (words.length > 0) {
+                const regexWords = words.map(w => ({ title: { $regex: w, $options: "i" } }));
+
+                movieFilter = { $or: regexWords };
+
+                totalMovies = await movies_module.countDocuments(movieFilter);
+                movies = await movies_module.find(movieFilter)
+                    .skip((currentPage - 1) * limit)
+                    .limit(limit)
+                    .lean();
+            }
+        }
+
+        const totalMoviePages = Math.ceil(totalMovies / limit);
 
         res.render("pages/find_movies", {
             currentPath: `/movies-hub/find-movies`,
             movies,
+            fromId,
             user_id,
             currentPage,
             totalMoviePages,
@@ -185,28 +220,150 @@ app.get('/movies-hub/find-movies/:movie_query', async (req, res) => {
     }
 });
 
+app.get('/movies-hub/movie_details', async (req, res) => {
+    try {
+        const { userId, movie_id, fromId } = req.query
+
+        const movie_details = await movies_module.findOne({ _id: movie_id }).lean();
+
+        res.render("pages/movies_details", {
+            currentPath: `/movies-hub/find-movies`,
+            user_id: userId,
+            fromId,
+            updatedMovieDetails: movie_details,
+            developer_telegram_username,
+            current_url: process.env.GLOBLE_DOMAIN,
+            token: movies_hub_token
+        });
+    } catch (error) {
+        console.error("Error finding movies:", error);
+        res.status(500).send("Server Error");
+    }
+});
+
+app.get('/movies-hub/show_details', async (req, res) => {
+    try {
+        const { userId, show_id, fromId } = req.query
+
+        const show_details = await shows_module.findOne({ _id: show_id }).lean();
+
+        res.render("pages/shows_details", {
+            currentPath: `/movies-hub/find-shows`,
+            user_id: userId,
+            fromId,
+            updatedShowDetails: show_details,
+            developer_telegram_username,
+            current_url: process.env.GLOBLE_DOMAIN,
+            token: movies_hub_token
+        });
+    } catch (error) {
+        console.error("Error finding shows:", error);
+        res.status(500).send("Server Error");
+    }
+});
+
+app.post('/movies-hub/get_shortlink', async (req, res) => {
+    try {
+        const { url, fromId } = req.body;
+
+        let admin_details = null;
+        if (fromId) {
+            admin_details = await users_module.findOne({
+                groupsLists: { $elemMatch: { groupId: fromId } }
+            }).lean();
+        }
+
+        async function processDownloadLinks(url, admin_details) {
+            // agar DB se config nahi mila to .env se lo
+            const apiBase = admin_details?.link_shortner_config?.link_shortner_api_link || process.env.LINK_SHORTNER_API_LINK_MOVIES_HUB;
+            const quickBase = admin_details?.link_shortner_config?.link_shortner_quick_link || process.env.LINK_SHORTNER_QUICK_LINK_MOVIES_HUB;
+
+            try {
+                if (apiBase) {
+                    const apiUrl = `${apiBase}${url}`;
+                    const res = await axios.get(apiUrl);
+
+                    if (res.data && res.data.status === "success" && res.data.shortenedUrl) {
+                        return res.data.shortenedUrl;
+                    }
+                }
+            } catch (err) {
+                console.error("API shortner error:", err.message);
+            }
+
+            // fallback (quickBase)
+            if (quickBase) {
+                return `${quickBase}${url}`;
+            }
+
+            // agar dono fail ho jaye
+            return url;
+        }
+
+        const shortenedUrl = await processDownloadLinks(url, admin_details);
+
+        return res.status(200).json({
+            success: true,
+            short_link: shortenedUrl
+        });
+    } catch (error) {
+        console.error("Error short link:", error);
+        res.status(500).json({
+            success: false,
+            message: "Server Error"
+        });
+    }
+});
+
 app.get('/movies-hub/find-shows/:show_query', async (req, res) => {
     try {
         const currentPage = 1;
         const limit = 12;
         const searchQuery = req.params.show_query;
-        const user_id = req.query.userId
+        const fromId = req.params.fromId;
+        const user_id = req.query.userId;
 
-        // Regex based search (case-insensitive)
-        const showFilter = { title: { $regex: searchQuery, $options: 'i' } };
+        let shows = [];
+        let totalShows = 0;
 
-        // Shows ke liye pagination
-        const totalShows = await shows_module.countDocuments(showFilter);
-        const totalShowPages = Math.ceil(totalShows / limit);
-
-        const shows = await shows_module.find(showFilter)
+        // ---------------- Step 1: Full regex search ----------------
+        let showFilter = { title: { $regex: searchQuery, $options: "i" } };
+        shows = await shows_module.find(showFilter)
             .skip((currentPage - 1) * limit)
-            .limit(limit);
+            .limit(limit)
+            .lean();
+
+        totalShows = await shows_module.countDocuments(showFilter);
+
+        // ---------------- Step 2: Word-to-word search (ignore numbers) ----------------
+        if (shows.length === 0) {
+            // query ko words me todho aur sirf alphabets rakho
+            const words = searchQuery
+                .split(/\s+/)          // whitespace se split
+                .map(w => w.trim())    // trim
+                .filter(w => /^[a-zA-Z]+$/.test(w)); // sirf alphabets allow (numeric ignore)
+
+            if (words.length > 0) {
+                const regexWords = words.map(w => ({ title: { $regex: w, $options: "i" } }));
+
+                showFilter = { $or: regexWords };
+
+                shows = await shows_module.find(showFilter)
+                    .skip((currentPage - 1) * limit)
+                    .limit(limit)
+                    .lean();
+
+                totalShows = await shows_module.countDocuments(showFilter);
+            }
+        }
+
+        const totalShowPages = Math.ceil(totalShows / limit);
 
         res.render("pages/find_shows", {
             currentPath: `/movies-hub/find-shows`,
             shows,
             user_id,
+            fromId,
             currentPage,
             totalShowPages,
             show_query: searchQuery,
@@ -321,7 +478,7 @@ app.get('/movies-hub/profile', async (req, res) => {
 
         const user = await users_module
             .findOne({ user_id: userId })
-            .select("name username user_logo language user_id") 
+            .select("name username user_logo language user_id")
             .lean();
 
         if (!user) {
@@ -346,6 +503,57 @@ app.get('/movies-hub/profile', async (req, res) => {
             success: false,
             message: "Internal Server Error"
         });
+    }
+});
+
+app.get('/movies-hub/view_requests', async (req, res) => {
+    try {
+        // Sirf pending requests leke aao
+        const pending_requests = await other_modules.find({ document_name: "request" }).lean();
+
+        res.render("pages/handle_requests", {
+            pending_requests,   // only pending
+            token: movies_hub_token
+        });
+
+    } catch (error) {
+        console.error("Error while fetching profile:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+});
+
+app.post("/movies-hub/update_request", async (req, res) => {
+    try {
+        const { requestId, status, message } = req.body;
+
+        if (!requestId) {
+            return res.status(400).json({ success: false, message: "Request ID is required" });
+        }
+
+        const requestDoc = await other_modules.findById(requestId).populate('requested_by')
+
+        if (!requestDoc) {
+            return res.status(404).json({ success: false, message: "Request not found" });
+        }
+
+        if (status === "true") {
+            await other_modules.deleteOne({ _id: requestId }); // delete from DB
+        }
+
+        if (movies_hub_bot && message && requestDoc.requested_by.user_id) {
+            try {
+                await movies_hub_bot.telegram.sendMessage(requestDoc.requested_by.user_id.toString(), message);
+            } catch (err) {
+                console.error("❌ Failed to send Telegram message:", err.message);
+            }
+        }
+        return res.json({ success: true, message: "Request updated successfully", completed: requestDoc });
+    } catch (error) {
+        console.error("Error in update_request:", error);
+        return res.status(500).json({ success: false, message: "Internal Server Error" });
     }
 });
 
