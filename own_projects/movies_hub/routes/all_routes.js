@@ -295,13 +295,19 @@ app.get('/movies-hub/show_details', async (req, res) => {
 
 app.post('/movies-hub/get_shortlink', async (req, res) => {
     try {
-        const { url, fromId } = req.body;
+        const { url, fromId, movie_id, show_id } = req.body;
 
         let admin_details = null;
         if (fromId) {
             admin_details = await users_module.findOne({
                 groupsLists: { $elemMatch: { groupId: fromId } }
             }).lean();
+        }
+
+        if (movie_id) {
+            await movies_module.updateOne({ _id: movie_id }, { $inc: { download_count: 1 } });
+        } else if (show_id) {
+            await shows_module.updateOne({ _id: show_id }, { $inc: { download_count: 1 } });
         }
 
         async function processDownloadLinks(url, admin_details) {

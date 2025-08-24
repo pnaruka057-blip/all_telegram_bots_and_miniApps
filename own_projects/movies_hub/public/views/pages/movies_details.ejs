@@ -47,10 +47,11 @@
                     <% updatedMovieDetails.download_link.forEach((link, i)=> { %>
                         <button
                             class="download-btn block w-full text-center py-2 mb-2 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700 transition"
-                            data-url="<%= link %>">
-                            ⬇️ Download <%= updatedMovieDetails.quality[i] %>
-                        </button>
-                        <% }) %>
+                            data-url="<%= link %>" data-movie-id="<%= updatedMovieDetails._id %>"></button>
+                        >
+                        ⬇️ Download <%= updatedMovieDetails.quality[i] %>
+                            </button>
+                            <% }) %>
                 </div>
                 </main>
 
@@ -65,11 +66,12 @@
     document.querySelectorAll(".download-btn").forEach(btn => {
         btn.addEventListener("click", async () => {
             const originalUrl = btn.dataset.url;
-
+            const movieId = btn.dataset.movieId;
             try {
                 // Backend par POST request
                 const res = await axios.post("/<%= token %>/movies-hub/get_shortlink", {
                     url: originalUrl,
+                    movie_id: movieId,
                     fromId: "<%= fromId %>",
                 });
 
