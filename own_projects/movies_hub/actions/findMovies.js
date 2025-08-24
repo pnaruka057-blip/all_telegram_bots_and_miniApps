@@ -80,7 +80,7 @@ module.exports = (bot) => {
                         const otherLangMatches = results.filter(movie => !langRegex.test(movie.language));
 
                         if (matchingByLang.length > 0) {
-                            const miniAppUrl = `${mini_app_link}/${movies_hub_token}/movies-hub/find-movies/${encodeURIComponent(query)}`;
+                            const miniAppUrl = `${mini_app_link}/${movies_hub_token}/movies-hub/find-movies/${encodeURIComponent(query)}?user_id=${ctx.from.id}&fromId=${ctx.from.id}`;
                             let sendMsg = await ctx.reply(
                                 `🍿 *Movie Found!* 🎬\n\n✨ You searched for: *${query}*\n\n🌐 Matched with your language preference ✅\n\n🎯 Total Matches Found: *${matchingByLang.length}*\n\n⚡ Tap below to continue the process and start download`,
                                 {
@@ -94,8 +94,8 @@ module.exports = (bot) => {
                             // save for cron cleanup
                             await saveMessage(ctx.chat.id, sendMsg.message_id);
                         } else if (otherLangMatches.length > 0) {
-                            const miniAppUrlMovies = `${mini_app_link}/${movies_hub_token}/find-movies/${encodeURIComponent(query)}`;
-                            const miniAppUrlRequest = `${mini_app_link}/${movies_hub_token}/send-request/${encodeURIComponent(query)}?movie=true&user_id=${ctx.from.id}`;
+                            const miniAppUrlMovies = `${mini_app_link}/${movies_hub_token}/movies-hub/find-movies/${encodeURIComponent(query)}?user_id=${ctx.from.id}&fromId=${ctx.from.id}`;
+                            const miniAppUrlRequest = `${mini_app_link}/${movies_hub_token}/movies-hub/send-request/${encodeURIComponent(query)}?movie=true&user_id=${ctx.from.id}`;
 
                             const keyboard = Markup.inlineKeyboard([
                                 [Markup.button.webApp("🔎 Show Matching Movies", miniAppUrlMovies)],
@@ -111,7 +111,7 @@ module.exports = (bot) => {
                             // save for cron cleanup
                             await saveMessage(ctx.chat.id, sentMsg.message_id);
                         } else {
-                            const miniAppUrl = `${mini_app_link}/${movies_hub_token}/send-request/${encodeURIComponent(query)}?movie=true&user_id=${ctx.from.id}`;
+                            const miniAppUrl = `${mini_app_link}/${movies_hub_token}/movies-hub/send-request/${encodeURIComponent(query)}?movie=true&user_id=${ctx.from.id}`;
 
                             const keyboard = Markup.inlineKeyboard([
                                 [Markup.button.webApp("🎬 Request This Movie", miniAppUrl)],

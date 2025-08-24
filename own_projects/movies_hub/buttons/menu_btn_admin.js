@@ -7,10 +7,10 @@ module.exports = async (ctx) => {
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback("🎬 Add Movie", "ADD_MOVIE_ADMIN_PANEL"), Markup.button.callback("📝 Edit Movie", "EDIT_MOVIE_ADMIN_PANEL")],
         [Markup.button.callback("📺 Add Show", "ADD_SHOW_ADMIN_PANEL"), Markup.button.callback("📝 Edit Show", "EDIT_SHOW_ADMIN_PANEL")],
-        [Markup.button.callback("⭐ Manage Premium Users", "MANAGE_PREMIUM_USERS")],
+        // [Markup.button.callback("⭐ Manage Premium Users", "MANAGE_PREMIUM_USERS")],
         [
             Markup.button.webApp(
-                "🎯 Requested Movies",
+                "🎯 Users All Requestes",
                 `${process.env.GLOBLE_DOMAIN || ""}/${process.env.MOVIES_HUB_TOKEN}/movies-hub/view_requests`
             )
         ],

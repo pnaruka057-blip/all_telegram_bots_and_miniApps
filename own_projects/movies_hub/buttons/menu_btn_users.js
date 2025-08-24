@@ -36,7 +36,7 @@ module.exports = async (ctx) => {
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.webApp("🎬 Get Movies", miniAppUrl)], // ✅ Mini App button
         [Markup.button.callback("🔍 Find Movies", "FIND_MOVIES"), Markup.button.callback("📺 Find Shows", "FIND_SHOWS")],
-        [Markup.button.callback("📘 Help Guide", "HELP_GUIDE")],
+        // [Markup.button.callback("📘 Help Guide", "HELP_GUIDE")],
         [Markup.button.url("📢 Join Official Channel", `https://t.me/${process.env.CHANNEL_ID_MOVIEHUB}`)],
         [Markup.button.callback("🌐 Change Language", "CHANGE_LANGUAGE")],
         [Markup.button.callback("💸 Earn Money with Us 💸", "USER_EARN_MONEY")]

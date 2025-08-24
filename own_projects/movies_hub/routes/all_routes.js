@@ -36,17 +36,27 @@ app.get("/movies-hub", async (req, res) => {
         const totalMovies = await movies_module.countDocuments();
         const totalMoviePages = Math.ceil(totalMovies / limit);
 
-        const movies = await movies_module.find()
-            .skip((currentPage - 1) * limit)
-            .limit(limit);
+        const movies = await movies_module.aggregate([
+            {
+                $addFields: { releaseDateObj: { $dateFromString: { dateString: "$release_date", format: "%d %b %Y" } } }
+            },
+            { $sort: { download_count: -1, releaseDateObj: -1 } },
+            { $skip: (currentPage - 1) * limit },
+            { $limit: limit }
+        ]);
 
         // Shows ke liye pagination (agar alag se chahiye)
         const totalShows = await shows_module.countDocuments();
         const totalShowPages = Math.ceil(totalShows / limit);
 
-        const shows = await shows_module.find()
-            .skip((currentPage - 1) * limit)
-            .limit(limit);
+        const shows = await shows_module.aggregate([
+            {
+                $addFields: { releaseDateObj: { $dateFromString: { dateString: "$release_date", format: "%d %b %Y" } } }
+            },
+            { $sort: { download_count: -1, releaseDateObj: -1 } },
+            { $skip: (currentPage - 1) * limit },
+            { $limit: limit }
+        ]);
 
         res.render("pages/home", {
             currentPath: '/',
@@ -97,26 +107,38 @@ app.get('/movies-hub/search', async (req, res) => {
             filter.category = { $regex: category, $options: 'i' };
         }
 
-        totalItems = await Model.countDocuments(filter);
-        items = await Model.find(filter)
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .lean();
+        // ---------------- Step 2: Aggregate with sort ----------------
+        const aggregatePipeline = [
+            { $match: filter },
+            {
+                $addFields: {
+                    releaseDateObj: {
+                        $dateFromString: { dateString: "$release_date", format: "%d %b %Y" }
+                    }
+                }
+            },
+            { $sort: { download_count: -1, releaseDateObj: -1 } },
+            { $skip: (page - 1) * limit },
+            { $limit: limit }
+        ];
 
-        // ---------------- Step 2: Word-to-word search (ignore numbers) ----------------
+        items = await Model.aggregate(aggregatePipeline);
+
+        // Total count
+        totalItems = await Model.countDocuments(filter);
+        const totalPages = Math.ceil(totalItems / limit);
+
+        // ---------------- Step 3: Word-to-word search (ignore numbers) if no result ----------------
         if (search && items.length === 0) {
             const words = search
-                .split(/\s+/)          // whitespace se split
-                .map(w => w.trim())    // trim
-                .filter(w => /^[a-zA-Z]+$/.test(w)); // sirf alphabets allow
+                .split(/\s+/)
+                .map(w => w.trim())
+                .filter(w => /^[a-zA-Z]+$/.test(w));
 
             if (words.length > 0) {
                 const regexWords = words.map(w => ({ title: { $regex: w, $options: "i" } }));
 
                 filter = { $or: regexWords };
-
-                // Agar category diya hai to usko bhi add karo
                 if (category) {
                     filter = {
                         $and: [
@@ -126,16 +148,25 @@ app.get('/movies-hub/search', async (req, res) => {
                     };
                 }
 
+                // Re-run aggregate
+                const aggregatePipeline2 = [
+                    { $match: filter },
+                    {
+                        $addFields: {
+                            releaseDateObj: {
+                                $dateFromString: { dateString: "$release_date", format: "%d %b %Y" }
+                            }
+                        }
+                    },
+                    { $sort: { download_count: -1, releaseDateObj: -1 } },
+                    { $skip: (page - 1) * limit },
+                    { $limit: limit }
+                ];
+
+                items = await Model.aggregate(aggregatePipeline2);
                 totalItems = await Model.countDocuments(filter);
-                items = await Model.find(filter)
-                    .sort({ createdAt: -1 })
-                    .skip((page - 1) * limit)
-                    .limit(limit)
-                    .lean();
             }
         }
-
-        const totalPages = Math.ceil(totalItems / limit);
 
         // JSON Response
         res.json({
@@ -165,7 +196,7 @@ app.get('/movies-hub/find-movies/:movie_query', async (req, res) => {
         const currentPage = 1;
         const limit = 12;
         const searchQuery = req.params.movie_query;
-        const user_id = req.query.userId;
+        const user_id = req.query.userId || req.query.user_id;
         const fromId = req.query.fromId;
 
         let movies = [];
@@ -380,7 +411,7 @@ app.get('/movies-hub/find-shows/:show_query', async (req, res) => {
 app.get('/movies-hub/send-request/:query', async (req, res) => {
     try {
         const query = req.params.query;
-        const { movie, show, user_id } = req.query; // query params se values nikal lo
+        const { movie, show, user_id, fromId } = req.query; // query params se values nikal lo
 
         // Type set karo (default null)
         let type = null;
@@ -397,6 +428,7 @@ app.get('/movies-hub/send-request/:query', async (req, res) => {
             currentPath: '/movies-hub/send-request',
             query,
             user_id,
+            fromId,
             type, // movie/show
             user, // {name, username, profile_logo, language}
             developer_telegram_username,

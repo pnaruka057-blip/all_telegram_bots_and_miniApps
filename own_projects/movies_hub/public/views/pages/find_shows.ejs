@@ -3,37 +3,19 @@
     <!-- Main Content: Grid -->
     <main id="contentGrid"
         class="overflow-y-auto px-6 py-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 animate-background h-full content-start">
-
-        <% if (shows && shows.length> 0) { %>
-            <% shows.forEach(show=> { %>
-                <a href="/<%= token %>/movies-hub/show_details?userId=<%= user_id %>&show_id=<%= show._id %>&fromId=<%= fromId %>"
-                    class="bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition" data-type="show">
-                    <div class="w-full h-48">
-                        <img src="<%= show.thumbnail %>" alt="<%= show.title %>" class="w-full h-full object-cover">
-                    </div>
-                    <div class="p-3 text-center">
-                        <h2 class="text-sm font-bold text-gray-800">
-                            <%= show.title %>
-                        </h2>
-                        <div class="flex flex-wrap justify-center gap-2 mt-2">
-                            <% show.language.split(",").forEach(lang=> { %>
-                                <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-600 rounded-full">
-                                    <%= lang.trim() %>
-                                </span>
-                                <% }) %>
-                        </div>
-                        <p class="text-xs text-gray-600 mt-2">
-                            <%= show.genre %>
-                        </p>
-                        <p class="text-xs text-purple-500 mt-1 font-semibold">
-                            <%= show.category %>
-                        </p>
-                    </div>
-                </a>
-                <% }) %>
-                    <% } else { %>
-                        <p class="text-center text-gray-500 col-span-full">No shows found.</p>
-                        <% } %>
+        <% const shimmerCount=shows && shows.length> 0 ? shows.length : 8; %>
+            <% for (let i=0; i < shimmerCount; i++) { %>
+                <div class="bg-white shadow-md rounded-lg overflow-hidden animate-pulse p-1">
+                    <!-- Image placeholder -->
+                    <div class="w-[143px] h-[281px] bg-gray-300 rounded-lg mb-3"></div>
+                    <!-- Title placeholder -->
+                    <div class="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-2"></div>
+                    <!-- Language/genre placeholder -->
+                    <div class="h-3 bg-gray-300 rounded w-1/2 mx-auto mb-2"></div>
+                    <!-- Category placeholder -->
+                    <div class="h-3 bg-gray-300 rounded w-1/3 mx-auto"></div>
+                </div>
+                <% } %>
     </main>
 
     <!-- Pagination -->
@@ -47,10 +29,10 @@
     const contentGrid = document.getElementById('contentGrid');
     const footer = document.getElementById('pagination');
 
-    let type = 'show';        // 👈 yaha fixed show hai
-    let category = '';        // category filter agar future me chahiye
+    let type = 'show';
+    let category = '';
     let currentPage = 1;
-    let searchQuery = "<%= show_query %>";  // 👈 controller se aa raha hai
+    let searchQuery = "<%= show_query %>";
 
     document.addEventListener("DOMContentLoaded", () => {
         fetchContent(currentPage);
@@ -71,25 +53,34 @@
                 return;
             }
 
-            // Render shows
-            contentGrid.innerHTML = shows.map(show => `
+            // Render shows (schema ke hisaab se)
+            contentGrid.innerHTML = shows.map(show => {
+                // collect languages from all seasons
+                let langs = [];
+                show.series.forEach(season => {
+                    if (season.language) langs.push(season.language);
+                });
+                langs = [...new Set(langs.join(",").split(",").map(l => l.trim()).filter(Boolean))];
+
+                return `
                 <a href="/<%= token %>/movies-hub/show_details?userId=<%= user_id %>&show_id=${show._id}&fromId=<%= fromId %>"
-                     class="content-item bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition" data-type="show">
-                    <div class="w-full h-48">
-                        <img src="${show.thumbnail}" alt="${show.title}" class="w-full h-full object-cover">
+                     class="content-item bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition p-1"
+                     data-type="show">
+                    <div class="w-full h-[200px] bg-gray-200 overflow-hidden rounded-lg">
+                        <img src="${show.thumbnail}" alt="${show.title}" class="w-full h-full object-fill">
                     </div>
                     <div class="p-3 text-center">
-                        <h2 class="text-sm font-bold text-gray-800">${show.title}</h2>
+                        <h2 class="text-sm font-bold text-gray-800 truncate-3-lines">${show.title}</h2>
                         <div class="flex flex-wrap justify-center gap-2 mt-2">
-                            ${show.language.split(",").map(lang => `
-                                <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-600 rounded-full">${lang.trim()}</span>
+                            ${langs.map(lang => `
+                                <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-600 rounded-full">${lang}</span>
                             `).join("")}
                         </div>
                         <p class="text-xs text-gray-600 mt-2">${show.genre}</p>
                         <p class="text-xs text-purple-500 mt-1 font-semibold">${show.category}</p>
                     </div>
-                </a>
-            `).join("");
+                </a>`;
+            }).join("");
 
             renderPagination(totalPages);
 
@@ -105,7 +96,6 @@
         footer.innerHTML = "";
         if (!totalPages || totalPages <= 1) return;
 
-        // Prev
         if (currentPage > 1) {
             footer.innerHTML += `<a href="#" data-page="${currentPage - 1}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Prev</a>`;
         }
@@ -128,12 +118,10 @@
             }
         });
 
-        // Next
         if (currentPage < totalPages) {
             footer.innerHTML += `<a href="#" data-page="${currentPage + 1}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Next</a>`;
         }
 
-        // Attach click handlers
         footer.querySelectorAll('a[data-page]').forEach(link => {
             link.addEventListener('click', e => {
                 e.preventDefault();

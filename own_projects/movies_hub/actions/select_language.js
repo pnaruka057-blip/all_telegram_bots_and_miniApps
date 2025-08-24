@@ -4,11 +4,24 @@ const menu_btn_users = require("../buttons/menu_btn_users");
 module.exports = (bot, Markup) => {
     bot.action("CHANGE_LANGUAGE", async (ctx) => {
         await ctx.answerCbQuery();
-        ctx.editMessageText("Please select your preferred language:", Markup.inlineKeyboard([
-            [Markup.button.callback("🇬🇧 English", "LANG_EN"), Markup.button.callback("🇮🇳 Hindi", "LANG_HI")],
-            [Markup.button.callback("Request New", "LANG_REQUEST")],
-            [Markup.button.callback("⬅ Back", "GOBACK_TO_MENU")],
-        ]));
+
+        ctx.editMessageText("Please select your preferred language:", {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        { text: "🇬🇧 English", callback_data: "LANG_EN" },
+                        { text: "🇮🇳 Hindi", callback_data: "LANG_HI" }
+                    ],
+                    [
+                        { text: "🇮🇳 Tamil", callback_data: "LANG_TM" },
+                        { text: "🇮🇳 Telugu", callback_data: "LANG_TE" }
+                    ],
+                    [
+                        { text: "⬅ Back", callback_data: "GOBACK_TO_MENU" }
+                    ]
+                ]
+            }
+        });
     });
 
     bot.action("GOBACK_TO_MENU", async (ctx) => {
@@ -25,6 +38,18 @@ module.exports = (bot, Markup) => {
         await users_module.updateOne({ user_id: ctx.from.id }, { language: "Hindi" });
         menu_btn_users(ctx);
         ctx.answerCbQuery("Language set to Hindi");
+    });
+
+    bot.action("LANG_TM", async (ctx) => {
+        await users_module.updateOne({ user_id: ctx.from.id }, { language: "Tamil" });
+        menu_btn_users(ctx);
+        ctx.answerCbQuery("Language set to Tamil");
+    });
+
+    bot.action("LANG_TE", async (ctx) => {
+        await users_module.updateOne({ user_id: ctx.from.id }, { language: "Telugu" });
+        menu_btn_users(ctx);
+        ctx.answerCbQuery("Language set to Telugu");
     });
 
     const waitingForLanguage = new Map();

@@ -1,281 +1,229 @@
-<!-- Main Wrapper -->
-<section class="w-full max-w-sm bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col min-h-[100svh]">
+<body class="bg-gray-800 flex justify-center items-center select-none">
+    <!-- Main Wrapper -->
+    <section class="w-full max-w-sm bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col min-h-[100svh]">
 
-    <!-- Header: Toggle Movies / Shows + Categories + Search -->
-    <header class="px-6 py-4 space-y-4">
-        <!-- Toggle Buttons -->
-        <div class="flex space-x-4 mb-4 justify-center">
-            <button id="btnMovies" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Movies</button>
-            <button id="btnShows" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-blue-600">Shows</button>
-        </div>
+        <!-- Header: Toggle Movies / Shows + Categories + Search -->
+        <header class="px-6 py-4 space-y-4">
+            <!-- Toggle Buttons -->
+            <div class="flex space-x-4 mb-4 justify-center">
+                <button id="btnMovies"
+                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Movies</button>
+                <button id="btnShows"
+                    class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-blue-600">Shows</button>
+            </div>
 
-        <!-- Stylish Divider -->
-        <div class="relative my-4">
-            <div class="border-t border-gray-300"></div>
-            <span
-                class="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-white px-3 text-gray-500 text-xs font-medium">
-                Categories
-            </span>
-        </div>
+            <!-- Stylish Divider -->
+            <div class="relative my-4">
+                <div class="border-t border-gray-300"></div>
+                <span
+                    class="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-white px-3 text-gray-500 text-xs font-medium">
+                    Categories
+                </span>
+            </div>
 
-        <!-- Movie/Show Categories -->
-        <div id="categories" class="flex flex-wrap justify-center gap-3 pb-2 text-sm">
-            <button class="px-4 py-2 bg-gray-300 text-gray-700 rounded-xl hover:bg-gray-400">All</button>
-            <button class="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600">Bollywood</button>
-            <button class="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600">Hollywood Dual</button>
-            <button class="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600">Hollywood</button>
-            <button class="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600">South Dual</button>
-            <button class="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600">Anime</button>
-        </div>
+            <!-- Movie/Show Categories -->
+            <div id="categories" class="flex flex-wrap justify-center gap-3 pb-2 text-sm">
+                <button class="px-4 py-2 bg-gray-300 text-gray-700 rounded-xl hover:bg-gray-400">All</button>
+                <button class="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600">Bollywood</button>
+                <button class="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600">Hollywood Dual</button>
+                <button class="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600">Hollywood</button>
+                <button class="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600">South Dual</button>
+                <button class="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600">Anime</button>
+            </div>
 
-        <!-- Search Bar -->
-        <div class="relative">
-            <input type="text" id="searchContent" placeholder="Search..."
-                class="w-full px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <button id="searchBtn"
-                class="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1 bg-blue-500 text-white rounded-full hover:bg-blue-600">
-                Search
-            </button>
-        </div>
-    </header>
+            <!-- Search Bar -->
+            <div class="relative">
+                <input type="text" id="searchContent" placeholder="Search..."
+                    class="w-full px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <button id="searchBtn"
+                    class="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1 bg-blue-500 text-white rounded-full hover:bg-blue-600">
+                    Search
+                </button>
+            </div>
+        </header>
 
-    <!-- Main Content: Grid -->
-    <main id="contentGrid"
-        class="flex-1 overflow-y-scroll px-6 py-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 bg-gray-50 animate-background">
+        <!-- Main Content: Grid -->
+        <main id="contentGrid"
+            class="flex-1 overflow-y-scroll px-6 py-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 bg-gray-50 animate-background">
+        </main>
 
-        <% if (movies && movies.length> 0) { %>
-            <% movies.forEach(movie=> { %>
-                <a href="/<%= token %>/movies-hub/movie_details?userId=<%= user_id %>&movie_id=<%= movie._id %>&fromId=<%= fromId %>"
-                    class="content-item bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition"
-                    data-type="movie">
-                    <div class="w-full h-48">
-                        <img src="<%= movie.thumbnail %>" alt="<%= movie.title %>" class="w-full h-full object-cover">
-                    </div>
-                    <div class="p-3 text-center">
-                        <h2 class="text-sm font-bold text-gray-800">
-                            <%= movie.title %>
-                        </h2>
-                        <div class="flex flex-wrap justify-center gap-2 mt-2">
-                            <% movie.language.split(",").forEach(lang=> { %>
-                                <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-600 rounded-full">
-                                    <%= lang.trim() %>
-                                </span>
-                                <% }) %>
-                        </div>
-                        <p class="text-xs text-gray-600 mt-2">
-                            <%= movie.genre %>
-                        </p>
-                        <p class="text-xs text-purple-500 mt-1 font-semibold">
-                            <%= movie.category %>
-                        </p>
-                    </div>
-                </a>
-                <% }) %>
-                    <% } else { %>
-                        <p class="text-center text-gray-500 col-span-full">No movies found.</p>
-                        <% } %>
+        <!-- Pagination -->
+        <footer id="pagination" class="px-6 flex justify-center space-x-2"></footer>
 
-                            <% if (shows && shows.length> 0) { %>
-                                <% shows.forEach(show=> { %>
-                                    <a href="/<%= token %>/movies-hub/show_details?userId=<%= user_id %>&show_id=<%= show._id %>&fromId=<%= fromId %>"
-                                        class="content-item bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition hidden"
-                                        data-type="show">
-                                        <div class="w-full h-48">
-                                            <img src="<%= show.thumbnail %>" alt="<%= show.title %>"
-                                                class="w-full h-full object-cover">
-                                        </div>
-                                        <div class="p-3 text-center">
-                                            <h2 class="text-sm font-bold text-gray-800">
-                                                <%= show.title %>
-                                            </h2>
-                                            <p class="text-xs text-gray-600 mt-2">
-                                                <%= show.language %> | <%= show.genre %>
-                                            </p>
-                                            <p class="text-xs text-purple-500 mt-1 font-semibold">
-                                                <%= show.category %>
-                                            </p>
-                                            <a href="/shows/<%= show.slug %>"
-                                                class="mt-2 inline-block text-blue-500 text-xs hover:underline">View
-                                                Details</a>
-                                        </div>
-                                    </a>
-                                    <% }) %>
-                                        <% } else { %>
-                                            <p class="text-center text-gray-500 col-span-full">No shows found.</p>
-                                            <% } %>
+        <!-- Navigation / Footer -->
+        <%- include('../partials/footer') %>
+    </section>
 
-    </main>
+    <script>
+        const btnMovies = document.getElementById('btnMovies');
+        const btnShows = document.getElementById('btnShows');
+        const contentGrid = document.getElementById('contentGrid');
+        const searchInput = document.getElementById('searchContent');
+        const searchBtn = document.getElementById('searchBtn');
+        const categories = document.querySelectorAll('#categories button');
+        const footer = document.getElementById('pagination');
 
-    <!-- Pagination -->
-    <footer id="pagination" class="px-6 flex justify-center space-x-2"></footer>
+        const movies_array = <%- JSON.stringify(movies) %>;
+        const shows_array = <%- JSON.stringify(shows) %>;
 
-    <!-- Navigation / Footer -->
-    <%- include('../partials/footer') %>
-</section>
+        let type = 'movie';
+        let category = '';
+        let currentPage = 1;
 
-<script>
-    const btnMovies = document.getElementById('btnMovies');
-    const btnShows = document.getElementById('btnShows');
-    const contentGrid = document.getElementById('contentGrid');
-    const searchInput = document.getElementById('searchContent');
-    const searchBtn = document.getElementById('searchBtn');
-    const categories = document.querySelectorAll('#categories button');
-    const footer = document.getElementById('pagination');
-
-    let type = 'movie'; // default
-    let category = '';
-    let currentPage = 1;
-
-    // Page load pe default content fetch karo
-    document.addEventListener("DOMContentLoaded", () => {
-        fetchContent(1);
-    });
-
-    // Toggle type
-    btnMovies.addEventListener('click', () => {
-        type = 'movie';
-        setActive(btnMovies, btnShows);
-        fetchContent(1);
-    });
-
-    btnShows.addEventListener('click', () => {
-        type = 'show';
-        setActive(btnShows, btnMovies);
-        fetchContent(1);
-    });
-
-    // Category filter
-    categories.forEach(btn => {
-        btn.addEventListener('click', () => {
-            category = btn.innerText === 'All' ? '' : btn.innerText;
+        document.addEventListener("DOMContentLoaded", () => {
             fetchContent(1);
         });
-    });
 
-    // Search
-    searchBtn.addEventListener('click', () => {
-        fetchContent(1);
-    });
-
-    function setActive(activeBtn, inactiveBtn) {
-        activeBtn.classList.add('bg-blue-500', 'text-white');
-        activeBtn.classList.remove('bg-gray-300', 'text-gray-700');
-        inactiveBtn.classList.add('bg-gray-300', 'text-gray-700');
-        inactiveBtn.classList.remove('bg-blue-500', 'text-white');
-    }
-
-    // Fetch data
-    async function fetchContent(page = 1) {
-        currentPage = page;
-        const query = searchInput.value;
-
-        try {
-            // EJS injected base token/domain (make sure token is injected correctly in EJS)
-            const url = `/<%= token %>/movies-hub/search?type=${type}&search=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}&page=${page}&fromId=<%= fromId %>`;
-            const res = await axios.get(url);
-
-            const { success, movies, shows, totalPages } = res.data;
-
-            if (!success) {
-                contentGrid.innerHTML = `<p class="text-center text-gray-500 col-span-full">No data found.</p>`;
-                footer.innerHTML = "";
-                return;
-            }
-
-            const items = type === 'movie' ? movies : shows;
-
-            if (!items || items.length === 0) {
-                contentGrid.innerHTML = `<p class="text-center text-gray-500 col-span-full">No data found.</p>`;
-                footer.innerHTML = "";
-                return;
-            }
-
-            // Render new content
-            contentGrid.innerHTML = items.map(item => `
-            <a href="/<%= token %>/movies-hub/${type}_details?userId=<%= user_id %>&${type}_id=${item._id}&fromId=<%= fromId %>"
-            class="content-item bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition"
-            data-type="${type}">
-                <div class="w-full h-48">
-                    <img src="${item.thumbnail}" alt="${item.title}" class="w-full h-full object-cover">
-                </div>
-                <div class="p-3 text-center">
-                    <h2 class="text-sm font-bold text-gray-800">${item.title}</h2>
-                    <div class="flex flex-wrap justify-center gap-2 mt-2">
-                        ${item.language.split(",").map(lang => `
-                            <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-600 rounded-full">${lang.trim()}</span>
-                        `).join("")}
-                    </div>
-                    <p class="text-xs text-gray-600 mt-2">${item.genre}</p>
-                    <p class="text-xs text-purple-500 mt-1 font-semibold">${item.category}</p>
-                </div>
-            </a>
-            `).join("");
-
-            renderPagination(totalPages);
-
-        } catch (err) {
-            console.error("Error fetching content:", err);
-            contentGrid.innerHTML = `<p class="text-center text-red-500 col-span-full">Error loading content.</p>`;
-            footer.innerHTML = "";
-        }
-    }
-
-    // Pagination rendering — max 5 tokens (numbers/ellipses)
-    function renderPagination(totalPages) {
-        footer.innerHTML = "";
-
-        if (!totalPages || totalPages <= 1) {
-            footer.classList.add("hidden"); // hide if only 1 or no page
-            return;
-        }
-
-        footer.classList.remove("hidden"); // show only if multiple pages
-
-        // Prev
-        if (currentPage > 1) {
-            footer.innerHTML += `<a href="#" data-page="${currentPage - 1}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Prev</a>`;
-        }
-
-        let tokens = [];
-
-        if (totalPages <= 5) {
-            // show all pages
-            for (let i = 1; i <= totalPages; i++) tokens.push(i);
-        } else {
-            if (currentPage <= 3) {
-                // start: 1 2 3 ... last
-                tokens = [1, 2, 3, '...', totalPages];
-            } else if (currentPage >= totalPages - 2) {
-                // end: 1 ... last-2 last-1 last
-                tokens = [1, '...', totalPages - 2, totalPages - 1, totalPages];
-            } else {
-                // middle: 1 ... current ... last  (only current in middle)
-                tokens = [1, '...', currentPage, '...', totalPages];
-            }
-        }
-
-        // Render tokens
-        tokens.forEach(token => {
-            if (token === '...') {
-                footer.innerHTML += `<span class="px-3 py-1 text-gray-500">...</span>`;
-            } else {
-                const isActive = token === currentPage;
-                footer.innerHTML += `<a href="#" data-page="${token}" class="px-3 py-1 rounded ${isActive ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}">${token}</a>`;
-            }
+        btnMovies.addEventListener('click', () => {
+            type = 'movie';
+            setActive(btnMovies, btnShows);
+            fetchContent(1);
         });
 
-        // Next
-        if (currentPage < totalPages) {
-            footer.innerHTML += `<a href="#" data-page="${currentPage + 1}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Next</a>`;
-        }
+        btnShows.addEventListener('click', () => {
+            type = 'show';
+            setActive(btnShows, btnMovies);
+            fetchContent(1);
+        });
 
-        // Attach click handlers only for anchors with data-page
-        footer.querySelectorAll('a[data-page]').forEach(link => {
-            link.addEventListener('click', e => {
-                e.preventDefault();
-                const page = parseInt(link.dataset.page);
-                if (!isNaN(page)) fetchContent(page);
+        categories.forEach(btn => {
+            btn.addEventListener('click', () => {
+                category = btn.innerText === 'All' ? '' : btn.innerText;
+                fetchContent(1);
             });
         });
-    }
-</script>
+
+        searchBtn.addEventListener('click', () => {
+            fetchContent(1);
+        });
+
+        function setActive(activeBtn, inactiveBtn) {
+            activeBtn.classList.add('bg-blue-500', 'text-white');
+            activeBtn.classList.remove('bg-gray-300', 'text-gray-700');
+            inactiveBtn.classList.add('bg-gray-300', 'text-gray-700');
+            inactiveBtn.classList.remove('bg-blue-500', 'text-white');
+        }
+
+        // Shimmer template generator
+        function renderShimmer(count = 8) {
+            if (type === 'show') count = shows_array.length; // fewer for shows
+            if (type === 'movie') count = movies_array.length; // more for movies
+
+            return Array.from({ length: count }).map(() => `
+                <div class="bg-white shadow-md rounded-lg overflow-hidden animate-pulse p-1">
+                    <div class="w-[143px] h-[281px] bg-gray-300 rounded-lg mb-3"></div>
+                    <div class="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-2"></div>
+                    <div class="h-3 bg-gray-300 rounded w-1/2 mx-auto mb-2"></div>
+                    <div class="h-3 bg-gray-300 rounded w-1/3 mx-auto"></div>
+                </div>
+            `).join("");
+        }
+
+        async function fetchContent(page = 1) {
+            currentPage = page;
+            const query = searchInput.value;
+
+            try {
+                // 👇 shimmer ON
+                contentGrid.innerHTML = renderShimmer();
+
+                const url = `/<%= token %>/movies-hub/search?type=${type}&search=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}&page=${page}&fromId=<%= fromId %>`;
+                const res = await axios.get(url);
+
+                const { success, movies, shows, totalPages } = res.data;
+
+                if (!success) {
+                    contentGrid.innerHTML = `<p class="text-center text-gray-500 col-span-full">No data found.</p>`;
+                    footer.innerHTML = "";
+                    return;
+                }
+
+                const items = type === 'movie' ? movies : shows;
+
+                if (!items || items.length === 0) {
+                    contentGrid.innerHTML = `<p class="text-center text-gray-500 col-span-full">No data found.</p>`;
+                    footer.innerHTML = "";
+                    return;
+                }
+
+                contentGrid.innerHTML = items.map(item => {
+                    let season = (item.series && item.series.length > 0) ? item.series[item.series.length - 1] : null;
+                    let languages = season ? season.language.split(",") : (item.language ? item.language.split(",") : []);
+                    let releaseDate = season ? season.release_date : item.release_date || "";
+
+                    return `
+                        <a href="/<%= token %>/movies-hub/${type}_details?userId=<%= user_id %>&${type}_id=${item._id}&fromId=<%= fromId %>"
+                        class="content-item bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition p-1"
+                        data-type="${type}">
+                            <div class="w-full">
+                                <div class="w-full h-[200px] bg-gray-200 overflow-hidden rounded-lg">
+                                    <img src="${item.thumbnail}" alt="${item.title}" class="w-full h-full object-fill">
+                                </div>
+                            </div>
+                            <div class="p-3 text-center">
+                                <h2 class="text-sm font-bold text-gray-800 truncate-3-lines">${item.title}</h2>
+                                <div class="flex flex-wrap justify-center gap-2 mt-2">
+                                    ${languages.map(lang => `
+                                        <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-600 rounded-full">${lang.trim()}</span>
+                                    `).join("")}
+                                </div>
+                                <p class="text-xs text-gray-600 mt-2">${item.genre || ''}</p>
+                                ${releaseDate ? `<p class="text-xs text-gray-500">${releaseDate}</p>` : ''}
+                                <p class="text-xs text-purple-500 mt-1 font-semibold">${item.category}</p>
+                            </div>
+                        </a>
+                    `;
+                }).join("");
+
+                renderPagination(totalPages);
+            } catch (err) {
+                console.error("Error fetching content:", err);
+                contentGrid.innerHTML = `<p class="text-center text-red-500 col-span-full">Error loading content.</p>`;
+                footer.innerHTML = "";
+            }
+        }
+
+        function renderPagination(totalPages) {
+            footer.innerHTML = "";
+            if (!totalPages || totalPages <= 1) {
+                footer.classList.add("hidden");
+                return;
+            }
+            footer.classList.remove("hidden");
+
+            if (currentPage > 1) {
+                footer.innerHTML += `<a href="#" data-page="${currentPage - 1}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Prev</a>`;
+            }
+
+            let tokens = [];
+            if (totalPages <= 5) {
+                for (let i = 1; i <= totalPages; i++) tokens.push(i);
+            } else {
+                if (currentPage <= 3) tokens = [1, 2, 3, '...', totalPages];
+                else if (currentPage >= totalPages - 2) tokens = [1, '...', totalPages - 2, totalPages - 1, totalPages];
+                else tokens = [1, '...', currentPage, '...', totalPages];
+            }
+
+            tokens.forEach(token => {
+                if (token === '...') {
+                    footer.innerHTML += `<span class="px-3 py-1 text-gray-500">...</span>`;
+                } else {
+                    const isActive = token === currentPage;
+                    footer.innerHTML += `<a href="#" data-page="${token}" class="px-3 py-1 rounded ${isActive ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}">${token}</a>`;
+                }
+            });
+
+            if (currentPage < totalPages) {
+                footer.innerHTML += `<a href="#" data-page="${currentPage + 1}" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Next</a>`;
+            }
+
+            footer.querySelectorAll('a[data-page]').forEach(link => {
+                link.addEventListener('click', e => {
+                    e.preventDefault();
+                    const page = parseInt(link.dataset.page);
+                    if (!isNaN(page)) fetchContent(page);
+                });
+            });
+        }
+    </script>
+</body>

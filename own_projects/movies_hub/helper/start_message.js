@@ -90,9 +90,9 @@ module.exports = async (bot, ctx) => {
         const welcomeText = `${randomMessage.replace(/!/g, '\\!')} *Hi ${escapeMarkdownV2(userFirstName)}* 👋\n\nPlease select your preferred language to continue with accessing your favorite *Movies & Shows*\\.`
 
         ctx.replyWithMarkdownV2(welcomeText, Markup.inlineKeyboard([
-            [Markup.button.callback("🇬🇧 English", "LANG_EN")],
-            [Markup.button.callback("🇮🇳 Hindi", "LANG_HI")],
-            [Markup.button.callback("Request", "LANG_REQUEST")]
+            [Markup.button.callback("🇬🇧 English", "LANG_EN"), Markup.button.callback("🇮🇳 Hindi", "LANG_HI")],
+            [Markup.button.callback("🇮🇳 Tamil", "LANG_TM"), Markup.button.callback("🇮🇳 Telugu", "LANG_TE")],
+            // [Markup.button.callback("Request", "LANG_REQUEST")]
         ]));
     }
 };

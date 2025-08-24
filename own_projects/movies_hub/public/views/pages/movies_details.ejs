@@ -2,13 +2,13 @@
 <section class="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col min-h-[100svh]">
 
     <!-- Movie Thumbnail -->
-    <div class="relative w-full">
+    <div class="relative w-full max-h-[350px] overflow-hidden rounded-lg">
         <img src="<%= updatedMovieDetails.thumbnail %>" alt="<%= updatedMovieDetails.title %>"
-            class="w-full h-auto object-contain">
+            class="w-full h-full object-fill animate-verticalScroll">
         <span class="absolute top-2 left-2 bg-purple-600 text-white text-xs px-3 py-1 rounded-full shadow">
             <%= updatedMovieDetails.quality.join(", ") %>
     </span>
-    </div>
+</div>
 
     <!-- Main Content -->
     <main id=" contentGrid" class="flex-1 overflow-y-auto px-6 py-4 bg-gray-50">
@@ -48,7 +48,7 @@
                         <button
                             class="download-btn block w-full text-center py-2 mb-2 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700 transition"
                             data-url="<%= link %>">
-                            Download Link <%= i+1 %>
+                            ⬇️ Download <%= updatedMovieDetails.quality[i] %>
                         </button>
                         <% }) %>
                 </div>

@@ -69,6 +69,34 @@
         .animate-background select {
             color: black;
         }
+
+        .truncate-3-lines {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        @keyframes verticalScroll {
+            0% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20%);
+            }
+
+            /* scroll up */
+            100% {
+                transform: translateY(0);
+            }
+
+            /* scroll back to top */
+        }
+
+        .animate-verticalScroll {
+            animation: verticalScroll 8s ease-in-out infinite;
+        }
     </style>
 
 </head>
@@ -87,9 +115,12 @@
     <%- body %> <!-- dynamic page content -->
 
         <script>
-            // Show loader on every internal anchor tag click
-            document.querySelectorAll("a").forEach(link => {
-                link.addEventListener("click", function (e) {
+            document.addEventListener("DOMContentLoaded", () => {
+                // Event delegation: body pe listen karo
+                document.body.addEventListener("click", function (e) {
+                    const link = e.target.closest("a");
+                    if (!link) return;
+
                     const href = link.getAttribute("href");
                     if (href && !href.startsWith("http") && !href.startsWith("#") && !link.hasAttribute("target")) {
                         document.getElementById("pageLoader").classList.remove("hidden");
