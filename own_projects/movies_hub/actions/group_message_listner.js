@@ -101,7 +101,7 @@ module.exports = (bot) => {
   // Build keyboard: prefer web_app if in private chat; otherwise provide t.me URL (recommended for groups)
   async function buildKeyboard({ moviesCount = 0, showsCount = 0, query, fromId, user_id }) {
     const appShort = (process.env.MOVIES_HUB_APP_SHORTNAME || "").trim(); // optional shortname registered via BotFather
-    const botUsername = await getBotUsername();
+    const botUsername = process.env.BOT_USERNAME_MOVIEHUB
 
     // For group/supergroup: Telegram disallows InlineKeyboardButton.web_app => use t.me direct link (recommended)
     // If you registered a mini-app with BotFather and have appShort, you can use: https://t.me/<bot>/<app>
