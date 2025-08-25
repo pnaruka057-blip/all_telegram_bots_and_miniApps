@@ -47,7 +47,7 @@
                     <% updatedMovieDetails.download_link.forEach((link, i)=> { %>
                         <button
                             class="download-btn block w-full text-center py-2 mb-2 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700 transition"
-                            data-url="<%= link %>" data-movie-id="<%= updatedMovieDetails._id %>"></button>
+                            data-url="<%= link %>" data-movie-id="<%= updatedMovieDetails._id %>">
                         ⬇️ Download <%= updatedMovieDetails.quality[i] %>
                             </button>
                             <% }) %>
