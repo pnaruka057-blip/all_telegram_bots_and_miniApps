@@ -58,10 +58,6 @@ const addShowWizard = new Scenes.WizardScene(
         if (text === BACK) return scense_stepBack(ctx, 0, "🎬 Please enter the *Show Title* again:", "_add_show");
         if (text === '/start') return start_message(bot, ctx);
 
-        if (!text || !/^[a-zA-Z\s,]+$/.test(text)) {
-            return ctx.reply("❌ Invalid genre. Use only letters. Try again:");
-        }
-
         ctx.wizard.state.showData.genre = text.trim();
 
         let message = await ctx.reply("🖼️ Send the *Thumbnail URL* (image link):", {

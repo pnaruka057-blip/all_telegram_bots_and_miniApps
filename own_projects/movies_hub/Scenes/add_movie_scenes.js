@@ -106,10 +106,6 @@ const addMovieWizard = new Scenes.WizardScene(
             return start_message(bot, ctx)
         }
 
-        if (!/^[a-zA-Z\s,]+$/.test(text)) {
-            return ctx.reply("❌ Invalid genre. Use only letters. Try again:");
-        }
-
         ctx.wizard.state.movieData.genre = text;
         let message = await ctx.reply("🖼️ Send the *Thumbnail URL* (image link):", {
             parse_mode: "Markdown",
