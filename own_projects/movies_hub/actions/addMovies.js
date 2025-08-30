@@ -4,7 +4,7 @@ module.exports = (bot) => {
     bot.action("ADD_MOVIE_ADMIN_PANEL", async (ctx) => {
         try {
             await ctx.answerCbQuery();
-            await ctx.deleteMessage();
+            ctx.deleteMessage().catch(() => { });
             await ctx.scene.enter("ADD_MOVIE_SCENE");
         } catch (err) {
             console.error("❌ Error:", err);
