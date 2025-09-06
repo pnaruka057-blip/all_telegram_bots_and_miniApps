@@ -24,4 +24,16 @@ Movies_hub_connection.on("error", (err) => {
   console.error(`❌ moviesHub MongoDB connection error: ${err}`);
 });
 
-module.exports = { promoX_connection, Movies_hub_connection }
+// Group Help Advance
+const group_help_advance_connection = mongoose.createConnection(process.env.MONGO_URL_GROUP_HELP_ADVANCE, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+group_help_advance_connection.on("connected", () => {
+  console.log(`📦 Group Help Advance Connected to MongoDB: ${process.env.MONGO_URL_GROUP_HELP_ADVANCE}`);
+});
+group_help_advance_connection.on("error", (err) => {
+  console.error(`❌ Group Help Advance MongoDB connection error: ${err}`);
+});
+
+module.exports = { promoX_connection, Movies_hub_connection, group_help_advance_connection }

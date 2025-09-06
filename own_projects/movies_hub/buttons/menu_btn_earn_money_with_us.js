@@ -1,6 +1,6 @@
-const escapeMarkdownV2 = require("../helper/escapeMarkdownV2");
+const escapeMarkdownV2 = require("../helpers/escapeMarkdownV2");
 const { Markup } = require("telegraf");
-const users_module = require("../model/users_module"); // Assuming users_module_module is named 'users_module'
+const users_module = require("../models/users_module"); // Assuming users_module_module is named 'users_module'
 
 module.exports = async (ctx, userMessage = '', is_backbtn_show = true) => {
     try {

@@ -18,11 +18,11 @@ const managePremiumUsersWizard = require('./Scenes/manage_premium_scenes');
 const findMovies = require('./actions/findMovies');
 const findShows = require('./actions/findShows');
 const earn_money_with_us = require('./actions/earn_money_with_us');
-const start_message = require('./helper/start_message');
+const start_message = require('./helpers/start_message');
 const user_menu = require('./actions/user_menu')
 const admin_menu = require('./actions/admin_menu')
 const find_movies_shows_in_group = require('./actions/group_message_listner')
-const cron_jobs = require('./helper/cron_jobs')
+const cron_jobs = require('./helpers/cron_jobs')
 
 module.exports = (bot) => {
     // Middleware to handle sessions and scenes

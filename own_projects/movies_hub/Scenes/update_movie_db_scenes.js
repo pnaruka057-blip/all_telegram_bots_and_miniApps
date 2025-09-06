@@ -1,8 +1,8 @@
 const { Scenes, Markup } = require("telegraf");
-const movies_module = require("../model/movies_module");
+const movies_module = require("../models/movies_module");
 const menu_btn_admin = require("../buttons/menu_btn_admin");
-const cancelWizard = require("../helper/cancelWizard");
-const scense_stepBack = require("../helper/scense_stepBack");
+const cancelWizard = require("../helpers/cancelWizard");
+const scense_stepBack = require("../helpers/scense_stepBack");
 
 const BACK = "⬅ Back";
 const SKIP = "⏭ Skip";

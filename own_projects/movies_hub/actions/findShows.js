@@ -1,6 +1,6 @@
 const { Markup } = require("telegraf");
-const shows_module = require("../model/shows_module");
-const users_module = require("../model/users_module");
+const shows_module = require("../models/shows_module");
+const users_module = require("../models/users_module");
 const menu_btn_users = require("../buttons/menu_btn_users");
 const mini_app_link = process.env.GLOBLE_DOMAIN
 const movies_hub_token = process.env.MOVIES_HUB_TOKEN

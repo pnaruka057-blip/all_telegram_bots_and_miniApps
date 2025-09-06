@@ -1,9 +1,9 @@
 // group_message_listener.js
 const { Markup } = require("telegraf");
-const movies_module = require("../model/movies_module");
-const shows_module = require("../model/shows_module");
+const movies_module = require("../models/movies_module");
+const shows_module = require("../models/shows_module");
 const redis = require("../../../globle_helper/redisConfig");
-const users_module = require("../model/users_module");
+const users_module = require("../models/users_module");
 
 const MSG_TTL_SECONDS = 10 * 60; // 10 minutes
 const MSG_TTL_MS = MSG_TTL_SECONDS * 1000;

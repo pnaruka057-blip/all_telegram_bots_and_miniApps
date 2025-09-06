@@ -1,5 +1,5 @@
 const { Markup } = require("telegraf");
-const escapeMarkdownV2 = require("../helper/escapeMarkdownV2");
+const escapeMarkdownV2 = require("../helpers/escapeMarkdownV2");
 
 module.exports = async (ctx) => {
     const adminMessage = `Hi *${escapeMarkdownV2(ctx.from.first_name)}* 👋\n\nYou are the admin of this bot\\. Use the buttons below to manage the bot:`;

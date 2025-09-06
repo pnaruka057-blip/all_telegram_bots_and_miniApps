@@ -1,8 +1,8 @@
 const { Scenes, Markup } = require("telegraf");
-const shows_module = require("../model/shows_module");
-const escapeMarkdownV2 = require("../helper/escapeMarkdownV2");
-const cancelWizard = require("../helper/cancelWizard");
-const start_message = require("../helper/start_message");
+const shows_module = require("../models/shows_module");
+const escapeMarkdownV2 = require("../helpers/escapeMarkdownV2");
+const cancelWizard = require("../helpers/cancelWizard");
+const start_message = require("../helpers/start_message");
 const bot = require("../bot_index");
 
 const CANCEL = "❌ Cancel";

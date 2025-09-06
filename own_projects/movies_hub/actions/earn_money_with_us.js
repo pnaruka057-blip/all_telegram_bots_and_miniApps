@@ -1,8 +1,8 @@
 const { Markup } = require("telegraf");
-const users_module = require("../model/users_module");
+const users_module = require("../models/users_module");
 const menu_btn_earn_money_with_us = require("../buttons/menu_btn_earn_money_with_us");
-const escapeMarkdownV2 = require("../helper/escapeMarkdownV2");
-const redis_save_message_id = require("../helper/redis_save_message_id");
+const escapeMarkdownV2 = require("../helpers/escapeMarkdownV2");
+const redis_save_message_id = require("../helpers/redis_save_message_id");
 
 // Utility functions for validation
 const isValidApiLink = (url) => {

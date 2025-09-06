@@ -1,4 +1,4 @@
-const movies_module = require("../model/movies_module");
+const movies_module = require("../models/movies_module");
 
 module.exports = (bot) => {
     // Action to enter movie editing wizard

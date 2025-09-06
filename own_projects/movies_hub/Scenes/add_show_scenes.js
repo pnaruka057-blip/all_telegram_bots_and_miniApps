@@ -1,9 +1,9 @@
 const { Scenes, Markup } = require("telegraf");
-const shows_module = require("../model/shows_module");
+const shows_module = require("../models/shows_module");
 const menu_btn_admin = require("../buttons/menu_btn_admin");
-const cancelWizard = require("../helper/cancelWizard");
-const scense_stepBack = require("../helper/scense_stepBack");
-const start_message = require("../helper/start_message");
+const cancelWizard = require("../helpers/cancelWizard");
+const scense_stepBack = require("../helpers/scense_stepBack");
+const start_message = require("../helpers/start_message");
 const bot = require("../bot_index");
 
 const BACK = "⬅ Back";

@@ -1,4 +1,4 @@
-const users_module = require("../model/users_module");
+const users_module = require("../models/users_module");
 const menu_btn_users = require("../buttons/menu_btn_users");
 
 module.exports = (bot, Markup) => {

@@ -10,9 +10,10 @@ const cookieParser = require('cookie-parser');
 const promoX_routes = require('./clients/PromoX/routes/all_routes')
 const movies_hub_routes = require('./own_projects/movies_hub/routes/all_routes')
 const promoX_all_actions = require('./clients/PromoX/bot_handler/promoX_bot')
-const message_auto_save_and_post = require('./clients/mr_akash/Message_auto_save_and_post/message_auto_save_and_post')
+const message_auto_save_and_post = require('./clients/mr_akash/Message_auto_save_and_post_and_delete/Message_auto_save_and_post_and_delete')
 const crypto_news_all_actions = require('./clients/mr_akash/Crypto_news/crypto_news_bot')
 const movies_hub_all_actions = require('./own_projects/movies_hub/bot_index')
+const group_help_advance_all_actions = require('./own_projects/Group_help_advance/bot_index')
 const globle_domain = process.env.GLOBLE_DOMAIN
 
 // all system middleware
@@ -50,7 +51,7 @@ if (process.env.CRYPTO_NEWS_NODE_ENV && process.env.CRYPTO_NEWS_NODE_ENV !== 'de
     );
 }
 
-// Initialize and launch Message Auto Save and Post bot only if MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV is not 'development'
+// Initialize and launch Message Auto Save and Post and delete bot only if MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV is not 'development'
 if (process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV !== 'development') {
     const message_auto_save_and_post_bot = new Telegraf(process.env.BOT_TOKEN_MESSAGE_AUTO_SAVE_AND_POST);
     message_auto_save_and_post(message_auto_save_and_post_bot);
@@ -62,7 +63,7 @@ if (process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.env.MESSAGE_AUTO_
     );
 }
 
-// Initialize and launch Message Auto Save and Post bot only if MOVIES_HUB_NODE_ENV is not 'development'
+// Initialize and launch Movies Hub if MOVIES_HUB_NODE_ENV is not 'development'
 if (process.env.MOVIES_HUB_NODE_ENV && process.env.MOVIES_HUB_NODE_ENV !== 'development') {
     const movies_hub_bot = new Telegraf(process.env.BOT_TOKEN_MOVIEHUB);
     movies_hub_all_actions(movies_hub_bot)
@@ -71,6 +72,18 @@ if (process.env.MOVIES_HUB_NODE_ENV && process.env.MOVIES_HUB_NODE_ENV !== 'deve
     app.post('/telegram-webhook-for-movies-hub', movies_hub_bot.webhookCallback('/telegram-webhook-for-movies-hub'));
     movies_hub_bot.telegram.setWebhook(
         `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-movies-hub`
+    );
+}
+
+// Initialize and launch Group Help advance if GROUP_HELP_ADVANCE_NODE_ENV is not 'development'
+if (process.env.GROUP_HELP_ADVANCE_NODE_ENV && process.env.GROUP_HELP_ADVANCE_NODE_ENV !== 'development') {
+    const group_help_advance_bot = new Telegraf(process.env.BOT_TOKEN_GROUP_HELP_ADVANCE);
+    group_help_advance_all_actions(group_help_advance_bot)
+
+    // Webhook binding (specific route)
+    app.post('/telegram-webhook-for-group-help-advance', group_help_advance_bot.webhookCallback('/telegram-webhook-for-group-help-advance'));
+    group_help_advance_bot.telegram.setWebhook(
+        `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-group-help-advance`
     );
 }
 

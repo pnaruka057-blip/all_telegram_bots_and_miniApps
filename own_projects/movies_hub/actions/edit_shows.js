@@ -1,4 +1,4 @@
-const shows_module = require("../model/shows_module");
+const shows_module = require("../models/shows_module");
 
 module.exports = (bot) => {
     // Action to enter show editing wizard

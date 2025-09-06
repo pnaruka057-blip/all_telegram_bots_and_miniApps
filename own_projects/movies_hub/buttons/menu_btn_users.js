@@ -1,5 +1,5 @@
 const { Markup } = require("telegraf");
-const escapeMarkdownV2 = require("../helper/escapeMarkdownV2");
+const escapeMarkdownV2 = require("../helpers/escapeMarkdownV2");
 const redis = require("../../../globle_helper/redisConfig");
 const mini_app_link = process.env.GLOBLE_DOMAIN
 const movies_hub_token = process.env.MOVIES_HUB_TOKEN

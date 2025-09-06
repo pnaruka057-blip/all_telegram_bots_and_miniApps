@@ -1,6 +1,6 @@
 const { Markup } = require("telegraf");
-const movies_module = require("../model/movies_module");
-const users_module = require("../model/users_module");
+const movies_module = require("../models/movies_module");
+const users_module = require("../models/users_module");
 const mini_app_link = process.env.GLOBLE_DOMAIN
 const movies_hub_token = process.env.MOVIES_HUB_TOKEN
 const redis = require("../../../globle_helper/redisConfig");

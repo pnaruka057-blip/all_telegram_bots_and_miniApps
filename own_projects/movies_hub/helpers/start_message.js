@@ -1,9 +1,9 @@
 const { Markup } = require("telegraf");
 const menu_btn_admin = require("../buttons/menu_btn_admin");
 const menu_btn_users = require("../buttons/menu_btn_users");
-const users_module = require("../model/users_module");
+const users_module = require("../models/users_module");
 const checkUserInChannel = require("./checkUserInChannel");
-const escapeMarkdownV2 = require('../helper/escapeMarkdownV2');
+const escapeMarkdownV2 = require('./escapeMarkdownV2');
 
 module.exports = async (bot, ctx) => {
     if (ctx.scene?.current) {

@@ -1,10 +1,10 @@
 const { Scenes, Markup } = require("telegraf");
 const moment = require("moment");
-const users_module = require("../model/users_module");
-const escapeMarkdownV2 = require("../helper/escapeMarkdownV2");
-const cancelWizard = require("../helper/cancelWizard");
+const users_module = require("../models/users_module");
+const escapeMarkdownV2 = require("../helpers/escapeMarkdownV2");
+const cancelWizard = require("../helpers/cancelWizard");
 const menu_btn_admin = require("../buttons/menu_btn_admin");
-const start_message = require("../helper/start_message");
+const start_message = require("../helpers/start_message");
 const bot = require("../bot_index");
 
 const managePremiumUsersWizard = new Scenes.WizardScene(
