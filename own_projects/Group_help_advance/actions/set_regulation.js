@@ -275,7 +275,7 @@ module.exports = (bot) => {
     });
 
     // ===== HANDLE INCOMING MEDIA SAVE (with validateOwner + chat title in success) =====
-    bot.on(["photo", "video", "document"], async (ctx) => {
+    bot.on(["photo", "video", "document"], async (ctx, next) => {
         try {
             if (!ctx.session || !ctx.session.awaitingMediaRegulation) return;
 
@@ -334,6 +334,8 @@ module.exports = (bot) => {
                 await ctx.reply("⚠️ Something went wrong while saving the media. Please try again.");
             } catch (_) { }
             if (ctx.session?.awaitingMediaRegulation) delete ctx.session.awaitingMediaRegulation;
+        } finally {
+            next()
         }
     });
 
@@ -504,14 +506,54 @@ module.exports = (bot) => {
         let inlineKeyboard = [];
         if (reg.buttons && reg.buttons.length) {
             let row = [];
-            reg.buttons.forEach((btn) => {
-                if (btn?.text && btn?.url) {
-                    row.push(Markup.button.url(btn.text, btn.url));
-                    if (row.length >= 2) {
-                        inlineKeyboard.push(row);
-                        row = [];
+            reg.buttons.forEach((row) => {
+                const rowButtons = [];
+                row.forEach((btn) => {
+                    if (!btn?.text || !btn?.content) return;
+
+                    const content = btn.content.trim();
+
+                    if (/^(https?:\/\/|t\.me\/|@|[a-z0-9\-]+\.[a-z]{2,})/i.test(content)) {
+                        let link = content.trim();
+
+                        if (link.startsWith('@')) {
+                            // @username ko normalize karke t.me link banado
+                            link = `https://t.me/${link.slice(1)}`;
+                        } else if (link.startsWith('t.me/')) {
+                            // agar "t.me/" se start ho raha hai to https add karo
+                            link = `https://${link}`;
+                        } else if (!/^https?:\/\//i.test(link)) {
+                            // agar sirf domain type (jaise link.com) hai to https:// add karo
+                            link = `https://${link}`;
+                        }
+
+                        rowButtons.push(Markup.button.url(btn.text, link));
+                    } else if (content.startsWith("popup:")) {
+                        const encodedContent = Buffer.from(btn.content, "utf8").toString("base64");
+                        rowButtons.push(Markup.button.callback(btn.text, `POPUP_${encodedContent}`));
+                    } else if (content.startsWith("alert:")) {
+                        const encoded = Buffer.from(content, "utf8").toString("base64");
+                        rowButtons.push(Markup.button.callback(btn.text, `ALERT_${encoded}`));
+                    } else if (content.startsWith("share:")) {
+                        const shareText = content.replace(/^share:/, "").trim(); // prefix hata diya
+                        rowButtons.push(Markup.button.switchToChat(btn.text, shareText));
+                    } else if (content.startsWith("copy:")) {
+                        const copyText = content.replace("copy:", "").trim();
+                        rowButtons.push({ text: btn.text, copy_text: { text: copyText } });
+                    } else if (content === "del") {
+                        const encoded = Buffer.from(content, "utf8").toString("base64");
+                        rowButtons.push(Markup.button.callback(btn.text, `DEL_${encoded}`));
+                    } else if (content.startsWith("personal:")) {
+                        const command = content.replace("personal:", "").trim(); // => command2
+                        const encoded = Buffer.from(command, "utf8").toString("base64");
+                        rowButtons.push(Markup.button.callback(btn.text, `PERSONAL_${encoded}`));
+                    } else {
+                        // fallback as callback button
+                        const encoded = Buffer.from(content, "utf8").toString("base64");
+                        rowButtons.push(Markup.button.callback(btn.text, `GENERIC_${encoded}`));
                     }
-                }
+                });
+                if (rowButtons.length) inlineKeyboard.push(rowButtons);
             });
             if (row.length) inlineKeyboard.push(row);
         }
@@ -541,11 +583,10 @@ module.exports = (bot) => {
             } catch (err) {
                 console.error("Preview send failed:", err);
             }
-        } else {
-            await ctx.reply(reg.text || "📜 Regulation", {
-                parse_mode: "HTML",
-                reply_markup: { inline_keyboard: inlineKeyboard }
-            });
+        }
+
+        if (!(reg.buttons && reg.buttons.length) && !reg.media) {
+            ctx.reply(reg.text, { parse_mode: "HTML" });
         }
 
         // ====== 2) Send separate navigation message ======

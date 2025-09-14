@@ -9,6 +9,10 @@ const check_then_transfer_group_or_channel = require('./helpers/check_then_trans
 const set_regulation_action = require('./actions/set_regulation');
 const button_actions = require('./actions/buttons');
 const anti_spam_action = require('./actions/anti_spam');
+const set_welcome_action = require('./actions/setWelcome');
+const anti_flood_action = require('./actions/anti_flood');
+const good_bye_action = require('./actions/good_bye');
+const alphabets_action = require('./actions/alphabets');
 
 module.exports = (bot) => {
     // Middleware to handle sessions and scenes
@@ -40,4 +44,8 @@ module.exports = (bot) => {
     set_regulation_action(bot)
     button_actions(bot)
     anti_spam_action(bot)
+    set_welcome_action(bot)
+    anti_flood_action(bot)
+    good_bye_action(bot)
+    alphabets_action(bot)
 }

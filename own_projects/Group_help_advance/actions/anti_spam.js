@@ -27,7 +27,7 @@ async function renderTgLinksMenu(ctx, chatIdStr, userId) {
         [Markup.button.callback(`🗑 Delete Messages ${deleteMessages}`, `TGLINKS_DELETE_${chatIdStr}`)],
         [Markup.button.callback(`🎯 Username Antispam ${usernameAntispam}`, `TGLINKS_USERNAME_${chatIdStr}`)],
         [
-            Markup.button.callback("⭐ Exceptions", `TGLINKS_EXCEPTIONS_${chatIdStr}`)
+            Markup.button.callback("🌟 Exceptions", `TGLINKS_EXCEPTIONS_${chatIdStr}`)
         ],
         [
             Markup.button.callback("⬅️ Back", `SET_ANTISPAM_${chatIdStr}`),
@@ -89,6 +89,100 @@ function normalizeAndValidateEntry(raw) {
 
     // fallback: not valid
     return null;
+}
+
+// helper: capitalize first letter
+const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+// helper: render per-target forward menu
+async function renderForwardTargetMenu(ctx, chatIdStr, target) {
+    // target: 'channels'|'groups'|'users'|'bots'
+    const userId = ctx.from.id;
+    const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
+    const tg = userDoc?.settings?.[chatIdStr]?.anti_spam?.forwarding?.[target] || {};
+
+    const penalty = (tg.penalty || "off").toLowerCase();
+    const penaltyLabel = capitalize(penalty);
+    const deleteMessages = tg.delete_messages ? "Yes ✅" : "No ❌";
+
+    const text =
+        `⚙️ <b>Forward from ${capitalize(target)}</b>\n\n` +
+        `Choose the punishment applied when someone forwards messages from <b>${capitalize(target)}</b>.\n\n` +
+        `<b>Current:</b>\n` +
+        `Penalty: <b>${penaltyLabel}</b>\n` +
+        `Delete messages: <b>${deleteMessages}</b>\n\n` +
+        `Select a penalty below:`;
+
+    const keyboard = Markup.inlineKeyboard([
+        [
+            Markup.button.callback("❌ Off", `PUNISH_OFF_${chatIdStr}_${target}`),
+            Markup.button.callback("❗ Warn", `PUNISH_WARN_${chatIdStr}_${target}`),
+            Markup.button.callback("❕ Kick", `PUNISH_KICK_${chatIdStr}_${target}`)
+        ],
+        [
+            Markup.button.callback("🔇 Mute", `PUNISH_MUTE_${chatIdStr}_${target}`),
+            Markup.button.callback("⛔ Ban", `PUNISH_BAN_${chatIdStr}_${target}`)
+        ],
+        [
+            Markup.button.callback(`${tg.delete_messages ? "🗑️ Delete Messages ✅" : "🗑️ Delete Messages ❌"}`, `PUNISH_TOGGLE_DELETE_${chatIdStr}_${target}`)
+        ],
+        [
+            Markup.button.callback("⬅️ Back", `ANTISPAM_FORWARD_${chatIdStr}`),
+            Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+        ]
+    ]);
+
+    await safeEditOrSend(ctx, text, { parse_mode: "HTML", ...keyboard });
+}
+
+// helper: render the main forwarding menu which shows current values for all targets
+async function renderForwardMainMenu(ctx, chatIdStr) {
+    const userId = ctx.from.id;
+    const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
+    const forward = userDoc?.settings?.[chatIdStr]?.anti_spam?.forwarding || {};
+
+    const getLabel = (obj) => {
+        const penalty = (obj?.penalty || "off");
+        const penaltyLabel = capitalize(penalty);
+        const del = obj?.delete_messages ? "Yes ✅" : "No ❌";
+        return `${penaltyLabel} · Delete: ${del}`;
+    };
+
+    const channelsLabel = getLabel(forward.channels);
+    const groupsLabel = getLabel(forward.groups);
+    const usersLabel = getLabel(forward.users);
+    const botsLabel = getLabel(forward.bots);
+
+    const text =
+        `📨 <b>Forwarding</b>\n\n` +
+        `Select punishment for users who forward messages in the group.\n\n` +
+        `Forward from groups option blocks messages written by an anonymous administrator of another group and forwarded here.\n\n` +
+        `<b>Current settings:</b>\n` +
+        `📣 Channels: <code>${channelsLabel}</code>\n` +
+        `👥 Groups: <code>${groupsLabel}</code>\n` +
+        `👤 Users: <code>${usersLabel}</code>\n` +
+        `🤖 Bots: <code>${botsLabel}</code>\n\n` +
+        `Choose which source you want to configure:`;
+
+    const keyboard = Markup.inlineKeyboard([
+        [
+            Markup.button.callback("📣 Channels", `FORWARD_CHANNELS_${chatIdStr}`),
+            Markup.button.callback("👥 Groups", `FORWARD_GROUPS_${chatIdStr}`)
+        ],
+        [
+            Markup.button.callback("👤 Users", `FORWARD_USERS_${chatIdStr}`),
+            Markup.button.callback("🤖 Bots", `FORWARD_BOTS_${chatIdStr}`)
+        ],
+        [
+            Markup.button.callback("🌟 Exceptions", `ANTISPAM_FORWARD_EXCEPTIONS_${chatIdStr}`)
+        ],
+        [
+            Markup.button.callback("⬅️ Back", `SET_ANTISPAM_${chatIdStr}`),
+            Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+        ]
+    ]);
+
+    await safeEditOrSend(ctx, text, { parse_mode: "HTML", ...keyboard });
 }
 
 module.exports = (bot) => {
@@ -223,12 +317,12 @@ module.exports = (bot) => {
         };
 
         const text =
-            "📘 <b>Antispam Exception</b>\n\n" +
-            "Here you can manage the Telegram links or usernames that will <b>not be treated as spam</b>.\n\n" +
+            `🌟 <b>Telegram links/username Antispam Exceptions</b>\n\n` +
+            `Here you can add or remove entities (channels/groups/users) whose forwarded messages won't be blocked by the forwarding antispam.\n\n` +
+            `You can either send a link/username on each line or forward a message from the channel/group you want to add.` +
             "📄 View your whitelist\n" +
             "➕ Add new entries\n" +
-            "➖ Remove existing ones\n" +
-            "🌍 Manage the global whitelist";
+            "➖ Remove existing ones\n";
 
         await safeEditOrSend(ctx, text, {
             parse_mode: "HTML",
@@ -244,8 +338,14 @@ module.exports = (bot) => {
         const userSettings = await user_setting_module.findOne({ user_id: userId });
         const whitelist = userSettings?.settings?.get(chatIdStr)?.anti_spam?.telegram_links?.whitelist || [];
 
+        // Helper to escape HTML so <, >, & etc. don't break our HTML parse_mode
+        const escapeHTML = (s = "") => String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
         const listText = whitelist.length > 0
-            ? whitelist.map((item, i) => `${i + 1}. ${item}`).join("\n")
+            ? whitelist.map((item, i) => `${i + 1}. <code>${escapeHTML(item)}</code>`).join("\n")
             : "⚠️ Whitelist is currently empty.";
 
         const text = `🔠 <b>Whitelist</b>\n\n${listText}`;
@@ -259,7 +359,13 @@ module.exports = (bot) => {
             ]
         };
 
-        await safeEditOrSend(ctx, text, { parse_mode: "HTML", reply_markup: keyboard });
+        // disable_web_page_preview ensures Telegram won't show link previews,
+        // and because entries are wrapped in <code> they won't be rendered clickable.
+        await safeEditOrSend(ctx, text, {
+            parse_mode: "HTML",
+            disable_web_page_preview: true,
+            reply_markup: keyboard
+        });
     });
 
     // ACTION: when user clicked "Add from whitelist"
@@ -274,9 +380,9 @@ module.exports = (bot) => {
 
         const text =
             "➕ <b>Add to Whitelist</b>\n\n" +
-            "Send one or more Telegram links or @usernames of channels/groups to add them to the whitelist.\n\n" +
+            "Send one or more Telegram links or <code>@usernames</code> of channels/groups to add them to the whitelist.\n\n" +
             "👉 Send each link/username on a new line (without extra symbols), or forward a message from the channel/group you want to add.\n\n" +
-            "<b>Example:</b>\n@GroupHelp\nhttps://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew";
+            "<b>Example:</b>\n<code>@GroupHelp</code>\n<code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>";
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("❌ Cancel", `TGLINKS_EXCEPTIONS_${chatIdStr}`)]
@@ -304,9 +410,9 @@ module.exports = (bot) => {
 
         const text =
             "➖ <b>Remove from Whitelist</b>\n\n" +
-            "Send one or more Telegram links or @usernames of channels/groups to remove them from the whitelist.\n\n" +
+            "Send one or more Telegram links or <code>@usernames</code> of channels/groups to remove them from the whitelist.\n\n" +
             "👉 Send each link/username on a new line (without extra symbols), or forward a message from the channel/group you want to remove.\n\n" +
-            "<b>Example:</b>\n@GroupHelp\nhttps://t.me/joinchat/COVT7z7KD0sN8kZpJg60Ug";
+            "<b>Example:</b>\n<code>@GroupHelp</code>\n<code>https://t.me/joinchat/COVT7z7KD0sN8kZpJg60Ug</code>";
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("❌ Cancel", `TGLINKS_EXCEPTIONS_${chatIdStr}`)]
@@ -322,7 +428,226 @@ module.exports = (bot) => {
         });
     });
 
-    // TEXT HANDLER: handles both add & remove flows
+    // main action: show forwarding menu
+    bot.action(/^ANTISPAM_FORWARD_(-?\d+)$/, async (ctx) => {
+        try {
+            const chatIdStr = ctx.match[1];
+            const userId = ctx.from.id;
+
+            // validate owner (returns chat if ok)
+            const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+            if (!chat) return;
+
+            await renderForwardMainMenu(ctx, chatIdStr);
+        } catch (err) {
+            console.error("Error in ANTISPAM_FORWARD action:", err);
+        }
+    });
+
+    // sub-actions: open per-target menus (validateOwner inside)
+    bot.action(/FORWARD_(CHANNELS|GROUPS|USERS|BOTS)_(.+)/, async (ctx) => {
+        try {
+            // pattern may be e.g. FORWARD_CHANNELS_-100123...
+            const target = ctx.match[1].toLowerCase(); // channels / groups / users / bots
+            // if pattern reversed, fallback:
+            const realChatIdStr = ctx.match[2] || ctx.match[1];
+
+            const userId = ctx.from.id;
+            const chat = await validateOwner(ctx, Number(realChatIdStr), realChatIdStr, userId);
+            if (!chat) return;
+
+            await renderForwardTargetMenu(ctx, realChatIdStr, target, chat.title);
+        } catch (err) {
+            console.error("Error in FORWARD_* handler:", err);
+        }
+    });
+
+    // Generic punishment setter for a target
+    // Expected callback_data: PUNISH_{OFF|WARN|KICK|MUTE|BAN}_{chatIdStr}_{target}
+    bot.action(/PUNISH_(OFF|WARN|KICK|MUTE|BAN)_(.+)_(channels|groups|users|bots)/i, async (ctx) => {
+        try {
+            const action = ctx.match[1].toLowerCase();
+            const chatIdStr = ctx.match[2];
+            const target = ctx.match[3].toLowerCase();
+            const userId = ctx.from.id;
+
+            const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+            if (!chat) return;
+
+            await user_setting_module.findOneAndUpdate(
+                { user_id: userId },
+                {
+                    $set: {
+                        [`settings.${chatIdStr}.anti_spam.forwarding.${target}.penalty`]: action
+                    }
+                },
+                { upsert: true }
+            );
+
+            await ctx.answerCbQuery(`✅ Penalty for ${capitalize(target)} set to ${capitalize(action)}`);
+            // re-render menu for that target
+            await renderForwardTargetMenu(ctx, chatIdStr, target, chat.title);
+        } catch (err) {
+            console.error("Error in PUNISH_* handler:", err);
+        }
+    });
+
+    // Toggle delete_messages for a target
+    // callback_data: PUNISH_TOGGLE_DELETE_{chatIdStr}_{target}
+    bot.action(/PUNISH_TOGGLE_DELETE_(.+)_(channels|groups|users|bots)/i, async (ctx) => {
+        try {
+            const chatIdStr = ctx.match[1];
+            const target = ctx.match[2].toLowerCase();
+            const userId = ctx.from.id;
+
+            const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+            if (!chat) return;
+
+            // fetch current
+            const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
+            const current = !!userDoc?.settings?.[chatIdStr]?.anti_spam?.forwarding?.[target]?.delete_messages;
+
+            const newVal = !current;
+            await user_setting_module.findOneAndUpdate(
+                { user_id: userId },
+                {
+                    $set: {
+                        [`settings.${chatIdStr}.anti_spam.forwarding.${target}.delete_messages`]: newVal
+                    }
+                },
+                { upsert: true }
+            );
+
+            await ctx.answerCbQuery(`🗑 Delete messages for ${capitalize(target)} ${newVal ? "enabled ✔" : "disabled ✖"}`);
+            await renderForwardTargetMenu(ctx, chatIdStr, target, chat.title);
+        } catch (err) {
+            console.error("Error in PUNISH_TOGGLE_DELETE handler:", err);
+        }
+    });
+
+    // Exceptions submenu (simple UI, you can expand add/remove/lookup later)
+    bot.action(/^ANTISPAM_FORWARD_EXCEPTIONS_(-?\d+)$/, async (ctx) => {
+        const chatIdStr = ctx.match[1];
+        const userId = ctx.from.id;
+        const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+        if (!chat) return;
+
+        const text =
+            `🌟 <b>Forward Antispam Exceptions</b>\n\n` +
+            `Here you can add or remove entities (channels/groups/users) whose forwarded messages won't be blocked by the forwarding antispam.\n\n` +
+            `You can either send a link / username on each line or forward a message from the channel/group you want to add.` +
+            "📄 View your whitelist\n" +
+            "➕ Add new entries\n" +
+            "➖ Remove existing ones\n";
+
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback("🔠 Show list", `ANTISPAM_FORWARD_EXCEPTIONS_SHOW_${chatIdStr}`)],
+            [Markup.button.callback("➕ Add", `ANTISPAM_FORWARD_EXCEPTIONS_ADD_${chatIdStr}`), Markup.button.callback("➖ Remove", `ANTISPAM_FORWARD_EXCEPTIONS_REMOVE_${chatIdStr}`)],
+            [Markup.button.callback("⬅️ Back", `ANTISPAM_FORWARD_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
+        ]);
+
+        await safeEditOrSend(ctx, text, { parse_mode: "HTML", ...keyboard });
+    });
+
+    // --- SHOW WHITELIST ---
+    bot.action(/^ANTISPAM_FORWARD_EXCEPTIONS_SHOW_(-?\d+)$/, async (ctx) => {
+        const chatIdStr = ctx.match[1];
+        const userId = ctx.from.id;
+
+        const userSettings = await user_setting_module.findOne({ user_id: userId });
+        const whitelist = userSettings?.settings?.get(chatIdStr)?.anti_spam?.forwarding?.whitelist || [];
+
+        // Helper to escape HTML so <, >, & etc. don't break our HTML parse_mode
+        const escapeHTML = (s = "") => String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+        const listText = whitelist.length > 0
+            ? whitelist.map((item, i) => `${i + 1}. <code>${escapeHTML(item)}</code>`).join("\n")
+            : "⚠️ No exceptions added yet.";
+
+        const text = `🌟 <b>Forward Exceptions List</b>\n\n${listText}`;
+
+        const keyboard = {
+            inline_keyboard: [
+                [
+                    { text: "⬅️ Back", callback_data: `ANTISPAM_FORWARD_EXCEPTIONS_${chatIdStr}` },
+                    { text: "🏠 Main Menu", callback_data: `GROUP_SETTINGS_${chatIdStr}` }
+                ]
+            ]
+        };
+
+        await safeEditOrSend(ctx, text, {
+            parse_mode: "HTML",
+            disable_web_page_preview: true,
+            reply_markup: keyboard
+        });
+    });
+
+    // --- ADD WHITELIST ---
+    bot.action(/^ANTISPAM_FORWARD_EXCEPTIONS_ADD_(-?\d+)$/, async (ctx) => {
+        const chatIdStr = ctx.match[1];
+        const chatId = Number(chatIdStr);
+        const userId = ctx.from.id;
+
+        const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
+        if (!ok) return;
+
+        const text =
+            "➕ <b>Add to Whitelist</b>\n\n" +
+            "Send one or more Telegram links or <code>@usernames</code> of channels/groups to add them to the whitelist.\n\n" +
+            "👉 Send each link/username on a new line (without extra symbols), or forward a message from the channel/group you want to add.\n\n" +
+            "<b>Example:</b>\n" +
+            "<code>@GroupHelp</code>\n" +
+            "<code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>";
+
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback("❌ Cancel", `ANTISPAM_FORWARD_EXCEPTIONS_${chatIdStr}`)]
+        ]);
+
+        ctx.session = ctx.session || {};
+        ctx.session.awaitingForwardAdd = { chatIdStr, userId };
+
+        await safeEditOrSend(ctx, text, {
+            parse_mode: "HTML",
+            disable_web_page_preview: true,
+            reply_markup: keyboard.reply_markup
+        });
+    });
+
+    // --- REMOVE WHITELIST ---
+    bot.action(/^ANTISPAM_FORWARD_EXCEPTIONS_REMOVE_(-?\d+)$/, async (ctx) => {
+        const chatIdStr = ctx.match[1];
+        const chatId = Number(chatIdStr);
+        const userId = ctx.from.id;
+
+        const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
+        if (!ok) return;
+
+        const text =
+            "➖ <b>Remove from Whitelist</b>\n\n" +
+            "Send one or more Telegram links or <code>@usernames</code> of channels/groups to remove them from the whitelist.\n\n" +
+            "👉 Send each link/username on a new line (without extra symbols), or forward a message from the channel/group you want to remove.\n\n" +
+            "<b>Example:</b>\n<code>@GroupHelp</code>\n<code>https://t.me/joinchat/COVT7z7KD0sN8kZpJg60Ug</code>";
+
+        const keyboard = Markup.inlineKeyboard([
+            [Markup.button.callback("❌ Cancel", `ANTISPAM_FORWARD_EXCEPTIONS_${chatIdStr}`)]
+        ]);
+
+        ctx.session = ctx.session || {};
+        ctx.session.awaitingForwardRemove = { chatIdStr, userId };
+
+        await safeEditOrSend(ctx, text, {
+            parse_mode: "HTML",
+            reply_markup: keyboard.reply_markup
+        });
+    });
+
+
+
+
+    // --- TEXT HANDLER (Add / Remove flow) ---
     bot.on("text", async (ctx, next) => {
         ctx.session = ctx.session || {};
 
@@ -364,7 +689,7 @@ module.exports = (bot) => {
             if (!entries.length) {
                 await safeEditOrSend(ctx,
                     "❌ No valid usernames/links found. Please send usernames (e.g. @GroupHelp) or links (https://t.me/...) each on a new line.",
-                    { parse_mode: "HTML" }
+                    { parse_mode: "HTML", disable_web_page_preview: true }
                 );
                 return;
             }
@@ -401,17 +726,25 @@ module.exports = (bot) => {
                 return;
             }
 
-            // Reply to user
-            const okList = entries.map(e => `• ${e}`).join("\n");
-            const invalidList = invalid.length ? `\n\nInvalid lines (not added):\n${invalid.map(i => `• ${i}`).join("\n")}` : "";
+            // Helper to escape HTML so <, >, & etc. don't break parse_mode="HTML"
+            const escapeHTML = (s = "") => String(s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
 
-            const replyText = `✅ <b>Added to whitelist</b> for <b>${chat.title || chatIdStr}</b>:\n\n${okList}${invalidList}`;
+            // Reply to user (wrap items in <code> so they are monospace and not clickable)
+            const okList = entries.map(e => `• <code>${escapeHTML(e)}</code>`).join("\n");
+            const invalidList = invalid.length
+                ? `\n\nInvalid lines (not added):\n${invalid.map(i => `• <code>${escapeHTML(i)}</code>`).join("\n")}`
+                : "";
+
+            const safeTitle = escapeHTML(chat.title || chatIdStr);
+            const replyText = `✅ <b>Added to whitelist</b> for <b>${safeTitle}</b>:\n\n${okList}${invalidList}`;
             const keyboard = Markup.inlineKeyboard([
-                [Markup.button.callback("⬅️ Back", `TGLINKS_EXCEPTIONS_${chatIdStr}`)],
-                [Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
+                [Markup.button.callback("⬅️ Back", `TGLINKS_EXCEPTIONS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
             ]);
 
-            await ctx.reply(replyText, { parse_mode: "HTML", ...keyboard });
+            await ctx.reply(replyText, { parse_mode: "HTML", disable_web_page_preview: true, ...keyboard });
             delete ctx.session.awaitingWhitelistAdd;
             return;
         }
@@ -452,20 +785,24 @@ module.exports = (bot) => {
             if (!toRemove.length) {
                 await safeEditOrSend(ctx,
                     "❌ No valid usernames/links found to remove. Please send valid usernames (e.g. @GroupHelp) or links each on a new line.",
-                    { parse_mode: "HTML" }
+                    { parse_mode: "HTML", disable_web_page_preview: true }
                 );
                 return;
             }
 
             try {
-                // Remove from whitelist
                 await user_setting_module.updateOne(
                     { user_id: userId },
                     {
+                        $setOnInsert: { user_id: userId },
+                        $set: {
+                            [`settings.${chatIdStr}.anti_spam.telegram_links.delete_messages`]: false
+                        },
                         $pull: {
                             [`settings.${chatIdStr}.anti_spam.telegram_links.whitelist`]: { $in: toRemove }
                         }
-                    }
+                    },
+                    { upsert: true }
                 );
             } catch (err) {
                 console.error("Error removing from whitelist:", err);
@@ -474,48 +811,199 @@ module.exports = (bot) => {
                 return;
             }
 
-            // Reply to user
-            const removedList = toRemove.map(e => `• ${e}`).join("\n");
-            const invalidList = invalid.length ? `\n\nInvalid lines (not processed):\n${invalid.map(i => `• ${i}`).join("\n")}` : "";
+            // Helper to escape HTML so <, >, & etc. don't break parse_mode="HTML"
+            const escapeHTML = (s = "") => String(s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
 
-            const replyText = `✅ <b>Removed from whitelist</b> for <b>${chat.title || chatIdStr}</b>:\n\n${removedList}${invalidList}`;
+            // Reply to user (wrap items in <code> so they are monospace and not clickable)
+            const removedList = toRemove.map(e => `• <code>${escapeHTML(e)}</code>`).join("\n");
+            const invalidList = invalid.length
+                ? `\n\nInvalid lines (not added):\n${invalid.map(i => `• <code>${escapeHTML(i)}</code>`).join("\n")}`
+                : "";
+
+            const safeTitle = escapeHTML(chat.title || chatIdStr);
+            const replyText = `✅ <b>Removed from whitelist</b> for <b>${safeTitle}</b>:\n\n${removedList}${invalidList}`;
             const keyboard = Markup.inlineKeyboard([
-                [Markup.button.callback("⬅️ Back", `TGLINKS_EXCEPTIONS_${chatIdStr}`)],
-                [Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
+                [Markup.button.callback("⬅️ Back", `TGLINKS_EXCEPTIONS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
             ]);
 
-            await ctx.reply(replyText, { parse_mode: "HTML", ...keyboard });
+            await ctx.reply(replyText, { parse_mode: "HTML", disable_web_page_preview: true, ...keyboard });
             delete ctx.session.awaitingWhitelistRemove;
             return;
         }
-        next()
+
+        // ===== ADD FLOW (FORWARDING) =====
+        if (ctx.session.awaitingForwardAdd) {
+            const { chatIdStr, userId } = ctx.session.awaitingForwardAdd;
+
+            const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+            if (!chat) {
+                delete ctx.session.awaitingForwardAdd;
+                return;
+            }
+
+            const inputText = (ctx.message.text || "").trim();
+            const entries = [];
+            const invalid = [];
+
+            // Handle forwarded messages
+            if (ctx.message.forward_from_chat) {
+                const fc = ctx.message.forward_from_chat;
+                if (fc.username) entries.push(`@${fc.username}`);
+                else entries.push(`https://t.me/c/${Math.abs(fc.id)}`);
+            } else if (ctx.message.forward_from) {
+                const fu = ctx.message.forward_from;
+                if (fu.username) entries.push(`@${fu.username}`);
+                else entries.push(`tg://user?id=${fu.id}`);
+            } else {
+                const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
+                for (const line of lines) {
+                    const norm = normalizeAndValidateEntry(line);
+                    if (norm) entries.push(norm);
+                    else invalid.push(line);
+                }
+            }
+
+            if (!entries.length) {
+                await ctx.reply("❌ No valid usernames/IDs/links found. Try again.", { disable_web_page_preview: true });
+                return;
+            }
+
+            try {
+                // Ensure parent object & defaults for forwarding settings, then add entries
+                await user_setting_module.updateOne(
+                    { user_id: userId },
+                    {
+                        $setOnInsert: {
+                            user_id: userId
+                        },
+                        $set: {
+                            [`settings.${[chatIdStr]}.anti_spam.forwarding.delete_messages`]: false
+                        },
+                        $addToSet: {
+                            [`settings.${[chatIdStr]}.anti_spam.forwarding.whitelist`]: { $each: entries }
+                        }
+                    },
+                    { upsert: true }
+                );
+            } catch (err) {
+                console.error("Error adding to exceptions:", err);
+                await ctx.reply("⚠️ Something went wrong while saving. Try again later.", { disable_web_page_preview: true });
+                delete ctx.session.awaitingForwardAdd;
+                return;
+            }
+
+            // Helper to escape HTML so <, >, & etc. don't break parse_mode="HTML"
+            const escapeHTML = (s = "") => String(s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // Reply lists wrapped in <code> so they are monospace and not clickable
+            const okList = entries.map(e => `• <code>${escapeHTML(e)}</code>`).join("\n");
+            const invalidList = invalid.length ? `\n\nInvalid:\n${invalid.map(i => `• <code>${escapeHTML(i)}</code>`).join("\n")}` : "";
+
+            const keyboard = Markup.inlineKeyboard([
+                [Markup.button.callback("⬅️ Back", `ANTISPAM_FORWARD_EXCEPTIONS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
+            ]);
+
+            const safeTitle = escapeHTML(chat.title || chatIdStr);
+            const replyText = `✅ <b>Added to whitelist</b> for <b>${safeTitle}</b>:\n\n${okList}${invalidList}`;
+
+            // disable_web_page_preview ensures Telegram won't show link previews
+            await ctx.reply(replyText, { parse_mode: "HTML", disable_web_page_preview: true, ...keyboard });
+
+            delete ctx.session.awaitingForwardAdd;
+            return;
+        }
+
+        // ===== REMOVE FLOW (FORWARDING) =====
+        if (ctx.session.awaitingForwardRemove) {
+            const { chatIdStr, userId } = ctx.session.awaitingForwardRemove;
+
+            const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+            if (!chat) {
+                delete ctx.session.awaitingForwardRemove;
+                return;
+            }
+
+            const inputText = (ctx.message.text || "").trim();
+            const toRemove = [];
+            const invalid = [];
+
+            if (ctx.message.forward_from_chat) {
+                const fc = ctx.message.forward_from_chat;
+                if (fc.username) toRemove.push(`@${fc.username}`);
+                else toRemove.push(`https://t.me/c/${Math.abs(fc.id)}`);
+            } else if (ctx.message.forward_from) {
+                const fu = ctx.message.forward_from;
+                if (fu.username) toRemove.push(`@${fu.username}`);
+                else toRemove.push(`tg://user?id=${fu.id}`);
+            } else {
+                const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
+                for (const line of lines) {
+                    const norm = normalizeAndValidateEntry(line);
+                    if (norm) toRemove.push(norm);
+                    else invalid.push(line);
+                }
+            }
+
+            if (!toRemove.length) {
+                await ctx.reply("❌ No valid usernames/IDs/links found to remove. Try again.", { disable_web_page_preview: true });
+                return;
+            }
+
+            try {
+                // Avoid conflicts: set defaults on insert, set flags, and pull values
+                await user_setting_module.updateOne(
+                    { user_id: userId },
+                    {
+                        $setOnInsert: {
+                            user_id: userId,
+                            [`settings.${[chatIdStr]}.anti_spam.forwarding.delete_messages`]: false
+                        },
+                        $pull: {
+                            [`settings.${[chatIdStr]}.anti_spam.forwarding.whitelist`]: { $in: toRemove }
+                        }
+                    },
+                    { upsert: true }
+                );
+            } catch (err) {
+                console.error("Error removing from exceptions:", err);
+                await ctx.reply("⚠️ Something went wrong while removing. Try again later.", { disable_web_page_preview: true });
+                delete ctx.session.awaitingForwardRemove;
+                return;
+            }
+
+            // Helper to escape HTML
+            const escapeHTML = (s = "") => String(s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // Reply (wrap entries in <code> so they're monospace and non-clickable)
+            const removedList = toRemove.map(e => `• <code>${escapeHTML(e)}</code>`).join("\n");
+            const invalidList = invalid.length ? `\n\nInvalid:\n${invalid.map(i => `• <code>${escapeHTML(i)}</code>`).join("\n")}` : "";
+
+            const safeTitle = escapeHTML(chat.title || chatIdStr);
+            const text = `✅ <b>Removed from exceptions</b> for <b>${safeTitle}</b>:\n\n${removedList}${invalidList}`;
+
+            const keyboard = Markup.inlineKeyboard([
+                [Markup.button.callback("⬅️ Back", `ANTISPAM_FORWARD_EXCEPTIONS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
+            ]);
+
+            await ctx.reply(text, {
+                parse_mode: "HTML",
+                disable_web_page_preview: true,
+                reply_markup: keyboard.reply_markup
+            });
+
+            delete ctx.session.awaitingForwardRemove;
+            return;
+        }
+
+        next();
     });
-
-    bot.action(/ANTISPAM_FORWARD_(.+)/, async (ctx) => {
-        const chatIdStr = ctx.match[1];
-
-        const text = `📨 <b>Forwarding</b>\n\nSelect punishment for users who forward messages in the group.\n\nForward from groups option blocks messages written by an anonymous administrator of another group and forwarded to this group.`;
-
-        const keyboard = {
-            inline_keyboard: [
-                [
-                    { text: "📣 Channels", callback_data: `FORWARD_CHANNELS_${chatIdStr}` },
-                    { text: "👥 Groups", callback_data: `FORWARD_GROUPS_${chatIdStr}` }
-                ],
-                [
-                    { text: "👤 Users", callback_data: `FORWARD_USERS_${chatIdStr}` },
-                    { text: "🤖 Bots", callback_data: `FORWARD_BOTS_${chatIdStr}` }
-                ],
-                [{ text: "🌟 Exceptions", callback_data: `ANTISPAM_FORWARD_EXCEPTIONS_${chatIdStr}` }],
-                [
-                    { text: "⬅️ Back", callback_data: `SET_ANTISPAM_${chatIdStr}` },
-                    { text: "🏠 Main Menu", callback_data: `GROUP_SETTINGS_${chatIdStr}` },
-                ]
-            ]
-        };
-
-        await safeEditOrSend(ctx, text, { parse_mode: "HTML", reply_markup: keyboard });
-    });
-
-    
 };
