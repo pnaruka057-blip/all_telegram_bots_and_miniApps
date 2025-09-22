@@ -605,8 +605,10 @@ module.exports = (bot) => {
             try { await ctx.reply("⚠️ Something went wrong while saving. Please try again."); } catch { }
             if (ctx.session?.awaitingWelcomeText) delete ctx.session.awaitingWelcomeText;
             if (ctx.session?.awaitingWelcomeButtons) delete ctx.session.awaitingWelcomeButtons;
-        } finally {
-            next();
+        }
+
+        if (typeof next === "function") {
+            await next();
         }
     });
 
@@ -671,8 +673,10 @@ module.exports = (bot) => {
             console.error("❌ Error in incoming media handler (welcome):", err);
             try { await ctx.reply("⚠️ Something went wrong while saving the media. Please try again."); } catch { }
             if (ctx.session?.awaitingWelcomeMedia) delete ctx.session.awaitingWelcomeMedia;
-        } finally {
-            next();
+        }
+
+        if (typeof next === "function") {
+            await next();
         }
     });
 

@@ -129,7 +129,9 @@ module.exports = (bot) => {
 
                     } catch (err) {
                         console.error("Error while searching show:", err);
-                    } finally {
+                    }
+
+                    if (typeof next === "function") {
                         await next();
                     }
                 } else {

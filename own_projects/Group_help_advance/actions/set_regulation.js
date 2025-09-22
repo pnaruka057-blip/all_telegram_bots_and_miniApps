@@ -269,8 +269,10 @@ module.exports = (bot) => {
             // clear sessions to avoid stuck states
             if (ctx.session?.awaitingTextRegulation) delete ctx.session.awaitingTextRegulation;
             if (ctx.session?.awaitingButtonsRegulation) delete ctx.session.awaitingButtonsRegulation;
-        } finally {
-            next()
+        }
+
+        if (typeof next === "function") {
+            await next();
         }
     });
 
@@ -334,8 +336,10 @@ module.exports = (bot) => {
                 await ctx.reply("⚠️ Something went wrong while saving the media. Please try again.");
             } catch (_) { }
             if (ctx.session?.awaitingMediaRegulation) delete ctx.session.awaitingMediaRegulation;
-        } finally {
-            next()
+        }
+
+        if (typeof next === "function") {
+            await next();
         }
     });
 

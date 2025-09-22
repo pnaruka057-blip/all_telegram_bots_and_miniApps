@@ -126,6 +126,10 @@ const anti_floodSchema = new mongoose.Schema({
     },
     message_limit: { type: Number, default: 5 }, // messages allowed in time frame
     time_frame: { type: Number, default: 10 }, // in seconds
+    mute_duration_str: {
+        type: String,
+        default: "10m"
+    },
     mute_duration: { type: Number, default: 10 } // in minutes, if penalty is mute
 });
 
@@ -157,6 +161,172 @@ const alphabetsSchema = new mongoose.Schema({
     latin: { type: singleLangSchema, default: {} }
 }, { _id: false });
 
+// for captcha settings
+const captchaSchema = new mongoose.Schema({
+    enabled: {
+        type: Boolean,
+        default: false
+    },
+    time: {
+        type: Number,
+        default: 3
+    },
+    penalty: {
+        type: String,
+        enum: ["off", "warn", "kick", "mute", "ban"],
+        default: "mute"
+    },
+    mute_duration: {
+        type: Number,
+        default: 10
+    },
+    mode: {
+        type: String,
+        enum: ["button", "recaptcha", "presentation", "regulation", "math", "quiz"],
+        default: "quiz"
+    },
+    delete_service_message: {
+        type: Boolean,
+        default: false
+    },
+    question: {
+        type: String,
+        default: ""
+    },
+    topic: {
+        type: String,
+        default: ""
+    },
+    message: {
+        type: String,
+        default: ""
+    },
+    button_text: {
+        type: String,
+        default: ""
+    },
+}, { _id: false });
+
+// for checks settings
+const checksSchema = new mongoose.Schema({
+    obligations: {
+        surname: { type: Boolean, default: false },
+        username: { type: Boolean, default: false },
+        profile_picture: { type: Boolean, default: false },
+        channel_obligation: { type: Boolean, default: false },
+        obligation_to_add: { type: Boolean, default: false }
+    },
+    name_blocks: {
+        arabic: { type: Boolean, default: false },
+        chinese: { type: Boolean, default: false },
+        russian: { type: Boolean, default: false },
+        spam: { type: Boolean, default: false }
+    },
+    check_at_join: { type: Boolean, default: false },
+    delete_messages: { type: Boolean, default: false }
+}, { _id: false });
+
+// for admin_sos settings
+const admin_sosSchema = new mongoose.Schema({
+    // where to send reports: nobody | founder | staff
+    send_to: { type: String, enum: ["nobody", "founder", "staff"], default: "nobody" },
+    // whether the @admin/report feature is active or disabled
+    active: { type: Boolean, default: true },
+    // tag founder when reporting
+    tag_founder: { type: Boolean, default: false },
+    // array of admin ids to tag (store as strings for safety)
+    tagged_admins: { type: [String], default: [] },
+    // optional: staff group link or id to send reports to
+    staff_group: { type: String, default: null },
+
+    // --- Advanced options (new) ---
+    // Only accept @admin if used as a reply to another user's message
+    only_in_reply: { type: Boolean, default: false },
+
+    // Require a reason (text) when using @admin
+    reason_required: { type: Boolean, default: false },
+
+    // If report is marked resolved, delete the report message(s)
+    delete_if_resolved: { type: Boolean, default: false },
+
+    // If report resolved, delete the report message in staff group (if sent there)
+    delete_in_staff_if_resolved: { type: Boolean, default: false },
+
+    // optional: extra flags (future use)
+    meta: { type: mongoose.Schema.Types.Mixed, default: {} }
+}, { _id: false });
+
+// for blocks settings
+const blocksSchema = new mongoose.Schema({
+    blacklist: {
+        type: new mongoose.Schema({
+            enabled: { type: Boolean, default: false },
+            punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "ban" },
+            mute_duration: { type: Number, default: 10 }, 
+            mute_duration_str: { type: String, default: "10m" },
+            users: { type: [String], default: [] },
+        }, { _id: false }),
+        default: () => ({})
+    },
+
+    // Generic block template used for several block types (botblock, joinblock, leaveblock, joinleave)
+    botblock: {
+        type: new mongoose.Schema({
+            enabled: { type: Boolean, default: false },
+            punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            mute_duration: { type: Number, default: 10 },
+            mute_duration_str: { type: String, default: "10m" },
+            users: { type: [String], default: [] },
+        }, { _id: false }),
+        default: () => ({})
+    },
+
+    joinblock: {
+        type: new mongoose.Schema({
+            enabled: { type: Boolean, default: false },
+            punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            mute_duration: { type: Number, default: 10 },
+            mute_duration_str: { type: String, default: "10m" },
+            users: { type: [String], default: [] },
+        }, { _id: false }),
+        default: () => ({})
+    },
+
+    leaveblock: {
+        type: new mongoose.Schema({
+            enabled: { type: Boolean, default: false },
+            punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            mute_duration: { type: Number, default: 10 },
+            mute_duration_str: { type: String, default: "10m" },
+            users: { type: [String], default: [] },
+        }, { _id: false }),
+        default: () => ({})
+    },
+
+    joinleave: {
+        type: new mongoose.Schema({
+            enabled: { type: Boolean, default: false },
+            punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            mute_duration: { type: Number, default: 10 },
+            mute_duration_str: { type: String, default: "10m" },
+            users: { type: [String], default: [] },
+        }, { _id: false }),
+        default: () => ({})
+    },
+
+    multiple_joins: {
+        type: new mongoose.Schema({
+            enabled: { type: Boolean, default: false },
+            punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            mute_duration: { type: Number, default: 10 },
+            mute_duration_str: { type: String, default: "10m" },
+            users: { type: [String], default: [] },
+        }, { _id: false }),
+        default: () => ({})
+    }
+
+}, { _id: false });
+
 // Settings schema (key = chatId, value = regulationSchema wrapper)
 const settingsSchema = new mongoose.Schema(
     {
@@ -165,7 +335,11 @@ const settingsSchema = new mongoose.Schema(
         welcome: welcome_and_goodbye_Schema,
         anti_flood: anti_floodSchema,
         goodbye: welcome_and_goodbye_Schema,
-        alphabets: alphabetsSchema
+        alphabets: alphabetsSchema,
+        captcha: captchaSchema,
+        checks: checksSchema,
+        admin_sos: admin_sosSchema,
+        blocks: blocksSchema
     },
     { _id: false }
 );

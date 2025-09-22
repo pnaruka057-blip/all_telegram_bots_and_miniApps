@@ -13,6 +13,10 @@ const set_welcome_action = require('./actions/setWelcome');
 const anti_flood_action = require('./actions/anti_flood');
 const good_bye_action = require('./actions/good_bye');
 const alphabets_action = require('./actions/alphabets');
+const captcha_action = require('./actions/captcha')
+const checks_action = require('./actions/checks')
+const admin_sos_action = require('./actions/admin_sos')
+const block_action = require('./actions/blocks')
 
 module.exports = (bot) => {
     // Middleware to handle sessions and scenes
@@ -48,4 +52,8 @@ module.exports = (bot) => {
     anti_flood_action(bot)
     good_bye_action(bot)
     alphabets_action(bot)
+    captcha_action(bot)
+    checks_action(bot)
+    admin_sos_action(bot)
+    block_action(bot)
 }

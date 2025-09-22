@@ -473,8 +473,10 @@ module.exports = (bot) => {
         } catch (err) {
             console.error("ALPHABETS awaiting mute text error:", err);
             if (ctx.session?.awaitingAlphabetMute) delete ctx.session.awaitingAlphabetMute;
-        } finally {
-            return next();
+        }
+
+        if (typeof next === "function") {
+            await next();
         }
     });
 

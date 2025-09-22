@@ -1004,6 +1004,8 @@ module.exports = (bot) => {
             return;
         }
 
-        next();
+        if (typeof next === "function") {
+            await next();
+        }
     });
 };

@@ -678,8 +678,10 @@ module.exports = (bot) => {
             if (ctx.session?.awaitingAntifloodMessages) delete ctx.session.awaitingAntifloodMessages;
             if (ctx.session?.awaitingAntifloodSeconds) delete ctx.session.awaitingAntifloodSeconds;
             if (ctx.session?.awaitingAntifloodMuteDuration) delete ctx.session.awaitingAntifloodMuteDuration;
-        } finally {
-            next();
+        }
+
+        if (typeof next === "function") {
+            await next();
         }
     });
 };

@@ -580,8 +580,10 @@ module.exports = (bot) => {
             try { await ctx.reply("⚠️ Something went wrong while saving. Please try again."); } catch { }
             if (ctx.session?.awaitingGoodbyeText) delete ctx.session.awaitingGoodbyeText;
             if (ctx.session?.awaitingGoodbyeButtons) delete ctx.session.awaitingGoodbyeButtons;
-        } finally {
-            next();
+        }
+
+        if (typeof next === "function") {
+            await next();
         }
     });
 
