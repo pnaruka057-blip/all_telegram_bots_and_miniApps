@@ -24,7 +24,7 @@ async function renderBlocksMenu(ctx, chatIdStr, userId) {
     });
 }
 
-// generic detail renderer for each block key
+// generic detail renderer for each block key (customized per key)
 async function renderBlockDetail(ctx, chatIdStr, userId, key) {
     const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
     const block = userDoc?.settings?.[chatIdStr]?.blocks?.[key] || {};
@@ -37,6 +37,9 @@ async function renderBlockDetail(ctx, chatIdStr, userId, key) {
     let title = "";
     let body = "";
 
+    // default keyboard rows — will be overridden per key as needed
+    let rows = [];
+
     switch (key) {
         case "blacklist":
             title = "⛔ Blacklist";
@@ -47,86 +50,162 @@ async function renderBlockDetail(ctx, chatIdStr, userId, key) {
                 `- Status: ${status}\n` +
                 `- Punishment: ${punishment.toUpperCase()}\n` +
                 `- Entries: ${users.length}`;
+
+            // Manage Users row
+            rows.push([
+                Markup.button.callback("➕ Add user", `SET_${key.toUpperCase()}_ADD_USER_${chatIdStr}`),
+                Markup.button.callback("➖ Remove user", `SET_${key.toUpperCase()}_REMOVE_USER_${chatIdStr}`)
+            ]);
+
+            // View users
+            rows.push([Markup.button.callback("👀 View users", `VIEW_${key.toUpperCase()}_USERS_${chatIdStr}`)]);
+
+            // punishment rows
+            rows.push([
+                Markup.button.callback("❌ Off", `BLOCK_PUNISH_off_${key}_${chatIdStr}`),
+                Markup.button.callback("❗ Warn", `BLOCK_PUNISH_warn_${key}_${chatIdStr}`)
+            ]);
+            rows.push([
+                Markup.button.callback("❗ Kick", `BLOCK_PUNISH_kick_${key}_${chatIdStr}`),
+                Markup.button.callback("🔕 Mute", `BLOCK_PUNISH_mute_${key}_${chatIdStr}`),
+                Markup.button.callback("⛔ Ban", `BLOCK_PUNISH_ban_${key}_${chatIdStr}`)
+            ]);
+
+            // bottom nav
+            rows.push([
+                Markup.button.callback("⬅️ Back", `SET_BLOCKS_${chatIdStr}`),
+                Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+            ]);
             break;
 
         case "botblock":
             title = "🤖 Bot block";
             body =
-                `If active, new bots will be prevented from joining the group or their messages will be removed.\n\n` +
+                `If you enable this feature, users will not be able to add bots to the group.\n` +
+                `You can also choose a penalty for users who try to do it.\n\n` +
                 `- Status: ${status}\n` +
-                `- Punishment: ${punishment.toUpperCase()}\n` +
-                `- Entries: ${users.length}`;
+                `- Punishment: ${punishment.toUpperCase()}\n`
+
+            // punishment rows only (no add/remove/view)
+            rows.push([
+                Markup.button.callback("❌ Off", `BLOCK_PUNISH_off_${key}_${chatIdStr}`),
+                Markup.button.callback("❗ Warn", `BLOCK_PUNISH_warn_${key}_${chatIdStr}`)
+            ]);
+            rows.push([
+                Markup.button.callback("❗ Kick", `BLOCK_PUNISH_kick_${key}_${chatIdStr}`),
+                Markup.button.callback("🔕 Mute", `BLOCK_PUNISH_mute_${key}_${chatIdStr}`),
+                Markup.button.callback("⛔ Ban", `BLOCK_PUNISH_ban_${key}_${chatIdStr}`)
+            ]);
+
+            rows.push([
+                Markup.button.callback("⬅️ Back", `SET_BLOCKS_${chatIdStr}`),
+                Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+            ]);
             break;
 
         case "joinblock":
-            title = "🙂 Join block";
+            title = "👨🏼 Join block";
             body =
-                `When enabled, join events can be blocked or restricted.\n\n` +
+                `Give a penalty to users or bots that try to join the group.\n\n` +
                 `- Status: ${status}\n` +
-                `- Punishment: ${punishment.toUpperCase()}\n` +
-                `- Entries: ${users.length}`;
+                `- Punishment: ${punishment.toUpperCase()}\n`
+
+            // Only Off / Kick / Mute / Ban and nav
+            rows.push([
+                Markup.button.callback("❌ Off", `BLOCK_PUNISH_off_${key}_${chatIdStr}`),
+                Markup.button.callback("❗ Kick", `BLOCK_PUNISH_kick_${key}_${chatIdStr}`),
+                Markup.button.callback("🔕 Mute", `BLOCK_PUNISH_mute_${key}_${chatIdStr}`)
+            ]);
+            rows.push([
+                Markup.button.callback("⛔ Ban", `BLOCK_PUNISH_ban_${key}_${chatIdStr}`)
+            ]);
+            rows.push([
+                Markup.button.callback("⬅️ Back", `SET_BLOCKS_${chatIdStr}`),
+                Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+            ]);
             break;
 
         case "leaveblock":
-            title = "📕 Leave block";
+            title = "🚪 Leave block";
             body =
-                `If enabled, leaving messages or frequent leaving/returning users can be restricted or monitored.\n\n` +
+                `Ban for users who leave the group.\n\n` +
                 `- Status: ${status}\n` +
-                `- Punishment: ${punishment.toUpperCase()}\n` +
-                `- Entries: ${users.length}`;
+                `- Punishment: ${punishment.toUpperCase()}\n`
+
+            // Buttons: Off, Ban, Back, Main menu
+            rows.push([
+                Markup.button.callback("❌ Off", `BLOCK_PUNISH_off_${key}_${chatIdStr}`),
+                Markup.button.callback("⛔ Ban", `BLOCK_PUNISH_ban_${key}_${chatIdStr}`)
+            ]);
+            rows.push([
+                Markup.button.callback("⬅️ Back", `SET_BLOCKS_${chatIdStr}`),
+                Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+            ]);
             break;
 
         case "joinleave":
             title = "🏃‍♂️ Join-Leave block";
+            // check delete flag
+            const delEnabled = !!block.delete_service_message;
+            const delStatus = delEnabled ? "On ✅" : "Off ❌";
+
             body =
-                `This blocks users who repeatedly join and then immediately leave (or vice versa).\n\n` +
+                `If a user leaves the group a few seconds after joining, the service message and the welcome message will be deleted.\n` +
+                `You can also set a punishment for such users.\n\n` +
                 `- Status: ${status}\n` +
                 `- Punishment: ${punishment.toUpperCase()}\n` +
-                `- Entries: ${users.length}`;
+                `- Delete messages: ${delStatus}\n`
+
+            // Buttons: Delete message (shows status), Ban, Off, nav
+            rows.push([
+                Markup.button.callback(`🗑️ Delete message: ${delStatus}`, `BLOCK_ACTION_delete_${key}_${chatIdStr}`)
+            ]);
+            rows.push([
+                Markup.button.callback("❌ Off", `BLOCK_PUNISH_off_${key}_${chatIdStr}`),
+                Markup.button.callback("⛔ Ban", `BLOCK_PUNISH_ban_${key}_${chatIdStr}`)
+            ]);
+            rows.push([
+                Markup.button.callback("⬅️ Back", `SET_BLOCKS_${chatIdStr}`),
+                Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+            ]);
             break;
 
         case "multiple_joins":
-            title = "👥 Multiple joins block";
+            title = "👨‍👩‍👧‍👦 Multiple joins block";
+            // dynamic threshold/window if present in block config; defaults as requested
+            const threshold = Number(block.threshold) || 4;
+            const windowSec = Number(block.window) || 2;
+
             body =
-                `Blocks or throttles multiple simultaneous joins (e.g., burst joining by many accounts).\n\n` +
+                `Give a penalty if ${threshold} users join the group within ${windowSec} seconds.\n\n` +
+                `(These values are configurable.)\n\n` +
                 `- Status: ${status}\n` +
-                `- Punishment: ${punishment.toUpperCase()}\n` +
-                `- Entries: ${users.length}`;
+                `- Punishment: ${punishment.toUpperCase()}\n`
+
+            // Buttons: Off, Mute, Ban, Set joins, Set time, nav
+            rows.push([
+                Markup.button.callback("❌ Off", `BLOCK_PUNISH_off_${key}_${chatIdStr}`),
+                Markup.button.callback("🔕 Mute", `BLOCK_PUNISH_mute_${key}_${chatIdStr}`),
+                Markup.button.callback("⛔ Ban", `BLOCK_PUNISH_ban_${key}_${chatIdStr}`)
+            ]);
+            rows.push([
+                Markup.button.callback(`👥 Set joins (${threshold})`, `SET_MULTIPLE_JOINS_SET_JOINS_${chatIdStr}`),
+                Markup.button.callback(`⏱️ Set time (${windowSec}s)`, `SET_MULTIPLE_JOINS_SET_TIME_${chatIdStr}`)
+            ]);
+            rows.push([
+                Markup.button.callback("⬅️ Back", `SET_BLOCKS_${chatIdStr}`),
+                Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+            ]);
             break;
 
         default:
             title = "Unknown block";
             body = `Unknown block key: ${key}\n\n- Status: ${status}`;
+            rows.push([
+                Markup.button.callback("⬅️ Back", `SET_BLOCKS_${chatIdStr}`),
+                Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+            ]);
     }
-
-    // build keyboard rows
-    const rows = [];
-
-    // Manage Users row
-    rows.push([
-        Markup.button.callback("➕ Add user", `SET_${key.toUpperCase()}_ADD_USER_${chatIdStr}`),
-        Markup.button.callback("➖ Remove user", `SET_${key.toUpperCase()}_REMOVE_USER_${chatIdStr}`)
-    ]);
-
-    // View users
-    rows.push([Markup.button.callback("👀 View users", `VIEW_${key.toUpperCase()}_USERS_${chatIdStr}`)]);
-
-    // Punishment selection rows (two rows as required)
-    rows.push([
-        Markup.button.callback("❌ Off", `BLOCK_PUNISH_off_${key}_${chatIdStr}`),
-        Markup.button.callback("❗ Warn", `BLOCK_PUNISH_warn_${key}_${chatIdStr}`)
-    ]);
-    rows.push([
-        Markup.button.callback("❗ Kick", `BLOCK_PUNISH_kick_${key}_${chatIdStr}`),
-        Markup.button.callback("🔕 Mute", `BLOCK_PUNISH_mute_${key}_${chatIdStr}`),
-        Markup.button.callback("⛔ Ban", `BLOCK_PUNISH_ban_${key}_${chatIdStr}`)
-    ]);
-
-    // Bottom nav
-    rows.push([
-        Markup.button.callback("⬅️ Back", `SET_BLOCKS_${chatIdStr}`),
-        Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
-    ]);
 
     await safeEditOrSend(ctx, `<b>${title}</b>\n\n${body}`, {
         parse_mode: "HTML",
@@ -407,6 +486,119 @@ module.exports = (bot) => {
         }
     });
 
+    // Generic block action handler (toggle delete service/welcome message)
+    bot.action(/^BLOCK_ACTION_([a-z_]+)_([a-z_]+)_(-?\d+)$/, async (ctx) => {
+        try {
+            const actionName = ctx.match[1]; // e.g., "delete"
+            const key = ctx.match[2];
+            const chatIdStr = ctx.match[3];
+            const chatId = Number(chatIdStr);
+            const userId = ctx.from.id;
+
+            const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
+            if (!ok) return;
+
+            if (actionName === "delete") {
+                // get current value
+                const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
+                const current = !!(userDoc?.settings?.[chatIdStr]?.blocks?.[key]?.delete_service_message);
+                const newVal = !current;
+
+                await user_setting_module.updateOne(
+                    { user_id: userId },
+                    {
+                        $setOnInsert: { user_id: userId },
+                        $set: {
+                            [`settings.${chatIdStr}.blocks.${key}.delete_service_message`]: newVal
+                        }
+                    },
+                    { upsert: true }
+                );
+
+                await ctx.answerCbQuery(`Delete-on-quick-leave: ${newVal ? "On ✅" : "Off ❌"}`);
+                await renderBlockDetail(ctx, chatIdStr, userId, key);
+                return;
+            }
+
+            // fallback for other actions
+            await ctx.answerCbQuery("Action saved.");
+            await renderBlockDetail(ctx, chatIdStr, userId, key);
+        } catch (err) {
+            console.error("BLOCK_ACTION error:", err);
+        }
+    });
+
+    // Placeholder handlers for multiple joins set buttons (you can implement dialogs/wizards as needed)
+    bot.action(/^SET_MULTIPLE_JOINS_SET_JOINS_(-?\d+)$/, async (ctx) => {
+        try {
+            const chatIdStr = ctx.match[1];
+            const chatId = Number(chatIdStr);
+            const userId = ctx.from.id;
+            const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
+            if (!ok) return;
+
+            // start a session flow to set threshold (reuse the same blockAwait pattern)
+            ctx.session = ctx.session || {};
+            ctx.session.blockAwait = {
+                action: "set_multiple_joins_joins",
+                key: "multiple_joins",
+                chatIdStr,
+                ownerId: userId,
+                promptMessageId: null
+            };
+
+            const textMsg = `✍️ <b>Send now the number of joins that should trigger the rule (e.g., 4).</b>`;
+            const buttons = [[Markup.button.callback("❌ Cancel", `CANCEL_BLOCK_ADD_multiple_joins_${chatIdStr}`)]];
+
+            const botMsg = await safeEditOrSend(ctx, textMsg, {
+                parse_mode: "HTML",
+                reply_markup: { inline_keyboard: buttons }
+            });
+
+            try {
+                const msgId = botMsg?.message_id || botMsg?.message?.message_id || ctx.callbackQuery?.message?.message_id;
+                if (msgId) ctx.session.blockAwait.promptMessageId = msgId;
+            } catch (e) { /* ignore */ }
+        } catch (err) {
+            console.error("SET_MULTIPLE_JOINS_SET_JOINS error:", err);
+        }
+    });
+
+    bot.action(/^SET_MULTIPLE_JOINS_SET_TIME_(-?\d+)$/, async (ctx) => {
+        try {
+            const chatIdStr = ctx.match[1];
+            const chatId = Number(chatIdStr);
+            const userId = ctx.from.id;
+            const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
+            if (!ok) return;
+
+            // start a session flow to set window seconds
+            ctx.session = ctx.session || {};
+            ctx.session.blockAwait = {
+                action: "set_multiple_joins_time",
+                key: "multiple_joins",
+                chatIdStr,
+                ownerId: userId,
+                promptMessageId: null
+            };
+
+            const textMsg = `✍️ <b>Send now the time window in seconds (e.g., 2).</b>`;
+            const buttons = [[Markup.button.callback("❌ Cancel", `CANCEL_BLOCK_ADD_multiple_joins_${chatIdStr}`)]];
+
+            const botMsg = await safeEditOrSend(ctx, textMsg, {
+                parse_mode: "HTML",
+                reply_markup: { inline_keyboard: buttons }
+            });
+
+            try {
+                const msgId = botMsg?.message_id || botMsg?.message?.message_id || ctx.callbackQuery?.message?.message_id;
+                if (msgId) ctx.session.blockAwait.promptMessageId = msgId;
+            } catch (e) { /* ignore */ }
+        } catch (err) {
+            console.error("SET_MULTIPLE_JOINS_SET_TIME error:", err);
+        }
+    });
+
     // ---------------------------
     // Message listener: uses ctx.session.blockAwait + validation
     // ---------------------------
@@ -430,7 +622,57 @@ module.exports = (bot) => {
                 delete ctx.session.blockAwait.promptMessageId;
             }
 
-            // derive raw candidate from message
+            // handle special flows for multiple_joins set values
+            if (action === "set_multiple_joins_joins" && key === "multiple_joins") {
+                // expecting a number in message text
+                const num = Number(ctx.message.text?.trim());
+                if (!num || num < 1) {
+                    await ctx.reply("Please send a valid positive integer for joins. Try again or press Cancel.");
+                    return;
+                }
+
+                await user_setting_module.updateOne(
+                    { user_id: ownerId },
+                    {
+                        $setOnInsert: { user_id: ownerId },
+                        $set: {
+                            [`settings.${chatIdStr}.blocks.multiple_joins.threshold`]: num
+                        }
+                    },
+                    { upsert: true }
+                );
+
+                delete ctx.session.blockAwait;
+                await ctx.reply(`✅ Multiple joins threshold set to ${num}.`);
+                try { await renderBlockDetail(ctx, chatIdStr, ownerId, "multiple_joins"); } catch (e) { }
+                return;
+            }
+
+            if (action === "set_multiple_joins_time" && key === "multiple_joins") {
+                const num = Number(ctx.message.text?.trim());
+                if (!num || num < 1) {
+                    await ctx.reply("Please send a valid positive integer for seconds. Try again or press Cancel.");
+                    return;
+                }
+
+                await user_setting_module.updateOne(
+                    { user_id: ownerId },
+                    {
+                        $setOnInsert: { user_id: ownerId },
+                        $set: {
+                            [`settings.${chatIdStr}.blocks.multiple_joins.window`]: num
+                        }
+                    },
+                    { upsert: true }
+                );
+
+                delete ctx.session.blockAwait;
+                await ctx.reply(`✅ Multiple joins window set to ${num} seconds.`);
+                try { await renderBlockDetail(ctx, chatIdStr, ownerId, "multiple_joins"); } catch (e) { }
+                return;
+            }
+
+            // derive raw candidate from message for add/remove and other generic flows
             let rawCandidate = null;
             if (ctx.message.forward_from) {
                 rawCandidate = ctx.message.forward_from; // user object

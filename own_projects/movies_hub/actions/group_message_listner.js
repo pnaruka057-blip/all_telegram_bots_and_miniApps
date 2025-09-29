@@ -112,11 +112,11 @@ module.exports = (bot) => {
     if (botUsername && appShort) {
       if (moviesCount > 0) {
         const tme = `https://t.me/${botUsername}/${appShort}?startapp=${makePayload("movies")}`;
-        rows.push([{ text: `🍿 Matched Movies (${moviesCount})`, url: tme }]);
+        rows.push([{ text: `⬇️ Download Movies (${moviesCount})`, url: tme }]);
       }
       if (showsCount > 0) {
         const tme2 = `https://t.me/${botUsername}/${appShort}?startapp=${makePayload("shows")}`;
-        rows.push([{ text: `📺 Matched Shows (${showsCount})`, url: tme2 }]);
+        rows.push([{ text: `⬇️ Download Shows (${showsCount})`, url: tme2 }]);
       }
       const reqTme = `https://t.me/${botUsername}/${appShort}?startapp=${makePayload("request")}`;
       rows.push([{ text: "🎬 Request This", url: reqTme }]);
@@ -128,11 +128,11 @@ module.exports = (bot) => {
     if (botUsername) {
       if (moviesCount > 0) {
         const tme = `https://t.me/${botUsername}?startapp=${makePayload("movies")}`;
-        rows.push([{ text: `🍿 Matched Movies (${moviesCount})`, url: tme }]);
+        rows.push([{ text: `⬇️ Download Movies (${moviesCount})`, url: tme }]);
       }
       if (showsCount > 0) {
         const tme2 = `https://t.me/${botUsername}?startapp=${makePayload("shows")}`;
-        rows.push([{ text: `📺 Matched Shows (${showsCount})`, url: tme2 }]);
+        rows.push([{ text: `⬇️ Download Shows (${showsCount})`, url: tme2 }]);
       }
       const reqTme = `https://t.me/${botUsername}?startapp=${makePayload("request")}`;
       rows.push([{ text: "🎬 Request This", url: reqTme }]);

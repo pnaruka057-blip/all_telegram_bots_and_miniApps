@@ -46,23 +46,63 @@ const anti_spamSchema = new mongoose.Schema({
         whitelist: {
             type: [String],
             default: []
+        },
+
+        penalty_duration_str: {
+            type: String,
+            default: "10m"
+        },
+        penalty_duration: {
+            type: Number,
+            default: 10 * 60 * 1000, // 10 minutes in ms
+            min: 30 * 1000,          // minimum 30 seconds in ms
+            max: 365 * 24 * 3600 * 1000 // maximum 365 days in ms
         }
     },
+
     forwarding: {
         channels: {
             penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            penalty_duration_str: { type: String, default: "10m" },
+            penalty_duration: {
+                type: Number,
+                default: 10 * 60 * 1000, // 10 minutes in ms
+                min: 30 * 1000,
+                max: 365 * 24 * 3600 * 1000
+            },
             delete_messages: { type: Boolean, default: false }
         },
         groups: {
             penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            penalty_duration_str: { type: String, default: "10m" },
+            penalty_duration: {
+                type: Number,
+                default: 10 * 60 * 1000,
+                min: 30 * 1000,
+                max: 365 * 24 * 3600 * 1000
+            },
             delete_messages: { type: Boolean, default: false }
         },
         users: {
             penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            penalty_duration_str: { type: String, default: "10m" },
+            penalty_duration: {
+                type: Number,
+                default: 10 * 60 * 1000,
+                min: 30 * 1000,
+                max: 365 * 24 * 3600 * 1000
+            },
             delete_messages: { type: Boolean, default: false }
         },
         bots: {
             penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            penalty_duration_str: { type: String, default: "10m" },
+            penalty_duration: {
+                type: Number,
+                default: 10 * 60 * 1000,
+                min: 30 * 1000,
+                max: 365 * 24 * 3600 * 1000
+            },
             delete_messages: { type: Boolean, default: false }
         },
         whitelist: {
@@ -262,7 +302,7 @@ const blocksSchema = new mongoose.Schema({
         type: new mongoose.Schema({
             enabled: { type: Boolean, default: false },
             punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "ban" },
-            mute_duration: { type: Number, default: 10 }, 
+            mute_duration: { type: Number, default: 10 },
             mute_duration_str: { type: String, default: "10m" },
             users: { type: [String], default: [] },
         }, { _id: false }),
@@ -273,7 +313,7 @@ const blocksSchema = new mongoose.Schema({
     botblock: {
         type: new mongoose.Schema({
             enabled: { type: Boolean, default: false },
-            punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            punishment: { type: String, enum: ["warn", "kick", "mute", "ban"], default: "" },
             mute_duration: { type: Number, default: 10 },
             mute_duration_str: { type: String, default: "10m" },
             users: { type: [String], default: [] },
