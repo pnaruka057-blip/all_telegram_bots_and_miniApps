@@ -30,7 +30,7 @@ module.exports = (bot) => {
                 [Markup.button.callback("⬅️ Back", "MANAGE_GROUPS")]
             ]);
 
-            const text = `⚙️ <b>SETTINGS</b>\nGroup: <code>${chat.title || chatIdStr}</code>\n\n<i>Select one of the settings that you want to change.</i>`;
+            const text = `⚙️ <b>SETTINGS</b>\n\nGroup: <code>${chat.title || chatIdStr}</code>\n\n<i>Select one of the settings that you want to change.</i>`;
 
             await safeEditOrSend(ctx, text, { parse_mode: "HTML", ...keyboard });
         } catch (err) {

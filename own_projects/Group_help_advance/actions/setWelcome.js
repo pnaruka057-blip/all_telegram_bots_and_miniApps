@@ -20,15 +20,15 @@ async function renderWelcomeMenu(ctx, chatIdStr, userId) {
     const text =
         `💬 <b>Welcome Message</b>\n\n` +
         `From this menu you can set a welcome message that will be sent when someone joins the group.\n\n` +
-        `Status: ${enabled ? "On " + ok : "Off " + no}\n` +
-        `Mode: ${mode}\n` +
-        `Delete previous welcome message: ${deleteLast ? 'On ' + ok : 'Off ' + no}\n\n` +
-        `👉 Use the buttons below to edit/preview the welcome message for this chat.`;
+        `<b>Status</b>: ${enabled ? "On " + ok : "Off " + no}\n` +
+        `<b>Mode</b>: ${mode}\n` +
+        `<b>Delete previous welcome message</b>: ${deleteLast ? 'On ' + ok : 'Off ' + no}\n\n` +
+        `<i>👉 Use the buttons below to edit/preview the welcome message for this chat.</i>`;
 
     const keyboard = Markup.inlineKeyboard([
         [
-            Markup.button.callback("❌ Turn off", `WELCOME_TURN_OFF_${chatIdStr}`),
-            Markup.button.callback("✅ Turn on", `WELCOME_TURN_ON_${chatIdStr}`)
+            Markup.button.callback("✅ Turn on", `WELCOME_TURN_ON_${chatIdStr}`),
+            Markup.button.callback("❌ Turn off", `WELCOME_TURN_OFF_${chatIdStr}`)
         ],
         [Markup.button.callback("✍️ Customize message", `CUSTOMIZE_WELCOME_${chatIdStr}`)],
         [
@@ -231,16 +231,6 @@ module.exports = (bot) => {
     // ====== CUSTOMIZE WELCOME ======
     bot.action(/^CUSTOMIZE_WELCOME_(-?\d+)$/, async (ctx) => {
         try {
-            // clear previous preview message if any
-            if (ctx?.session?.set_welcome_message_id) {
-                try {
-                    await ctx.deleteMessage(ctx.session.set_welcome_message_id);
-                    delete ctx.session.set_welcome_message_id;
-                } catch (e) {
-                    console.log("Message delete error:", e.message);
-                }
-            }
-
             const userId = ctx.from.id;
             const chatIdStr = ctx.match[1];
             const chatId = Number(chatIdStr);
@@ -425,11 +415,10 @@ module.exports = (bot) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
+        const builderUrl = "https://example.com/telegram-button-builder"; // replace with your real tool if available
         const textMsg =
-            "🔠 <b>Send the list of buttons</b> for the welcome message using this format:\n\n" +
-            "<code>Button text - https://example.com\nAnother - https://t.me/username</code>\n\n" +
-            "• To put 2 buttons in same row separate them with <b>&&</b>.\n" +
-            "• You can also use special keywords like <b>rules</b> if you support that.";
+            `👉🏻 <b>Send now the Buttons</b> you want to set.\n\n` +
+            `If you need a visual tool to build the buttons and get the exact code, \n<a href="${builderUrl}">click here</a>.\n\n`
 
         const buttons = [
             [Markup.button.callback("🚫 Remove Keyboard", `REMOVE_WELCOME_BUTTONS_${chatIdStr}`)],
@@ -557,6 +546,15 @@ module.exports = (bot) => {
                 ];
 
                 await ctx.reply(successMsg, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
+                // clear previous preview message if any
+                if (ctx?.session?.set_welcome_message_id) {
+                    try {
+                        await ctx.deleteMessage(ctx.session.set_welcome_message_id);
+                        delete ctx.session.set_welcome_message_id;
+                    } catch (e) {
+                        console.log("Message delete error:", e.message);
+                    }
+                }
                 delete ctx.session.awaitingWelcomeText;
                 return;
             }
@@ -597,6 +595,15 @@ module.exports = (bot) => {
                 ];
 
                 await ctx.reply(successMsg, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
+                // clear previous preview message if any
+                if (ctx?.session?.set_welcome_message_id) {
+                    try {
+                        await ctx.deleteMessage(ctx.session.set_welcome_message_id);
+                        delete ctx.session.set_welcome_message_id;
+                    } catch (e) {
+                        console.log("Message delete error:", e.message);
+                    }
+                }
                 delete ctx.session.awaitingWelcomeButtons;
                 return;
             }
@@ -615,7 +622,7 @@ module.exports = (bot) => {
     // ===== HANDLE INCOMING MEDIA SAVE (photo/video/document) =====
     bot.on(["photo", "video", "document"], async (ctx, next) => {
         try {
-            if (!ctx.session || !ctx.session.awaitingWelcomeMedia) return;
+            if (!ctx.session || !ctx.session.awaitingWelcomeMedia) return typeof next === "function" ? await next() : undefined;;
 
             let { chatIdStr, userId } = ctx.session.awaitingWelcomeMedia;
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
@@ -668,6 +675,15 @@ module.exports = (bot) => {
             const successCaption = `✅ <b>Welcome media saved</b> for <b>${chat.title || chatIdStr}</b>.`;
 
             await ctx.reply(successCaption, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
+            // clear previous preview message if any
+            if (ctx?.session?.set_welcome_message_id) {
+                try {
+                    await ctx.deleteMessage(ctx.session.set_welcome_message_id);
+                    delete ctx.session.set_welcome_message_id;
+                } catch (e) {
+                    console.log("Message delete error:", e.message);
+                }
+            }
             delete ctx.session.awaitingWelcomeMedia;
         } catch (err) {
             console.error("❌ Error in incoming media handler (welcome):", err);

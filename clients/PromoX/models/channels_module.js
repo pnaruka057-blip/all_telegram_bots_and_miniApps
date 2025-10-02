@@ -44,6 +44,9 @@ const channelSchema = new mongoose.Schema({
 // TTL index on auto_delete_time
 channelSchema.index({ auto_delete_time: 1 }, { expireAfterSeconds: 0 });
 
-const user_channels = promoX_connection.model("user_channels", channelSchema);
+let user_channels;
+if(promoX_connection){
+    user_channels = promoX_connection.model("user_channels", channelSchema);
+}
 
 module.exports = user_channels

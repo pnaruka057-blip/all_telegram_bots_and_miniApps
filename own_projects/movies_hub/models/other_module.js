@@ -16,6 +16,9 @@ const otherSchema = new mongooose.Schema({
     requested_by: { type: mongooose.Schema.Types.ObjectId, ref: 'users_modules' },
 }, { timestamps: true });
 
-const other_modules = Movies_hub_connection.model('other_modules', otherSchema);
+let other_modules;
+if(Movies_hub_connection){
+    other_modules = Movies_hub_connection.model('other_modules', otherSchema)
+}
 
 module.exports = other_modules;

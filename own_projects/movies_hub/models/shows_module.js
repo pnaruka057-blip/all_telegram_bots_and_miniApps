@@ -36,6 +36,9 @@ const showSchema = new mongoose.Schema({
     download_count: { type: Number, default: 0 }
 }, { timestamps: true });
 
-const shows_module = Movies_hub_connection.model('shows_modules', showSchema);
+let shows_module;
+if(Movies_hub_connection){
+    shows_module = Movies_hub_connection.model('shows_modules', showSchema)
+}
 
 module.exports = shows_module;

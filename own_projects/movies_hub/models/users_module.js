@@ -26,6 +26,9 @@ const userSchema = new mongooose.Schema({
     }
 });
 
-const users_module = Movies_hub_connection.model('users_modules', userSchema);
+let users_module;
+if(Movies_hub_connection){
+    users_module = Movies_hub_connection.model('users_modules', userSchema)
+} 
 
 module.exports = users_module;

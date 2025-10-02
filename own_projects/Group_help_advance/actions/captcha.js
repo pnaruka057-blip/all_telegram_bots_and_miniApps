@@ -15,6 +15,8 @@ const MODES = {
 
 // --- update renderCaptchaMenu to prefer time_ms if present ---
 async function renderCaptchaMenu(ctx, chatIdStr, userId) {
+    const isOwner = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+    if (!isOwner) return;
     const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
     const c = userDoc?.settings?.[chatIdStr]?.captcha || {};
 
@@ -55,7 +57,8 @@ async function renderCaptchaMenu(ctx, chatIdStr, userId) {
         `🕒 Time: ${formatMs(timeMs)} (${timeMs} ms)\n` +
         `⛔ Penalty: ${penaltyText}\n` +
         `🧩 Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}\n` +
-        `🗑️ Delete service message: ${deleteSvc ? "On " + ok : "Off " + no}`;
+        `🗑️ Delete service message: ${deleteSvc ? "On " + ok : "Off " + no}` +
+        `\n\n<i>Select one of the options below to change the settings for ${isOwner ? isOwner.title : chatIdStr}.</i>`;
 
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback("❌ Turn off", `CAPTCHA_TURN_OFF_${chatIdStr}`)],

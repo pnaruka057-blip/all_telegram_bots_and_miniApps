@@ -13,6 +13,9 @@ const movieSchema = new mongoose.Schema({
     category: { type: String, required: true },
 }, { timestamps: true });
 
-const movies_module = Movies_hub_connection.model('movies_modules', movieSchema);
+let movies_module;
+if (Movies_hub_connection) {
+    movies_module = Movies_hub_connection.model('movies_modules', movieSchema)
+}
 
 module.exports = movies_module;

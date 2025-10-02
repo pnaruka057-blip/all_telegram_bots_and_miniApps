@@ -4,26 +4,35 @@ const user_setting_module = require("../models/user_settings_module");
 const safeEditOrSend = require("../helpers/safeEditOrSend");
 const parseButtonsSyntax = require("../helpers/parseButtonsSyntax");
 
+// helper to check if any goodbye content exists
+function computeGoodbyeState(goodbye) {
+    const msg = goodbye || {};
+    const hasText = !!(msg.text && msg.text.trim());
+    const hasMedia = !!(msg.media && msg.media_type);
+    const hasButtons = Array.isArray(msg.buttons) && msg.buttons.length > 0;
+    return { hasText, hasMedia, hasButtons };
+}
+
 async function renderGoodbyeMenu(ctx, chatIdStr, userId) {
-    const userSettings = await user_setting_module.findOne({ user_id: userId });
-    const goodbye = userSettings?.settings?.get(chatIdStr)?.goodbye || {};
+    const isOwner = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+    if (!isOwner) return;
+
+    const userSettings = await user_setting_module.findOne({ user_id: userId }).lean();
+    const goodbye = userSettings?.settings?.[chatIdStr]?.goodbye || {};
 
     const enabled = !!goodbye.enabled;
     const mode = goodbye.mode === "first_leave" ? "1️⃣ Send 1st leave" : "🔔 Send at every leave";
-
-    // delete previous goodbye message flag (kept same semantics)
     const deleteLast = !!goodbye.delete_last;
-
     const ok = "✅";
     const no = "❌";
 
     const text =
         `👋 <b>Goodbye Message</b>\n\n` +
         `From this menu you can set a goodbye message that will be sent when someone leaves the group.\n\n` +
-        `Status: ${enabled ? "On " + ok : "Off " + no}\n` +
-        `Mode: ${mode}\n` +
-        `Delete previous goodbye message: ${deleteLast ? 'On ' + ok : 'Off ' + no}\n\n` +
-        `👉 Use the buttons below to edit/preview the goodbye message for this chat.`;
+        `<b>Status</b>: ${enabled ? "On " + ok : "Off " + no}\n` +
+        `<b>Mode</b>: ${mode}\n` +
+        `<b>Delete previous goodbye message</b>: ${deleteLast ? 'On ' + ok : 'Off ' + no}\n\n` +
+        `<i>👉 Use the buttons below to control this setting for <b>${(isOwner) ? isOwner?.title : chatIdStr}</b>.</i>`;
 
     const keyboard = Markup.inlineKeyboard([
         [
@@ -44,6 +53,58 @@ async function renderGoodbyeMenu(ctx, chatIdStr, userId) {
     await safeEditOrSend(ctx, text, { parse_mode: "HTML", ...keyboard });
 }
 
+// reusable customize renderer
+async function renderCustomizeGoodbyeMenu(ctx, chatIdStr, userId) {
+    const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
+    const chatSettings = (userDoc && userDoc.settings && userDoc.settings[chatIdStr]) || {};
+    const goodbye = chatSettings.goodbye || {};
+    const msg = goodbye || {};
+
+    const hasText = !!(msg.text && msg.text.trim());
+    const hasMedia = !!(msg.media && msg.media_type);
+    const hasButtons = Array.isArray(msg.buttons) && msg.buttons.length > 0;
+
+    const ok = "✅";
+    const no = "❌";
+
+    const textMsg =
+        `👋 <b>Goodbye message</b>\n\n` +
+        `Use the buttons below to choose what you want to set\n\n` +
+        `<b>Current status:</b>\n` +
+        ` ${hasText ? ok : no} 📄 Text\n` +
+        ` ${hasMedia ? ok : no} 📸 Media\n` +
+        ` ${hasButtons ? ok : no} 🔠 Url Buttons\n\n` +
+        `<i>👉 Use the buttons below to edit or preview the goodbye message.</i>`;
+
+    const buttons = [
+        [
+            Markup.button.callback("📄 Text", `SET_GOODBYE_TEXT_${chatIdStr}`),
+            Markup.button.callback(hasText ? "👀 See" : "➕ Add", hasText ? `SEE_GOODBYE_TEXT_${chatIdStr}` : `SET_GOODBYE_TEXT_${chatIdStr}`)
+        ],
+        [
+            Markup.button.callback("📸 Media", `SET_GOODBYE_MEDIA_${chatIdStr}`),
+            Markup.button.callback(hasMedia ? "👀 See" : "➕ Add", hasMedia ? `SEE_GOODBYE_MEDIA_${chatIdStr}` : `SET_GOODBYE_MEDIA_${chatIdStr}`)
+        ],
+        [
+            Markup.button.callback("🔠 Url Buttons", `SET_GOODBYE_BUTTONS_${chatIdStr}`),
+            Markup.button.callback(hasButtons ? "👀 See" : "➕ Add", hasButtons ? `SEE_GOODBYE_BUTTONS_${chatIdStr}` : `SET_GOODBYE_BUTTONS_${chatIdStr}`)
+        ],
+        [Markup.button.callback("👀 Full preview", `PREVIEW_GOODBYE_${chatIdStr}`)],
+        [
+            Markup.button.callback("⬅️ Back", `SET_GOODBYE_${chatIdStr}`),
+            Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+        ]
+    ];
+
+    const message_id = await safeEditOrSend(ctx, textMsg, {
+        parse_mode: "HTML",
+        ...Markup.inlineKeyboard(buttons)
+    }, true);
+
+    ctx.session = ctx.session || {};
+    ctx.session.set_goodbye_message_id = message_id;
+}
+
 module.exports = (bot) => {
     // OPEN main goodbye menu
     bot.action(/^SET_GOODBYE_(-?\d+)$/, async (ctx) => {
@@ -62,7 +123,7 @@ module.exports = (bot) => {
         }
     });
 
-    // TURN ON
+    // TURN ON with auto-redirect if no content set
     bot.action(/^GOODBYE_TURN_ON_(-?\d+)$/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
@@ -72,14 +133,22 @@ module.exports = (bot) => {
             const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
             if (!ok) return;
 
-            const userIdKey = userId;
+            // Check if text or media or buttons exist
+            const refreshed = await user_setting_module.findOne({ user_id: userId }).lean();
+            const goodbye = refreshed?.settings?.[chatIdStr]?.goodbye || {};
+            const { hasText, hasMedia, hasButtons } = computeGoodbyeState(goodbye);
+
+            if (!hasText && !hasMedia && !hasButtons) {
+                await renderCustomizeGoodbyeMenu(ctx, chatIdStr, userId);
+                return;
+            }
 
             const update = {
-                $setOnInsert: { user_id: userIdKey },
+                $setOnInsert: { user_id: userId },
                 $set: { [`settings.${chatIdStr}.goodbye.enabled`]: true }
             };
 
-            const res = await user_setting_module.updateOne({ user_id: userIdKey }, update, { upsert: true });
+            const res = await user_setting_module.updateOne({ user_id: userId }, update, { upsert: true });
 
             if (res.acknowledged) {
                 await ctx.answerCbQuery("Goodbye turned on.");
@@ -104,14 +173,12 @@ module.exports = (bot) => {
             const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
             if (!ok) return;
 
-            const userIdKey = userId;
-
             const update = {
-                $setOnInsert: { user_id: userIdKey },
+                $setOnInsert: { user_id: userId },
                 $set: { [`settings.${chatIdStr}.goodbye.enabled`]: false }
             };
 
-            const res = await user_setting_module.updateOne({ user_id: userIdKey }, update, { upsert: true });
+            const res = await user_setting_module.updateOne({ user_id: userId }, update, { upsert: true });
 
             if (res.acknowledged) {
                 await ctx.answerCbQuery("Goodbye turned off.");
@@ -172,7 +239,7 @@ module.exports = (bot) => {
         }
     });
 
-    // TOGGLE: whether to delete the previous goodbye message when sending a new one
+    // TOGGLE delete_last
     bot.action(/^GOODBYE_DELETE_LAST_(-?\d+)$/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
@@ -182,16 +249,15 @@ module.exports = (bot) => {
             const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
             if (!ok) return;
 
-            const userSettings = await user_setting_module.findOne({ user_id: userId });
-            const current = !!userSettings?.settings?.get(chatIdStr)?.goodbye?.delete_last;
+            const userSettings = await user_setting_module.findOne({ user_id: userId }).lean();
+            const current = !!userSettings?.settings?.[chatIdStr]?.goodbye?.delete_last;
 
             const newVal = !current;
 
-            const userIdKey = userId;
             const res = await user_setting_module.updateOne(
-                { user_id: userIdKey },
+                { user_id: userId },
                 {
-                    $setOnInsert: { user_id: userIdKey },
+                    $setOnInsert: { user_id: userId },
                     $set: { [`settings.${chatIdStr}.goodbye.delete_last`]: newVal }
                 },
                 { upsert: true }
@@ -210,18 +276,9 @@ module.exports = (bot) => {
         }
     });
 
-    // ====== CUSTOMIZE GOODBYE ======
+    // ====== CUSTOMIZE GOODBYE (call renderer) ======
     bot.action(/^CUSTOMIZE_GOODBYE_(-?\d+)$/, async (ctx) => {
         try {
-            if (ctx?.session?.set_goodbye_message_id) {
-                try {
-                    await ctx.deleteMessage(ctx.session.set_goodbye_message_id);
-                    delete ctx.session.set_goodbye_message_id;
-                } catch (e) {
-                    console.log("Message delete error:", e.message);
-                }
-            }
-
             const userId = ctx.from.id;
             const chatIdStr = ctx.match[1];
             const chatId = Number(chatIdStr);
@@ -229,54 +286,7 @@ module.exports = (bot) => {
             const chat = await validateOwner(ctx, chatId, chatIdStr, userId);
             if (!chat) return;
 
-            const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
-            const chatSettings = (userDoc && userDoc.settings && userDoc.settings[chatIdStr]) || {};
-            const goodbye = chatSettings.goodbye || {};
-            const msg = goodbye || {};
-
-            const hasText = !!(msg.text && msg.text.trim());
-            const hasMedia = !!(msg.media && msg.media_type);
-            const hasButtons = Array.isArray(msg.buttons) && msg.buttons.length > 0;
-
-            const ok = "✅";
-            const no = "❌";
-
-            const textMsg =
-                `👋 <b>Goodbye message</b>\n\n` +
-                `Use the buttons below to choose what you want to set\n\n` +
-                `<b>Current status:</b>\n` +
-                ` ${hasText ? ok : no} 📄 Text\n` +
-                ` ${hasMedia ? ok : no} 📸 Media\n` +
-                ` ${hasButtons ? ok : no} 🔠 Url Buttons\n\n` +
-                `👉 Use the buttons below to edit or preview the goodbye message for <b>${chat.title || chatIdStr}</b>.`;
-
-            const buttons = [
-                [
-                    Markup.button.callback("📄 Text", `SET_GOODBYE_TEXT_${chatIdStr}`),
-                    Markup.button.callback(hasText ? "👀 See" : "➕ Add", hasText ? `SEE_GOODBYE_TEXT_${chatIdStr}` : `SET_GOODBYE_TEXT_${chatIdStr}`)
-                ],
-                [
-                    Markup.button.callback("📸 Media", `SET_GOODBYE_MEDIA_${chatIdStr}`),
-                    Markup.button.callback(hasMedia ? "👀 See" : "➕ Add", hasMedia ? `SEE_GOODBYE_MEDIA_${chatIdStr}` : `SET_GOODBYE_MEDIA_${chatIdStr}`)
-                ],
-                [
-                    Markup.button.callback("🔠 Url Buttons", `SET_GOODBYE_BUTTONS_${chatIdStr}`),
-                    Markup.button.callback(hasButtons ? "👀 See" : "➕ Add", hasButtons ? `SEE_GOODBYE_BUTTONS_${chatIdStr}` : `SET_GOODBYE_BUTTONS_${chatIdStr}`)
-                ],
-                [Markup.button.callback("👀 Full preview", `PREVIEW_GOODBYE_${chatIdStr}`)],
-                [
-                    Markup.button.callback("⬅️ Back", `SET_GOODBYE_${chatIdStr}`),
-                    Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
-                ]
-            ];
-
-            const message_id = await safeEditOrSend(ctx, textMsg, {
-                parse_mode: "HTML",
-                ...Markup.inlineKeyboard(buttons)
-            }, true);
-
-            ctx.session = ctx.session || {};
-            ctx.session.set_goodbye_message_id = message_id;
+            await renderCustomizeGoodbyeMenu(ctx, chatIdStr, userId);
         } catch (err) {
             console.error("❌ Error in CUSTOMIZE_GOODBYE handler:", err);
             try { await ctx.reply("⚠️ Something went wrong while opening goodbye editor. Please try again."); } catch { }
@@ -295,13 +305,13 @@ module.exports = (bot) => {
             [Markup.button.callback("❌ Cancel", `CUSTOMIZE_GOODBYE_${chatIdStr}`)]
         ];
 
-        await safeEditOrSend(ctx, textMsg, {
+        let message_id = await safeEditOrSend(ctx, textMsg, {
             parse_mode: "HTML",
             ...Markup.inlineKeyboard(buttons)
-        });
+        }, true);
 
         ctx.session = ctx.session || {};
-        ctx.session.awaitingGoodbyeText = { chatIdStr, userId };
+        ctx.session.awaitingGoodbyeText = { chatIdStr, userId, message_id };
         await ctx.answerCbQuery();
     });
 
@@ -319,7 +329,6 @@ module.exports = (bot) => {
 
             await ctx.answerCbQuery();
 
-            // send navigation message
             await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
                 parse_mode: "HTML",
                 reply_markup: {
@@ -350,13 +359,13 @@ module.exports = (bot) => {
                 [Markup.button.callback("❌ Cancel", `CUSTOMIZE_GOODBYE_${chatIdStr}`)]
             ];
 
-            await safeEditOrSend(ctx, textMsg, {
+            let message_id = await safeEditOrSend(ctx, textMsg, {
                 parse_mode: "HTML",
                 ...Markup.inlineKeyboard(buttons)
-            });
+            }, true);
 
             ctx.session = ctx.session || {};
-            ctx.session.awaitingGoodbyeMedia = { chatIdStr, userId };
+            ctx.session.awaitingGoodbyeMedia = { chatIdStr, userId, message_id };
             await ctx.answerCbQuery();
         } catch (err) {
             console.error("SET_GOODBYE_MEDIA error:", err);
@@ -374,7 +383,6 @@ module.exports = (bot) => {
                 return ctx.answerCbQuery("❌ No media set yet!", { show_alert: true });
             }
 
-            // send navigation message
             await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
                 parse_mode: "HTML",
                 reply_markup: {
@@ -393,6 +401,7 @@ module.exports = (bot) => {
                 sentMsg = await ctx.replyWithDocument(msg.media);
             }
 
+            ctx.session = ctx.session || {};
             ctx.session.set_goodbye_message_id = sentMsg.message_id;
             await ctx.answerCbQuery();
         } catch (err) {
@@ -405,24 +414,23 @@ module.exports = (bot) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
+        const builderUrl = "https://example.com/telegram-button-builder"; // replace with your real tool if available
         const textMsg =
-            "🔠 <b>Send the list of buttons</b> for the goodbye message using this format:\n\n" +
-            "<code>Button text - https://example.com\nAnother - https://t.me/username</code>\n\n" +
-            "• To put 2 buttons in same row separate them with <b>&&</b>.\n" +
-            "• You can also use special keywords like <b>rules</b> if you support that.";
+            `👉🏻 <b>Send now the Buttons</b> you want to set.\n\n` +
+            `If you need a visual tool to build the buttons and get the exact code, \n<a href="${builderUrl}">click here</a>.\n\n`
 
         const buttons = [
             [Markup.button.callback("🚫 Remove Keyboard", `REMOVE_GOODBYE_BUTTONS_${chatIdStr}`)],
             [Markup.button.callback("❌ Cancel", `CUSTOMIZE_GOODBYE_${chatIdStr}`)]
         ];
 
-        await safeEditOrSend(ctx, textMsg, {
+        let message_id = await safeEditOrSend(ctx, textMsg, {
             parse_mode: "HTML",
             ...Markup.inlineKeyboard(buttons)
-        });
+        }, true);
 
         ctx.session = ctx.session || {};
-        ctx.session.awaitingGoodbyeButtons = { chatIdStr, userId };
+        ctx.session.awaitingGoodbyeButtons = { chatIdStr, userId, message_id };
         await ctx.answerCbQuery();
     });
 
@@ -485,7 +493,6 @@ module.exports = (bot) => {
                 if (rowButtons.length) inlineKeyboard.push(rowButtons);
             });
 
-            // back + main
             inlineKeyboard.push([
                 Markup.button.callback("⬅️ Back", `CUSTOMIZE_GOODBYE_${chatIdStr}`),
                 Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
@@ -501,25 +508,22 @@ module.exports = (bot) => {
         }
     });
 
-    // ===== HANDLE INCOMING TEXT SAVE (for goodbye text & buttons) =====
+    // ===== HANDLE INCOMING TEXT SAVE =====
     bot.on("text", async (ctx, next) => {
         try {
-            // ===== GOODBYE TEXT =====
             if (ctx.session?.awaitingGoodbyeText) {
-                let { chatIdStr, userId } = ctx.session.awaitingGoodbyeText;
+                let { chatIdStr, userId, message_id } = ctx.session.awaitingGoodbyeText;
                 const text = ctx.message.text;
 
                 const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-                if (!chat) {
-                    delete ctx.session.awaitingGoodbyeText;
-                    return;
-                }
+                if (!chat) { delete ctx.session.awaitingGoodbyeText; return; }
 
                 await user_setting_module.findOneAndUpdate(
                     { user_id: userId },
                     {
                         $set: {
                             [`settings.${chatIdStr}.goodbye.text`]: text,
+                            [`settings.${chatIdStr}.goodbye.enabled`]: true
                         }
                     },
                     { upsert: true }
@@ -531,26 +535,28 @@ module.exports = (bot) => {
                     [Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
                 ];
 
+                if (message_id) {
+                    try {
+                        await ctx.deleteMessage(message_id);
+                    } catch (e) {
+                        console.log("Message delete error:", e.message);
+                    }
+                }
+
                 await ctx.reply(successMsg, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
                 delete ctx.session.awaitingGoodbyeText;
                 return;
             }
 
-            // ===== GOODBYE BUTTONS =====
             if (ctx.session?.awaitingGoodbyeButtons) {
-                let { chatIdStr, userId } = ctx.session.awaitingGoodbyeButtons;
+                let { chatIdStr, userId, message_id } = ctx.session.awaitingGoodbyeButtons;
                 const raw = (ctx.message.text || "").trim();
 
                 const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-                if (!chat) {
-                    delete ctx.session.awaitingGoodbyeButtons;
-                    return;
-                }
+                if (!chat) { delete ctx.session.awaitingGoodbyeButtons; return; }
 
                 const res = await parseButtonsSyntax(ctx, raw);
-                if (!res.match) {
-                    return;
-                }
+                if (!res.match) return;
 
                 const parsedButtons = res.buttons;
 
@@ -571,6 +577,14 @@ module.exports = (bot) => {
                     [Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
                 ];
 
+                if (message_id) {
+                    try {
+                        await ctx.deleteMessage(message_id);
+                    } catch (e) {
+                        console.log("Message delete error:", e.message);
+                    }
+                }
+
                 await ctx.reply(successMsg, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
                 delete ctx.session.awaitingGoodbyeButtons;
                 return;
@@ -582,39 +596,30 @@ module.exports = (bot) => {
             if (ctx.session?.awaitingGoodbyeButtons) delete ctx.session.awaitingGoodbyeButtons;
         }
 
-        if (typeof next === "function") {
-            await next();
-        }
+        if (typeof next === "function") await next();
     });
 
-    // ===== HANDLE INCOMING MEDIA SAVE (photo/video/document) =====
+    // ===== HANDLE INCOMING MEDIA SAVE =====
     bot.on(["photo", "video", "document"], async (ctx, next) => {
         try {
             if (!ctx.session || !ctx.session.awaitingGoodbyeMedia) return;
 
-            let { chatIdStr, userId } = ctx.session.awaitingGoodbyeMedia;
+            let { chatIdStr, userId, message_id } = ctx.session.awaitingGoodbyeMedia;
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-            if (!chat) {
-                delete ctx.session.awaitingGoodbyeMedia;
-                return;
-            }
+            if (!chat) { delete ctx.session.awaitingGoodbyeMedia; return; }
 
             let fileId = null;
             let mediaType = null;
-            let caption = "";
 
             if (ctx.message.photo) {
                 fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
                 mediaType = "photo";
-                caption = ctx.message.caption || "";
             } else if (ctx.message.video) {
                 fileId = ctx.message.video.file_id;
                 mediaType = "video";
-                caption = ctx.message.caption || "";
             } else if (ctx.message.document) {
                 fileId = ctx.message.document.file_id;
                 mediaType = "document";
-                caption = ctx.message.caption || "";
             }
 
             if (!fileId) {
@@ -623,7 +628,6 @@ module.exports = (bot) => {
                 return;
             }
 
-            // Save media info (file_id + type)
             await user_setting_module.findOneAndUpdate(
                 { user_id: userId },
                 {
@@ -642,7 +646,13 @@ module.exports = (bot) => {
             ];
 
             const successCaption = `✅ <b>Goodbye media saved</b> for <b>${chat.title || chatIdStr}</b>.`;
-
+            if (message_id) {
+                try {
+                    await ctx.deleteMessage(message_id);
+                } catch (e) {
+                    console.log("Message delete error:", e.message);
+                }
+            }
             await ctx.reply(successCaption, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
             delete ctx.session.awaitingGoodbyeMedia;
         } catch (err) {
@@ -664,7 +674,6 @@ module.exports = (bot) => {
             return ctx.answerCbQuery("❌ No goodbye saved yet!", { show_alert: true });
         }
 
-        // Build inline keyboard from saved user buttons
         let inlineKeyboard = [];
         if (goodbye.buttons && goodbye.buttons.length) {
             goodbye.buttons.forEach((row) => {
@@ -714,7 +723,6 @@ module.exports = (bot) => {
             });
         }
 
-        // ====== 1) Send goodbye preview (media or text) ======
         if (goodbye.media) {
             try {
                 if (goodbye.media_type === "photo") {
@@ -741,12 +749,10 @@ module.exports = (bot) => {
             }
         }
 
-        // If only text (no buttons and no media) send a normal reply
         if (!(goodbye.buttons && goodbye.buttons.length) && !goodbye.media) {
             await ctx.reply(goodbye.text || "", { parse_mode: "HTML" });
         }
 
-        // send navigation message
         await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
             parse_mode: "HTML",
             reply_markup: {

@@ -50,7 +50,7 @@ const anti_spamSchema = new mongoose.Schema({
 
         penalty_duration_str: {
             type: String,
-            default: "10m"
+            default: "10 minutes"
         },
         penalty_duration: {
             type: Number,
@@ -63,7 +63,7 @@ const anti_spamSchema = new mongoose.Schema({
     forwarding: {
         channels: {
             penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
-            penalty_duration_str: { type: String, default: "10m" },
+            penalty_duration_str: { type: String, default: "10 minutes" },
             penalty_duration: {
                 type: Number,
                 default: 10 * 60 * 1000, // 10 minutes in ms
@@ -74,7 +74,7 @@ const anti_spamSchema = new mongoose.Schema({
         },
         groups: {
             penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
-            penalty_duration_str: { type: String, default: "10m" },
+            penalty_duration_str: { type: String, default: "10 minutes" },
             penalty_duration: {
                 type: Number,
                 default: 10 * 60 * 1000,
@@ -85,7 +85,7 @@ const anti_spamSchema = new mongoose.Schema({
         },
         users: {
             penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
-            penalty_duration_str: { type: String, default: "10m" },
+            penalty_duration_str: { type: String, default: "10 minutes" },
             penalty_duration: {
                 type: Number,
                 default: 10 * 60 * 1000,
@@ -96,7 +96,7 @@ const anti_spamSchema = new mongoose.Schema({
         },
         bots: {
             penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
-            penalty_duration_str: { type: String, default: "10m" },
+            penalty_duration_str: { type: String, default: "10 minutes" },
             penalty_duration: {
                 type: Number,
                 default: 10 * 60 * 1000,
@@ -104,6 +104,61 @@ const anti_spamSchema = new mongoose.Schema({
                 max: 365 * 24 * 3600 * 1000
             },
             delete_messages: { type: Boolean, default: false }
+        },
+        whitelist: {
+            type: [String],
+            default: []
+        }
+    },
+
+    quote: {
+        channels: {
+            penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            penalty_duration_str: { type: String, default: "10 minutes" },
+            penalty_duration: { type: Number, default: 10 * 60 * 1000, min: 30 * 1000, max: 365 * 24 * 3600 * 1000 },
+            delete_messages: { type: Boolean, default: false }
+        },
+        groups: {
+            penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            penalty_duration_str: { type: String, default: "10 minutes" },
+            penalty_duration: { type: Number, default: 10 * 60 * 1000, min: 30 * 1000, max: 365 * 24 * 3600 * 1000 },
+            delete_messages: { type: Boolean, default: false }
+        },
+        users: {
+            penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            penalty_duration_str: { type: String, default: "10 minutes" },
+            penalty_duration: { type: Number, default: 10 * 60 * 1000, min: 30 * 1000, max: 365 * 24 * 3600 * 1000 },
+            delete_messages: { type: Boolean, default: false }
+        },
+        bots: {
+            penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+            penalty_duration_str: { type: String, default: "10 minutes" },
+            penalty_duration: { type: Number, default: 10 * 60 * 1000, min: 30 * 1000, max: 365 * 24 * 3600 * 1000 },
+            delete_messages: { type: Boolean, default: false }
+        },
+        whitelist: { type: [String], default: [] }
+    },
+
+    links_block: {
+        penalty: {
+            type: String,
+            enum: ["off", "warn", "kick", "mute", "ban"],
+            default: "off"
+        },
+        delete_messages: {
+            type: Boolean,
+            default: false
+        },
+        // Unified duration fields for warn/mute/ban (ms + human string)
+        penalty_duration_str: {
+            type: String,
+            default: "10m"
+        },
+        penalty_duration: {
+            type: Number,
+            default: 10 * 60 * 1000,         // 10 minutes in ms
+            min: 30 * 1000,                  // minimum 30 seconds in ms
+            max: 365 * 24 * 3600 * 1000      // maximum 365 days in ms
         },
         whitelist: {
             type: [String],
@@ -166,11 +221,11 @@ const anti_floodSchema = new mongoose.Schema({
     },
     message_limit: { type: Number, default: 5 }, // messages allowed in time frame
     time_frame: { type: Number, default: 10 }, // in seconds
-    mute_duration_str: {
+    penalty_duration_str: {
         type: String,
-        default: "10m"
+        default: "10 minutes"
     },
-    mute_duration: { type: Number, default: 10 } // in minutes, if penalty is mute
+    penalty_duration: { type: Number, default: 10 } // in minutes, if penalty is mute
 });
 
 // for alphabets settings
@@ -181,13 +236,13 @@ const singleLangSchema = new mongoose.Schema({
         default: "off"
     },
     // minutes
-    mute_duration: {
+    penalty_duration: {
         type: Number,
         default: 10
     },
-    mute_duration_str: {
+    penalty_duration_str: {
         type: String,
-        default: "10m"
+        default: "10 minutes"
     },
     delete_messages: {
         type: Boolean,
@@ -379,7 +434,7 @@ const settingsSchema = new mongoose.Schema(
         captcha: captchaSchema,
         checks: checksSchema,
         admin_sos: admin_sosSchema,
-        blocks: blocksSchema
+        blocks: blocksSchema,
     },
     { _id: false }
 );
@@ -400,9 +455,12 @@ const userSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-const user_setting_module = group_help_advance_connection.model(
-    "user_settings",
-    userSchema
-);
+let user_setting_module;
+if (group_help_advance_connection) {
+    user_setting_module = group_help_advance_connection.model(
+        "user_settings",
+        userSchema
+    )
+}
 
 module.exports = user_setting_module;

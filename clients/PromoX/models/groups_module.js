@@ -44,6 +44,10 @@ const groupSchema = new mongoose.Schema({
 // TTL index on auto_delete_time
 groupSchema.index({ auto_delete_time: 1 }, { expireAfterSeconds: 0 });
 
-const user_groups = promoX_connection.model("user_groups", groupSchema);
+let user_groups;
+
+if (promoX_connection) {
+    user_groups = promoX_connection.model("user_groups", groupSchema)
+}
 
 module.exports = user_groups

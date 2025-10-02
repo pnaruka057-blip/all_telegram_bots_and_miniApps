@@ -36,6 +36,9 @@ const telegramUserSchema = new mongoose.Schema({
     },
 });
 
-const user_module = promoX_connection.model('Telegram_user', telegramUserSchema);
+let user_module;
+if(promoX_connection){
+    user_module = promoX_connection.model('Telegram_user', telegramUserSchema)
+}
 
 module.exports = user_module

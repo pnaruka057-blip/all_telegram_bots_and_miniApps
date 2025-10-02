@@ -8,6 +8,7 @@ const parseButtonsSyntax = require("../helpers/parseButtonsSyntax");
 module.exports = (bot) => {
     // ====== MAIN SET REGULATION MENU ======
     bot.action(/SET_REGULATION_(.+)/, async (ctx) => {
+        ctx.session = {};
         const userId = ctx.from.id;
         const chatIdStr = ctx.match[1];
         const chatId = Number(chatIdStr);
@@ -15,12 +16,26 @@ module.exports = (bot) => {
         const chat = await validateOwner(ctx, chatId, chatIdStr, userId);
         if (!chat) return;
 
-        const textMsg = `📜 <b>Group's regulations</b>\nFrom this menu you can manage the group's regulations, that will be shown with the command /rules.`;
+        // fetch user's saved regulation enabled state
+        const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
+        const reg = userDoc?.settings?.[chatIdStr]?.setregulation_message || {};
+        const enabled = !!reg.enabled;
 
+        const statusLabel = enabled ? "On ✅" : "Off ❌";
+
+        let textMsg = `📜 <b>Group's regulations</b>\n\nFrom this menu you can manage the group's regulations, that will be shown with the command /rules.\n\n<b>Current status</b>: ${statusLabel}`;
+
+        // NOTE: two separate buttons (Turn On / Turn Off) as requested
         const buttons = [
+            [
+                Markup.button.callback("✅ Turn On", `TURN_ON_REG_${chatIdStr}`),
+                Markup.button.callback("❌ Turn Off", `TURN_OFF_REG_${chatIdStr}`)
+            ],
             [Markup.button.callback("🖋 Customize message", `CUSTOMIZE_RULES_${chatIdStr}`)],
             [Markup.button.callback("⬅️ Back", `GROUP_SETTINGS_${chatIdStr}`)]
         ];
+
+        textMsg += `\n\n<i>👉 Use the buttons below to manage the regulation for <b>${chat.title || chatIdStr}</b>.</i>`;
 
         await safeEditOrSend(ctx, textMsg, {
             parse_mode: "HTML",
@@ -28,17 +43,142 @@ module.exports = (bot) => {
         });
     });
 
+    // ===== TURN ON =====
+    bot.action(/TURN_ON_REG_(.+)/, async (ctx) => {
+        const chatIdStr = ctx.match[1];
+        const chatId = Number(chatIdStr);
+        const userId = ctx.from.id;
+
+        const chat = await validateOwner(ctx, chatId, chatIdStr, userId);
+        if (!chat) return;
+
+        try {
+            // fetch current saved regulation content for this chat
+            const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
+            const reg = userDoc?.settings?.[chatIdStr]?.setregulation_message || {};
+
+            const hasText = !!(reg.text && reg.text.trim());
+            const hasMedia = !!reg.media;
+            const hasButtons = Array.isArray(reg.buttons) && reg.buttons.length > 0;
+
+            // if nothing set, do NOT enable — open the CUSTOMIZE_RULES view automatically
+            if (!hasText && !hasMedia && !hasButtons) {
+               
+                // Build the same menu as CUSTOMIZE_RULES handler so user sees editor immediately
+                const ok = "✅";
+                const no = "❌";
+
+                const textMsg =
+                    `📜 <b>Regulation</b>\n\n` +
+                    `Use the buttons below to choose what you want to set\n\n` +
+                    `<b>Current status:</b>\n` +
+                    ` ${hasText ? ok : no} 📄 Text\n` +
+                    ` ${hasMedia ? ok : no} 📸 Media\n` +
+                    ` ${hasButtons ? ok : no} 🔠 Url Buttons\n\n` +
+                    `<i>👉 Use the buttons below to edit or preview the regulation.</i>`;
+
+                const buttons = [
+                    [
+                        Markup.button.callback("📄 Text", `SET_REG_RULES_TEXT_${chatIdStr}`),
+                        Markup.button.callback(hasText ? "👀 See" : "➕ Add", hasText ? `SEE_REG_RULES_TEXT_${chatIdStr}` : `SET_REG_RULES_TEXT_${chatIdStr}`)
+                    ],
+                    [
+                        Markup.button.callback("📸 Media", `SET_REG_RULES_MEDIA_${chatIdStr}`),
+                        Markup.button.callback(hasMedia ? "👀 See" : "➕ Add", hasMedia ? `SEE_REG_RULES_MEDIA_${chatIdStr}` : `SET_REG_RULES_MEDIA_${chatIdStr}`)
+                    ],
+                    [
+                        Markup.button.callback("🔠 Url Buttons", `SET_REG_RULES_BUTTONS_${chatIdStr}`),
+                        Markup.button.callback(hasButtons ? "👀 See" : "➕ Add", hasButtons ? `SEE_REG_RULES_BUTTONS_${chatIdStr}` : `SET_REG_RULES_BUTTONS_${chatIdStr}`)
+                    ],
+                    [Markup.button.callback("👀 Full preview", `PREVIEW_REGULATION_${chatIdStr}`)],
+                    [
+                        Markup.button.callback("⬅️ Back", `SET_REGULATION_${chatIdStr}`),
+                        Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+                    ]
+                ];
+
+                // ensure session exists and clear any previous preview id to avoid safeEditOrSend editing old message
+                ctx.session = {};
+
+                const message_id = await safeEditOrSend(ctx, textMsg, {
+                    parse_mode: "HTML",
+                    ...Markup.inlineKeyboard(buttons)
+                }, true);
+
+                ctx.session.set_regulation_message_id = message_id;
+                return;
+            }
+
+            // if we reach here, there's at least one content type — enable regulation
+            await user_setting_module.findOneAndUpdate(
+                { user_id: userId },
+                { $set: { [`settings.${chatIdStr}.setregulation_message.enabled`]: true } },
+                { upsert: true }
+            );
+
+            await ctx.answerCbQuery("✅ Regulation turned ON", { show_alert: false });
+
+            // refresh the menu to reflect new state
+            const textMsg = `📜 <b>Group's regulations</b>\nFrom this menu you can manage the group's regulations, that will be shown with the command /rules.\n\nCurrent status: <b>On ✅</b>`;
+            const buttons = [
+                [
+                    Markup.button.callback("✅ Turn On", `TURN_ON_REG_${chatIdStr}`),
+                    Markup.button.callback("❌ Turn Off", `TURN_OFF_REG_${chatIdStr}`)
+                ],
+                [Markup.button.callback("🖋 Customize message", `CUSTOMIZE_RULES_${chatIdStr}`)],
+                [Markup.button.callback("⬅️ Back", `GROUP_SETTINGS_${chatIdStr}`)]
+            ];
+            await safeEditOrSend(ctx, textMsg, {
+                parse_mode: "HTML",
+                ...Markup.inlineKeyboard(buttons)
+            });
+        } catch (err) {
+            console.error("Error turning ON regulation:", err);
+            await ctx.reply("⚠️ Could not turn ON regulation. Please try again.");
+        }
+    });
+
+    // ===== TURN OFF =====
+    bot.action(/TURN_OFF_REG_(.+)/, async (ctx) => {
+        const chatIdStr = ctx.match[1];
+        const chatId = Number(chatIdStr);
+        const userId = ctx.from.id;
+
+        const chat = await validateOwner(ctx, chatId, chatIdStr, userId);
+        if (!chat) return;
+
+        try {
+            await user_setting_module.findOneAndUpdate(
+                { user_id: userId },
+                { $set: { [`settings.${chatIdStr}.setregulation_message.enabled`]: false } },
+                { upsert: true }
+            );
+
+            await ctx.answerCbQuery("✅ Regulation turned OFF", { show_alert: false });
+
+            // refresh the menu to reflect new state
+            const textMsg = `📜 <b>Group's regulations</b>\nFrom this menu you can manage the group's regulations, that will be shown with the command /rules.\n\nCurrent status: <b>Off ❌</b>`;
+            const buttons = [
+                [
+                    Markup.button.callback("✅ Turn On", `TURN_ON_REG_${chatIdStr}`),
+                    Markup.button.callback("❌ Turn Off", `TURN_OFF_REG_${chatIdStr}`)
+                ],
+                [Markup.button.callback("🖋 Customize message", `CUSTOMIZE_RULES_${chatIdStr}`)],
+                [Markup.button.callback("⬅️ Back", `GROUP_SETTINGS_${chatIdStr}`)]
+            ];
+            await safeEditOrSend(ctx, textMsg, {
+                parse_mode: "HTML",
+                ...Markup.inlineKeyboard(buttons)
+            });
+        } catch (err) {
+            console.error("Error turning OFF regulation:", err);
+            await ctx.reply("⚠️ Could not turn OFF regulation. Please try again.");
+        }
+    });
+
     // ====== CUSTOMIZE RULES ======
     bot.action(/^CUSTOMIZE_RULES_(.+)$/, async (ctx) => {
         try {
-            if (ctx?.session?.set_regulation_message_id) {
-                try {
-                    await ctx.deleteMessage(ctx.session.set_regulation_message_id);
-                    delete ctx.session.set_regulation_message_id
-                } catch (e) {
-                    console.log("Message delete error:", e.message); // ignore error
-                }
-            }
             const userId = ctx.from.id;
             const chatIdStr = ctx.match[1];
             const chatId = Number(chatIdStr);
@@ -64,7 +204,7 @@ module.exports = (bot) => {
                 ` ${hasText ? ok : no} 📄 Text\n` +
                 ` ${hasMedia ? ok : no} 📸 Media\n` +
                 ` ${hasButtons ? ok : no} 🔠 Url Buttons\n\n` +
-                `👉 Use the buttons below to edit or preview the regulation for <b>${chat.title || chatIdStr}</b>.`;
+                `<i>👉 Use the buttons below to edit or preview the regulation.</i>`;
 
             const buttons = [
                 [
@@ -151,12 +291,11 @@ module.exports = (bot) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
+        // Provide explanation + link to a button-builder website
+        const builderUrl = "https://example.com/telegram-button-builder"; // replace with your real tool if available
         const textMsg =
-            "👉🏻 <b>Now send the list of buttons</b> to insert on the inline keyboard, with texts and links, using this parse:\n\n" +
-            "<code>Button text - link.com\nButton text - link.net</code>\n\n" +
-            "• If you want to set up 2 buttons in the same row, separate them with <b>&&</b>.\n" +
-            "• By setting <b>rules</b> as link, the button will link users to the group rules, if set with the bot.\n\n" +
-            "<b>Example:</b>\nGroup - t.me/username && Channel - @username\nGroup regulation - rules";
+            `👉🏻 <b>Send now the Buttons</b> you want to set.\n\n` +
+            `If you need a visual tool to build the buttons and get the exact code, \n<a href="${builderUrl}">click here</a>.\n\n`
 
         const buttons = [
             [Markup.button.callback("🚫 Remove Keyboard", `REMOVE_REG_RULES_BUTTONS_${chatIdStr}`)],
@@ -165,6 +304,7 @@ module.exports = (bot) => {
 
         await safeEditOrSend(ctx, textMsg, {
             parse_mode: "HTML",
+            disable_web_page_preview: true,
             ...Markup.inlineKeyboard(buttons)
         });
 
@@ -189,18 +329,18 @@ module.exports = (bot) => {
                 }
 
                 // save text into DB
+                // NOTE: do NOT set enabled true automatically — user must toggle ON explicitly
                 await user_setting_module.findOneAndUpdate(
                     { user_id: userId },
                     {
                         $set: {
-                            [`settings.${chatIdStr}.setregulation_message.text`]: text,
-                            [`settings.${chatIdStr}.setregulation_message.enabled`]: true
+                            [`settings.${chatIdStr}.setregulation_message.text`]: text
                         }
                     },
                     { upsert: true }
                 );
 
-                const successMsg = `✅ <b>Text regulation saved</b> for <b>${chat.title || chatIdStr}</b>.`;
+                const successMsg = `✅ <b>Text regulation saved</b> for <b>${chat.title || chatIdStr}</b>.\n\n<i>Note: This does not enable the regulation. Use the Turn On button to activate it.</i>`;
                 const buttons = [
                     [Markup.button.callback("⬅️ Back", `CUSTOMIZE_RULES_${chatIdStr}`)],
                     [Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
@@ -210,6 +350,15 @@ module.exports = (bot) => {
                     parse_mode: "HTML",
                     ...Markup.inlineKeyboard(buttons)
                 });
+
+                if (ctx?.session?.set_regulation_message_id) {
+                    try {
+                        await ctx.deleteMessage(ctx.session.set_regulation_message_id);
+                        delete ctx.session.set_regulation_message_id
+                    } catch (e) {
+                        console.log("Message delete error:", e.message); // ignore error
+                    }
+                }
 
                 delete ctx.session.awaitingTextRegulation;
                 return;
@@ -230,24 +379,27 @@ module.exports = (bot) => {
                 const res = await parseButtonsSyntax(ctx, raw);
 
                 if (!res.match) {
+                    // parse failed — keep user informed
+                    await ctx.reply("❌ Buttons syntax not recognized. Make sure you follow the examples or use the button builder link.");
+                    delete ctx.session.awaitingButtonsRegulation;
                     return;
                 }
 
                 const parsedButtons = res.buttons;
 
                 // Save to DB exactly in the requested format
+                // NOTE: do NOT set enabled true automatically
                 await user_setting_module.findOneAndUpdate(
                     { user_id: userId },
                     {
                         $set: {
-                            [`settings.${chatIdStr}.setregulation_message.buttons`]: parsedButtons,
-                            [`settings.${chatIdStr}.setregulation_message.enabled`]: true
+                            [`settings.${chatIdStr}.setregulation_message.buttons`]: parsedButtons
                         }
                     },
                     { upsert: true }
                 );
 
-                const successMsg = `✅ <b>Url Buttons saved</b> for <b>${chat.title || chatIdStr}</b>.`;
+                const successMsg = `✅ <b>Url Buttons saved</b> for <b>${chat.title || chatIdStr}</b>.\n\n<i>Note: This does not enable the regulation. Use the Turn On button to activate it.</i>`;
                 const buttons = [
                     [Markup.button.callback("⬅️ Back", `CUSTOMIZE_RULES_${chatIdStr}`)],
                     [Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
@@ -257,6 +409,15 @@ module.exports = (bot) => {
                     parse_mode: "HTML",
                     ...Markup.inlineKeyboard(buttons)
                 });
+
+                if (ctx?.session?.set_regulation_message_id) {
+                    try {
+                        await ctx.deleteMessage(ctx.session.set_regulation_message_id);
+                        delete ctx.session.set_regulation_message_id
+                    } catch (e) {
+                        console.log("Message delete error:", e.message); // ignore error
+                    }
+                }
 
                 delete ctx.session.awaitingButtonsRegulation;
                 return;
@@ -279,7 +440,7 @@ module.exports = (bot) => {
     // ===== HANDLE INCOMING MEDIA SAVE (with validateOwner + chat title in success) =====
     bot.on(["photo", "video", "document"], async (ctx, next) => {
         try {
-            if (!ctx.session || !ctx.session.awaitingMediaRegulation) return;
+            if (!ctx.session || !ctx.session.awaitingMediaRegulation) return typeof next === "function" ? await next() : undefined;
 
             let { chatIdStr, userId } = ctx.session.awaitingMediaRegulation;
             // validate owner (also ensures DB transfer if needed)
@@ -305,13 +466,13 @@ module.exports = (bot) => {
             }
 
             // save into DB (upsert)
+            // NOTE: do NOT set enabled true automatically
             await user_setting_module.findOneAndUpdate(
                 { user_id: userId },
                 {
                     $set: {
                         [`settings.${chatIdStr}.setregulation_message.media`]: fileId,
-                        [`settings.${chatIdStr}.setregulation_message.media_type`]: mediaType,
-                        [`settings.${chatIdStr}.setregulation_message.enabled`]: true
+                        [`settings.${chatIdStr}.setregulation_message.media_type`]: mediaType
                     }
                 },
                 { upsert: true }
@@ -323,12 +484,19 @@ module.exports = (bot) => {
                 [Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
             ];
 
-            const successCaption = `✅ <b>Media regulation saved</b> for <b>${chat.title || chatIdStr}</b>.`;
+            const successCaption = `✅ <b>Media regulation saved</b> for <b>${chat.title || chatIdStr}</b>.\n\n<i>Note: This does not enable the regulation. Use the Turn On button to activate it.</i>`;
 
             await ctx.reply(successCaption,
                 { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) }
             );
-
+            if (ctx?.session?.set_regulation_message_id) {
+                try {
+                    await ctx.deleteMessage(ctx.session.set_regulation_message_id);
+                    delete ctx.session.set_regulation_message_id
+                } catch (e) {
+                    console.log("Message delete error:", e.message); // ignore error
+                }
+            }
             delete ctx.session.awaitingMediaRegulation;
         } catch (err) {
             console.error("❌ Error in incoming media handler:", err);
@@ -355,14 +523,17 @@ module.exports = (bot) => {
             return ctx.answerCbQuery("❌ No text set yet!", { show_alert: true });
         }
 
-        await safeEditOrSend(ctx, `📄 <b>Saved Regulation Text:</b>\n\n${text}`, {
+        // send navigation message
+        await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
             parse_mode: "HTML",
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: "⬅️ Back", callback_data: `CUSTOMIZE_RULES_${chatIdStr}` }]
+                    [Markup.button.callback("⬅️ Back", `CUSTOMIZE_RULES_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
                 ]
             }
         });
+
+        await ctx.reply(text, { parse_mode: "HTML" });
     });
 
     // ===== SEE MEDIA =====
@@ -376,42 +547,23 @@ module.exports = (bot) => {
             return ctx.answerCbQuery("❌ No media set yet!", { show_alert: true });
         }
 
-        const buttons = [
-            [
-                Markup.button.callback("⬅️ Back", `CUSTOMIZE_RULES_${chatIdStr}`),
-                Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
-            ]
-        ];
-
-        if (ctx?.session?.set_regulation_message_id) {
-            try {
-                await ctx.deleteMessage(ctx.session.set_regulation_message_id);
-                delete ctx.session.set_regulation_message_id
-            } catch (e) {
-                console.log("Message delete error:", e.message); // ignore error
+        // send navigation message
+        await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
+            parse_mode: "HTML",
+            reply_markup: {
+                inline_keyboard: [
+                    [Markup.button.callback("⬅️ Back", `CUSTOMIZE_RULES_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
+                ]
             }
-        }
+        });
 
         let sentMsg;
-        if (reg.media_type === "photo") {
-            sentMsg = await ctx.replyWithPhoto(reg.media, {
-                caption: reg.caption || "",
-                reply_markup: { inline_keyboard: buttons }
-            });
-        } else if (reg.media_type === "video") {
-            sentMsg = await ctx.replyWithVideo(reg.media, {
-                caption: reg.caption || "",
-                reply_markup: { inline_keyboard: buttons }
-            });
-        } else if (reg.media_type === "document") {
-            sentMsg = await ctx.replyWithDocument(reg.media, {
-                caption: reg.caption || "",
-                reply_markup: { inline_keyboard: buttons }
-            });
+        if (reg?.media_type === "photo") {
+            sentMsg = await ctx.replyWithPhoto(reg.media);
+        } else if (reg?.media_type === "video") {
+            sentMsg = await ctx.replyWithVideo(reg.media);
         } else {
-            sentMsg = await ctx.reply("⚠️ Media exists but type is unknown.", {
-                reply_markup: { inline_keyboard: buttons }
-            });
+            sentMsg = await ctx.replyWithDocument(reg.media);
         }
 
         ctx.session.set_regulation_message_id = sentMsg.message_id;
@@ -465,7 +617,10 @@ module.exports = (bot) => {
                     rowButtons.push(Markup.button.switchToChat(btn.text, shareText));
                 } else if (content.startsWith("copy:")) {
                     const copyText = content.replace("copy:", "").trim();
-                    rowButtons.push({ text: btn.text, copy_text: { text: copyText } });
+                    // Telegram doesn't support direct "copy to clipboard" inline action;
+                    // we fallback to a callback that will send the text to the user for copying.
+                    const encoded = Buffer.from(copyText, "utf8").toString("base64");
+                    rowButtons.push(Markup.button.callback(btn.text, `COPYTXT_${encoded}`));
                 } else if (content === "del") {
                     const encoded = Buffer.from(content, "utf8").toString("base64");
                     rowButtons.push(Markup.button.callback(btn.text, `DEL_${encoded}`));
@@ -494,6 +649,19 @@ module.exports = (bot) => {
         });
     });
 
+    // COPY text callback handler (sends text to user privately)
+    bot.action(/COPYTXT_(.+)/, async (ctx) => {
+        try {
+            const encoded = ctx.match[1];
+            const decoded = Buffer.from(encoded, "base64").toString("utf8");
+            await ctx.answerCbQuery("Copied text will be sent to you.", { show_alert: false });
+            await ctx.reply(`Here is the text to copy:\n\n${decoded}`);
+        } catch (err) {
+            console.error("Error in COPYTXT handler:", err);
+            await ctx.answerCbQuery("❌ Could not retrieve the text.", { show_alert: true });
+        }
+    });
+
     // ===== FULL PREVIEW =====
     bot.action(/PREVIEW_REGULATION_(.+)/, async (ctx) => {
         const chatIdStr = ctx.match[1];
@@ -502,14 +670,13 @@ module.exports = (bot) => {
         const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
         const reg = userDoc?.settings?.[chatIdStr]?.setregulation_message;
 
-        if (!reg || !reg.enabled) {
-            return ctx.answerCbQuery("❌ No regulation saved yet!", { show_alert: true });
+        if (!reg) {
+            return ctx.answerCbQuery("❌ No regulation saved or it's disabled! Turn it ON to preview.", { show_alert: true });
         }
 
         // Build inline keyboard from saved user buttons
         let inlineKeyboard = [];
         if (reg.buttons && reg.buttons.length) {
-            let row = [];
             reg.buttons.forEach((row) => {
                 const rowButtons = [];
                 row.forEach((btn) => {
@@ -543,7 +710,8 @@ module.exports = (bot) => {
                         rowButtons.push(Markup.button.switchToChat(btn.text, shareText));
                     } else if (content.startsWith("copy:")) {
                         const copyText = content.replace("copy:", "").trim();
-                        rowButtons.push({ text: btn.text, copy_text: { text: copyText } });
+                        const encoded = Buffer.from(copyText, "utf8").toString("base64");
+                        rowButtons.push(Markup.button.callback(btn.text, `COPYTXT_${encoded}`));
                     } else if (content === "del") {
                         const encoded = Buffer.from(content, "utf8").toString("base64");
                         rowButtons.push(Markup.button.callback(btn.text, `DEL_${encoded}`));
@@ -559,7 +727,6 @@ module.exports = (bot) => {
                 });
                 if (rowButtons.length) inlineKeyboard.push(rowButtons);
             });
-            if (row.length) inlineKeyboard.push(row);
         }
 
         // ====== 1) Send regulation preview (media or text) ======
