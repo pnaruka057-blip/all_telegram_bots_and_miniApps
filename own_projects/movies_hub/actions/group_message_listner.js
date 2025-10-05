@@ -149,6 +149,102 @@ module.exports = (bot) => {
     return text.replace(/([_*[\]()~`>#+\-=|{}.!])/g, "\\$1");
   }
 
+  // // MAIN listener: group messages only
+  // bot.on("message", async (ctx, next) => {
+  //   try {
+  //     const msg = ctx.message;
+  //     const chat = ctx.chat;
+
+  //     if (!chat || !["group", "supergroup"].includes(chat.type)) return next();
+  //     if (!msg || !msg.text) return next();
+  //     if (msg.from && msg.from.is_bot) return next();
+
+  //     const amIAdmin = await isBotAdminInChat(chat.id);
+  //     if (!amIAdmin) return next(); // only run if bot is admin
+
+  //     const groupId = String(msg.chat.id);
+  //     const user = await users_module.findOne({
+  //       groupsLists: { $elemMatch: { groupId: groupId } }
+  //     }).lean();
+
+  //     if (!user) return next(); // only run if group owner is registered in DB
+
+  //     // Save incoming user message to redis and schedule deletion
+  //     await saveMessageToRedis(chat.id, msg.message_id, { from: msg.from.id, isBot: false, text: msg.text });
+  //     scheduleDeleteMessage(chat.id, msg.message_id);
+
+  //     const query = msg.text.trim();
+  //     if (!query) return next();
+
+  //     // step 1: full regex search
+  //     let movieMatches = await movies_module.find({
+  //       title: { $regex: query, $options: "i" }
+  //     }).limit(6).lean();
+
+  //     let showMatches = await shows_module.find({
+  //       title: { $regex: query, $options: "i" }
+  //     }).limit(6).lean();
+
+  //     // agar result nahi mila -> step 2: word-to-word search (ignore numbers)
+  //     if (movieMatches.length === 0 && showMatches.length === 0) {
+  //       // words split karo aur sirf alphabets lo
+  //       const words = query
+  //         .split(/\s+/)          // whitespace se split
+  //         .map(w => w.trim())    // trim
+  //         .filter(w => /^[a-zA-Z]+$/.test(w)); // sirf alphabets allow
+
+  //       if (words.length > 0) {
+  //         const regexWords = words.map(w => ({ title: { $regex: w, $options: "i" } }));
+
+  //         movieMatches = await movies_module.find({ $or: regexWords }).limit(6).lean();
+  //         showMatches = await shows_module.find({ $or: regexWords }).limit(6).lean();
+  //       }
+  //     }
+
+  //     const moviesCount = (movieMatches && movieMatches.length) || 0;
+  //     const showsCount = (showMatches && showMatches.length) || 0;
+
+  //     let replyText = `🔎 I searched for: *${escapeMarkdown(query)}*\n\n`;
+  //     if (moviesCount + showsCount === 0) {
+  //       replyText += `❌ No matches found in Movies or Shows.\n\n`;
+  //     } else {
+  //       if (moviesCount > 0) replyText += `🍿 Found *${moviesCount}* matching movie(s).\n`;
+  //       if (showsCount > 0) replyText += `📺 Found *${showsCount}* matching show(s).\n`;
+  //       replyText += `\nTap the button(s) below to open results in the mini-app.\n\n`;
+  //     }
+  //     replyText += `Note: This message (and your query) will be auto-deleted in 10 minutes.`;
+
+  //     // Build keyboard appropriate for chat type
+  //     const keyboard = await buildKeyboard({
+  //       moviesCount,
+  //       showsCount,
+  //       query,
+  //       fromId: msg.chat.id,
+  //       user_id: user.user_id
+  //     });
+
+  //     // send reply
+  //     // keyboard may be either a Telegraf Markup (has .reply_markup) or plain object
+  //     const replyOptions = {
+  //       parse_mode: "Markdown",
+  //       reply_to_message_id: msg.message_id,
+  //       reply_markup: keyboard.reply_markup ? keyboard.reply_markup : keyboard // handle both shapes
+  //     };
+
+  //     // Send message
+  //     const sentMsg = await ctx.reply(replyText, replyOptions);
+
+  //     // save bot message and schedule deletion
+  //     await saveMessageToRedis(chat.id, sentMsg.message_id, { from: (await getBotInfo()).id, isBot: true, text: replyText });
+  //     scheduleDeleteMessage(chat.id, sentMsg.message_id);
+
+  //     return next();
+  //   } catch (err) {
+  //     console.error("Group listener error:", err);
+  //     try { return next(); } catch (e) { }
+  //   }
+  // });
+
   // MAIN listener: group messages only
   bot.on("message", async (ctx, next) => {
     try {
@@ -158,6 +254,20 @@ module.exports = (bot) => {
       if (!chat || !["group", "supergroup"].includes(chat.type)) return next();
       if (!msg || !msg.text) return next();
       if (msg.from && msg.from.is_bot) return next();
+
+      // NEW CODE: Delete links or media or multi-line messages
+      const entities = msg.entities || [];
+      const hasLink = entities.some(e => ["url", "text_link"].includes(e.type));
+      const hasMedia = !!(msg.photo || msg.video || msg.document || msg.audio || msg.sticker || msg.voice || msg.video_note || msg.animation || msg.contact || msg.location || msg.venue || msg.dice || msg.poll);
+      const hasMultiLine = typeof msg.text === "string" && msg.text.includes('\n');
+
+      if (hasLink || hasMedia || hasMultiLine) {
+        try {
+          await ctx.deleteMessage(msg.message_id);
+        } catch (e) { }
+        return; // Don't process further!
+      }
+      // END NEW CODE
 
       const amIAdmin = await isBotAdminInChat(chat.id);
       if (!amIAdmin) return next(); // only run if bot is admin
@@ -189,8 +299,8 @@ module.exports = (bot) => {
       if (movieMatches.length === 0 && showMatches.length === 0) {
         // words split karo aur sirf alphabets lo
         const words = query
-          .split(/\s+/)          // whitespace se split
-          .map(w => w.trim())    // trim
+          .split(/\s+/)         // whitespace se split
+          .map(w => w.trim())   // trim
           .filter(w => /^[a-zA-Z]+$/.test(w)); // sirf alphabets allow
 
         if (words.length > 0) {
@@ -244,4 +354,5 @@ module.exports = (bot) => {
       try { return next(); } catch (e) { }
     }
   });
+
 };

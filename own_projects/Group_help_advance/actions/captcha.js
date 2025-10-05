@@ -1,8 +1,9 @@
+// handlers/captcha.js (complete module with no penalty_duration usage)
 const { Markup } = require("telegraf");
 const safeEditOrSend = require("../helpers/safeEditOrSend");
 const validateOwner = require("../helpers/validateOwner");
 const user_setting_module = require("../models/user_settings_module");
-const formatMs = require('../helpers/format_ms_to_min_sec')
+const formatMs = require('../helpers/format_ms_to_min_sec');
 
 const MODES = {
     button: { id: "button", label: "Button", emoji: "1️⃣" },
@@ -13,7 +14,7 @@ const MODES = {
     quiz: { id: "quiz", label: "Quiz", emoji: "6️⃣" }
 };
 
-// --- update renderCaptchaMenu to prefer time_ms if present ---
+// Render menu (time/time_str in ms; no penalty_duration usage)
 async function renderCaptchaMenu(ctx, chatIdStr, userId) {
     const isOwner = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
     if (!isOwner) return;
@@ -21,11 +22,11 @@ async function renderCaptchaMenu(ctx, chatIdStr, userId) {
     const c = userDoc?.settings?.[chatIdStr]?.captcha || {};
 
     const enabled = !!c.enabled;
-    // prefer time_ms if present, else fallback to time (which older code used as minutes)
-    const timeMs = typeof c.time_ms === "number" ? c.time_ms
-        : (typeof c.time === "number" ? Math.round(c.time * 60000) : 3 * 60000);
-
-    const penalty = c.penalty || "off";
+    const timeMs = typeof c.time === "number" ? c.time
+        : (typeof c.time_ms === "number" ? c.time_ms // legacy fallback if exists
+            : 10 * 60 * 1000);
+    const timeStr = (typeof c.time_str === "string" && c.time_str.trim().length) ? c.time_str : formatMs(timeMs);
+    const penalty = (c.penalty || "off").toLowerCase();
     const mode = c.mode || "quiz";
     const deleteSvc = !!c.delete_service_message;
 
@@ -37,10 +38,10 @@ async function renderCaptchaMenu(ctx, chatIdStr, userId) {
             `🧠 <b>Captcha</b>\n\n` +
             `By activating the captcha, when a user enters the group he will not be able to send messages until he has confirmed that he is not a robot.\n\n` +
             `⏱️ You can also decide to set a PUNISHMENT down below for those who will not resolve the captcha within the desired time and whether or not to clear the service message in case of failure.\n\n` +
-            `Status: Off ${no}`;
+            `<b>Status</b>: Off ${no}`;
 
         const keyboard = Markup.inlineKeyboard([
-            [Markup.button.callback("✅ Activate", `CAPTCHA_ACTIVATE_${chatIdStr}`)],
+            [Markup.button.callback("✅ Turn on", `CAPTCHA_TURN_ON_${chatIdStr}`), Markup.button.callback("❌ Turn off", `CAPTCHA_TURN_OFF_${chatIdStr}`)],
             [Markup.button.callback("⬅️ Back", `GROUP_SETTINGS_${chatIdStr}`)]
         ]);
 
@@ -48,22 +49,22 @@ async function renderCaptchaMenu(ctx, chatIdStr, userId) {
         return;
     }
 
-    const penaltyText = penalty === "mute" ? `Mute` : (penalty === "off" ? "Off" : penalty.charAt(0).toUpperCase() + penalty.slice(1));
+    const penaltyText = penalty === "off" ? "Off" : penalty.charAt(0).toUpperCase() + penalty.slice(1);
+
     const text =
         `🧠 <b>Captcha</b>\n\n` +
         `By activating the captcha, when a user enters the group he will not be able to send messages until he has confirmed that he is not a robot.\n\n` +
         `⏱️ You can also decide to set a PUNISHMENT down below for those who will not resolve the captcha within the desired time and whether or not to clear the service message in case of failure.\n\n` +
-        `Status: Active ${ok}\n` +
-        `🕒 Time: ${formatMs(timeMs)} (${timeMs} ms)\n` +
-        `⛔ Penalty: ${penaltyText}\n` +
-        `🧩 Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}\n` +
-        `🗑️ Delete service message: ${deleteSvc ? "On " + ok : "Off " + no}` +
-        `\n\n<i>Select one of the options below to change the settings for ${isOwner ? isOwner.title : chatIdStr}.</i>`;
+        `<b>Status</b>: On ${ok}\n` +
+        `<b>Time</b>: ${timeStr} (${timeMs} ms)\n` +
+        `<b>Penalty</b>: ${penaltyText}\n` +
+        `<b>Mode</b>: ${mode.charAt(0).toUpperCase() + mode.slice(1)}\n` +
+        `<b>Delete service message</b>: ${deleteSvc ? "On " + ok : "Off " + no}` +
+        `\n\n<i>Select one of the options below to change the settings for <b>${isOwner ? isOwner.title : chatIdStr}</b>.</i>`;
 
     const keyboard = Markup.inlineKeyboard([
-        [Markup.button.callback("❌ Turn off", `CAPTCHA_TURN_OFF_${chatIdStr}`)],
-        [Markup.button.callback("📦 Mode", `CAPTCHA_MODE_${chatIdStr}`)],
-        [Markup.button.callback("⏱ Time", `CAPTCHA_TIME_${chatIdStr}`)],
+        [Markup.button.callback("✅ Turn on", `CAPTCHA_TURN_ON_${chatIdStr}`), Markup.button.callback("❌ Turn off", `CAPTCHA_TURN_OFF_${chatIdStr}`)],
+        [Markup.button.callback("📦 Mode", `CAPTCHA_MODE_${chatIdStr}`), Markup.button.callback("⏱ Time", `CAPTCHA_TIME_${chatIdStr}`)],
         [Markup.button.callback("⛔ Penalty", `CAPTCHA_PENALTY_${chatIdStr}`)],
         [Markup.button.callback("✍️ Customize Message", `CAPTCHA_CUSTOMIZE_${chatIdStr}`)],
         [Markup.button.callback("📚 Select a Topic", `CAPTCHA_TOPIC_${chatIdStr}`)],
@@ -91,8 +92,8 @@ module.exports = (bot) => {
         }
     });
 
-    // Activate
-    bot.action(/^CAPTCHA_ACTIVATE_(-?\d+)$/, async (ctx) => {
+    // Turn on (defaults; no penalty_duration fields)
+    bot.action(/^CAPTCHA_TURN_ON_(-?\d+)$/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
             const userId = ctx.from.id;
@@ -108,7 +109,8 @@ module.exports = (bot) => {
                     $setOnInsert: { user_id: userIdKey },
                     $set: {
                         [`settings.${chatIdStr}.captcha.enabled`]: true,
-                        [`settings.${chatIdStr}.captcha.time`]: 3,
+                        [`settings.${chatIdStr}.captcha.time`]: 10 * 60 * 1000,
+                        [`settings.${chatIdStr}.captcha.time_str`]: "10 minutes",
                         [`settings.${chatIdStr}.captcha.penalty`]: "mute",
                         [`settings.${chatIdStr}.captcha.mode`]: "quiz",
                         [`settings.${chatIdStr}.captcha.delete_service_message`]: false
@@ -120,7 +122,7 @@ module.exports = (bot) => {
             await ctx.answerCbQuery("Captcha activated.");
             await renderCaptchaMenu(ctx, chatIdStr, userId);
         } catch (err) {
-            console.error("CAPTCHA_ACTIVATE error:", err);
+            console.error("CAPTCHA_TURN_ON error:", err);
         }
     });
 
@@ -148,7 +150,7 @@ module.exports = (bot) => {
         }
     });
 
-    // Mode — show mode selection grid (third image)
+    // Mode selection grid with mode explanations
     bot.action(/^CAPTCHA_MODE_(-?\d+)$/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
@@ -162,10 +164,17 @@ module.exports = (bot) => {
             const curMode = userDoc?.settings?.[chatIdStr]?.captcha?.mode || "quiz";
 
             const text =
-                `Choose captcha mode for this chat.\n\n` +
-                `Current mode: <b>${curMode.charAt(0).toUpperCase() + curMode.slice(1)}</b>`;
+                `<b>🔄 CAPTCHA Mode</b>\n\n` +
+                `Current mode: <b>${curMode.charAt(0).toUpperCase() + curMode.slice(1)}</b>\n\n` +
+                `<b>Modes explained:</b>\n` +
+                `${MODES.button.emoji} <b>Button</b> — The user just clicks a simple button and will be unmuted immediately upon click.\n` +
+                `${MODES.recaptcha.emoji} <b>Recaptcha</b> — The user presses a button and a web page opens (closes immediately) where Cloudflare Turnstile verifies the user.\n` +
+                `${MODES.presentation.emoji} <b>Presentation</b> — The user must send a text message to the group within the set time.\n` +
+                `${MODES.regulation.emoji} <b>Regulation</b> — The group regulation is shown and the user must accept it in time; otherwise the captcha penalty is applied.\n` +
+                `${MODES.math.emoji} <b>Math</b> — The user must solve a simple math quiz.\n` +
+                `${MODES.quiz.emoji} <b>Quiz</b> — The user must answer a question correctly.\n\n` +
+                `<i>Choose captcha mode for this chat.</i>\n\n`;
 
-            // build mode buttons 2 per row for neatness
             const rows = [];
             const entries = Object.entries(MODES);
             for (let i = 0; i < entries.length; i += 2) {
@@ -188,7 +197,7 @@ module.exports = (bot) => {
                 rows.push(row);
             }
 
-            rows.push([Markup.button.callback("⬅️ Back", `SET_CAPTCHA_${chatIdStr}`)]);
+            rows.push([Markup.button.callback("⬅️ Back", `SET_CAPTCHA_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]);
 
             await safeEditOrSend(ctx, text, { parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
         } catch (err) {
@@ -199,7 +208,7 @@ module.exports = (bot) => {
     // Set selected mode
     bot.action(/^CAPTCHA_SET_MODE_([a-z]+)_(-?\d+)$/, async (ctx) => {
         try {
-            const chosen = ctx.match[1]; // e.g. "quiz"
+            const chosen = ctx.match[1];
             const chatIdStr = ctx.match[2];
             const chatId = Number(chatIdStr);
             const userId = ctx.from.id;
@@ -259,7 +268,7 @@ module.exports = (bot) => {
         }
     });
 
-    // --- CAPTCHA_TIME: show buttons for seconds (15..59) and minutes (1..50) ---
+    // CAPTCHA_TIME: seconds 30..59 and minutes 1..50
     bot.action(/^CAPTCHA_TIME_(-?\d+)$/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
@@ -269,21 +278,22 @@ module.exports = (bot) => {
             const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
             if (!ok) return;
 
-            // fetch current to show in header
             const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
             const c = userDoc?.settings?.[chatIdStr]?.captcha || {};
-            const currentMs = typeof c.time_ms === "number" ? c.time_ms
-                : (typeof c.time === "number" ? Math.round(c.time * 60000) : 3 * 60000);
+            const currentMs = typeof c.time === "number" ? c.time
+                : (typeof c.time_ms === "number" ? c.time_ms
+                    : 10 * 60 * 1000);
 
             const header =
-                `From here you can select the captcha timeout.\n` +
+                `<b>⌛ Captcha Timeout.</b>\n\n` +
                 `Currently: <b>${formatMs(currentMs)}</b> (${currentMs} ms).\n\n` +
-                `Choose seconds (15–59) or minutes (1–50):`;
+                `If the new member does not solve the captcha within the selected time, the configured penalty will be applied permanently.\n` +
+                `They will get a second chance only if the selected penalty is not <b>Ban</b>; if <b>Ban</b> is applied, they must be unbanned by an admin before they can rejoin and attempt the captcha again.\n\n` +
+                `<i>Choose seconds (30–59) or minutes (1–50):</i>`;
 
-            // build seconds grid 15..59 (6 per row)
             const keyboardRows = [];
             let row = [];
-            for (let s = 15; s <= 59; s++) {
+            for (let s = 30; s <= 59; s++) {
                 row.push(Markup.button.callback(`${s}s`, `CAPTCHA_SET_TIME_SEC_${s}_${chatIdStr}`));
                 if (row.length === 6) {
                     keyboardRows.push(row);
@@ -292,10 +302,8 @@ module.exports = (bot) => {
             }
             if (row.length) keyboardRows.push(row);
 
-            // separator row (label)
             keyboardRows.push([Markup.button.callback("— Minutes —", `CAPTCHA_TIME_NOP_${chatIdStr}`)]);
 
-            // build minutes grid 1..50 (5 per row)
             row = [];
             for (let m = 1; m <= 50; m++) {
                 row.push(Markup.button.callback(`${m}m`, `CAPTCHA_SET_TIME_MIN_${m}_${chatIdStr}`));
@@ -306,8 +314,7 @@ module.exports = (bot) => {
             }
             if (row.length) keyboardRows.push(row);
 
-            // back
-            keyboardRows.push([Markup.button.callback("⬅️ Back", `SET_CAPTCHA_${chatIdStr}`)]);
+            keyboardRows.push([Markup.button.callback("⬅️ Back", `SET_CAPTCHA_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]);
 
             await safeEditOrSend(ctx, header, {
                 parse_mode: "HTML",
@@ -318,14 +325,11 @@ module.exports = (bot) => {
         }
     });
 
-    // noop for separator button (prevent ugly errors if pressed)
     bot.action(/^CAPTCHA_TIME_NOP_(-?\d+)$/, async (ctx) => {
-        try {
-            await ctx.answerCbQuery(); // do nothing
-        } catch (err) { /* ignore */ }
+        try { await ctx.answerCbQuery(); } catch (err) { /* ignore */ }
     });
 
-    // Handler when user presses a seconds button
+    // Set seconds -> write time (ms) + time_str
     bot.action(/^CAPTCHA_SET_TIME_SEC_(\d+)_(-?\d+)$/, async (ctx) => {
         try {
             const sec = Number(ctx.match[1]);
@@ -344,15 +348,13 @@ module.exports = (bot) => {
                 {
                     $setOnInsert: { user_id: userIdKey },
                     $set: {
-                        [`settings.${chatIdStr}.captcha.time_ms`]: ms,
-                        // optional backward-compatible field (minutes as float)
-                        [`settings.${chatIdStr}.captcha.time`]: +(ms / 60000).toFixed(3)
+                        [`settings.${chatIdStr}.captcha.time`]: ms,
+                        [`settings.${chatIdStr}.captcha.time_str`]: `${sec} seconds`
                     }
                 },
                 { upsert: true }
             );
 
-            // show milliseconds to the user as an alert and re-render menu
             await ctx.answerCbQuery(`✅ Timeout set: ${formatMs(ms)}`, { show_alert: true });
             await renderCaptchaMenu(ctx, chatIdStr, userId);
         } catch (err) {
@@ -361,7 +363,7 @@ module.exports = (bot) => {
         }
     });
 
-    // Handler when user presses a minutes button
+    // Set minutes -> write time (ms) + time_str
     bot.action(/^CAPTCHA_SET_TIME_MIN_(\d+)_(-?\d+)$/, async (ctx) => {
         try {
             const min = Number(ctx.match[1]);
@@ -380,8 +382,8 @@ module.exports = (bot) => {
                 {
                     $setOnInsert: { user_id: userIdKey },
                     $set: {
-                        [`settings.${chatIdStr}.captcha.time_ms`]: ms,
-                        [`settings.${chatIdStr}.captcha.time`]: min
+                        [`settings.${chatIdStr}.captcha.time`]: ms,
+                        [`settings.${chatIdStr}.captcha.time_str`]: `${min} minutes`
                     }
                 },
                 { upsert: true }
@@ -395,7 +397,7 @@ module.exports = (bot) => {
         }
     });
 
-    // PENALTY: simple inline options (off/warn/kick/mute/ban)
+    // Penalty chooser (no duration logic) with explanation
     bot.action(/^CAPTCHA_PENALTY_(-?\d+)$/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
@@ -409,22 +411,27 @@ module.exports = (bot) => {
                 [Markup.button.callback("❗ Kick", `CAPTCHA_SET_PEN_kick_${chatIdStr}`)],
                 [Markup.button.callback("🔕 Mute", `CAPTCHA_SET_PEN_mute_${chatIdStr}`)],
                 [Markup.button.callback("⛔ Ban", `CAPTCHA_SET_PEN_ban_${chatIdStr}`)],
-                [
-                    Markup.button.callback("⬅️ Back", `SET_GOODBYE_${chatIdStr}`),
-                    Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
-                ]
+                [Markup.button.callback("⬅️ Back", `SET_CAPTCHA_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
             ];
 
-            await safeEditOrSend(ctx, "Select penalty:", { reply_markup: { inline_keyboard: rows } });
+            const text =
+                "<b>🚨 Penalty for CAPTCHA Failures.\n\n</b>" +
+                "The selected penalty will be applied if the member answers the captcha incorrectly or does not solve it within the selected time. It remains in effect until the member leaves the group and joins again to get another attempt.\n\n" +
+                "<i>Select the penalty:</i>";
+
+            await safeEditOrSend(ctx, text, {
+                parse_mode: "HTML",
+                reply_markup: { inline_keyboard: rows }
+            });
         } catch (err) {
             console.error("CAPTCHA_PENALTY error:", err);
         }
     });
 
-    // Set chosen penalty
+    // Set chosen penalty (no duration defaults)
     bot.action(/^CAPTCHA_SET_PEN_(kick|mute|ban)_(\-?\d+)$/, async (ctx) => {
         try {
-            const pen = ctx.match[1];
+            const pen = ctx.match[1].toLowerCase();
             const chatIdStr = ctx.match[2];
             const chatId = Number(chatIdStr);
             const userId = ctx.from.id;
@@ -433,16 +440,14 @@ module.exports = (bot) => {
             if (!ok) return;
 
             const userIdKey = userId;
-            const upsertObj = { $setOnInsert: { user_id: userIdKey }, $set: {} };
-            upsertObj.$set[`settings.${chatIdStr}.captcha.penalty`] = pen;
-            // if mute selected and no mute_duration present, set default 10
-            const userDoc = await user_setting_module.findOne({ user_id: userIdKey }).lean();
-            const curMute = userDoc?.settings?.[chatIdStr]?.captcha?.mute_duration;
-            if (pen === "mute" && typeof curMute !== "number") {
-                upsertObj.$set[`settings.${chatIdStr}.captcha.mute_duration`] = 10;
-            }
-
-            await user_setting_module.updateOne({ user_id: userIdKey }, upsertObj, { upsert: true });
+            await user_setting_module.updateOne(
+                { user_id: userIdKey },
+                {
+                    $setOnInsert: { user_id: userIdKey },
+                    $set: { [`settings.${chatIdStr}.captcha.penalty`]: pen }
+                },
+                { upsert: true }
+            );
 
             await ctx.answerCbQuery(`Penalty set to: ${pen}`);
             await renderCaptchaMenu(ctx, chatIdStr, userId);
@@ -451,7 +456,7 @@ module.exports = (bot) => {
         }
     });
 
-    // OPEN customize message menu for captcha service message
+    // Customize message
     bot.action(/^CAPTCHA_CUSTOMIZE_(-?\d+)$/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
@@ -461,7 +466,6 @@ module.exports = (bot) => {
             const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
             if (!ok) return;
 
-            // fetch saved message/buttons to know whether to show "See" or "Add"
             const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
             const msg = userDoc?.settings?.[chatIdStr]?.captcha || {};
             const hasText = !!(msg.message && msg.message.trim());
@@ -469,7 +473,12 @@ module.exports = (bot) => {
 
             const text =
                 `✍️ <b>Customize message</b>\n\n` +
-                `Here you can set the service message that will be shown with the captcha (text and optional inline buttons).`;
+                `Here you can set the service message that will be shown with the captcha (text and optional button text).\n\n` +
+                `<b>How it works:</b>\n` +
+                `• If no custom <b>text</b> or <b>button text</b> is set, the default captcha message will be sent.\n` +
+                `• If custom <b>text</b> and/or <b>button text</b> are set, those will be used instead of the default.\n` +
+                `• If only one of <b>text</b> or <b>button text</b> is set, the set value will be used together with the default for the other.\n\n` +
+                `<i>Use the options below to add or preview your custom message and button.</i>`;
 
             const keyboard = Markup.inlineKeyboard([
                 [
@@ -511,12 +520,10 @@ module.exports = (bot) => {
                 [Markup.button.callback("❌ Cancel", `CAPTCHA_CUSTOMIZE_${chatIdStr}`)]
             ];
 
-            // safeEditOrSend may return the sent message object — capture it
             const sent = await safeEditOrSend(ctx, textMsg, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) }, true);
 
             ctx.session = ctx.session || {};
-            // store promptMessageId with fallbacks in case return shape differs
-            const promptMessageId = sent
+            const promptMessageId = sent;
             ctx.session.awaitingCaptchaMessageText = { chatIdStr, userId, promptMessageId };
 
             await ctx.answerCbQuery();
@@ -532,7 +539,6 @@ module.exports = (bot) => {
             const userId = ctx.from.id;
             const chatId = Number(chatIdStr);
 
-            // <-- added validateOwner check here
             const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
             if (!ok) return;
 
@@ -590,7 +596,7 @@ module.exports = (bot) => {
         }
     });
 
-    // ===== SET BUTTONS =====
+    // ===== SET BUTTONS (single-button label text) =====
     bot.action(/^SET_CAPTCHA_MESSAGE_BUTTONS_(-?\d+)$/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
@@ -614,7 +620,7 @@ module.exports = (bot) => {
             const sent = await safeEditOrSend(ctx, textMsg, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) }, true);
 
             ctx.session = ctx.session || {};
-            const promptMessageId = sent
+            const promptMessageId = sent;
             ctx.session.awaitingCaptchaMessageButton = { chatIdStr, userId, promptMessageId };
 
             await ctx.answerCbQuery();
@@ -630,7 +636,6 @@ module.exports = (bot) => {
             const userId = ctx.from.id;
             const chatId = Number(chatIdStr);
 
-            // <-- added validateOwner check here
             const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
             if (!ok) return;
 
@@ -646,10 +651,7 @@ module.exports = (bot) => {
 
             const inlineKeyboard = [
                 [Markup.button.callback(label, `CAPTCHA_PREVIEW_BTN_${encoded}_${chatIdStr}`)],
-                [
-                    Markup.button.callback("⬅️ Back", `CAPTCHA_CUSTOMIZE_${chatIdStr}`),
-                    Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
-                ]
+                [Markup.button.callback("⬅️ Back", `CAPTCHA_CUSTOMIZE_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
             ];
 
             await safeEditOrSend(ctx, "🔠 <b>Saved Button (preview):</b>", {
@@ -699,16 +701,13 @@ module.exports = (bot) => {
         try {
             ctx.session = ctx.session || {};
 
-            // ===== CAPTCHA MESSAGE TEXT =====
+            // CAPTCHA MESSAGE TEXT
             if (ctx.session.awaitingCaptchaMessageText) {
                 let { chatIdStr, userId, promptMessageId } = ctx.session.awaitingCaptchaMessageText;
                 const text = (ctx.message.text || "").trim();
 
                 const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-                if (!chat) {
-                    delete ctx.session.awaitingCaptchaMessageText;
-                    return;
-                }
+                if (!chat) { delete ctx.session.awaitingCaptchaMessageText; return; }
 
                 await user_setting_module.findOneAndUpdate(
                     { user_id: userId },
@@ -721,13 +720,8 @@ module.exports = (bot) => {
                     { upsert: true }
                 );
 
-                // try to delete the bot's prompt message (if we saved its id)
                 if (promptMessageId) {
-                    try {
-                        await ctx.deleteMessage(promptMessageId);
-                    } catch (e) {
-                        // ignore delete errors (maybe already edited/expired)
-                    }
+                    try { await ctx.deleteMessage(promptMessageId); } catch (e) { /* ignore */ }
                 }
 
                 const successMsg = `✅ <b>Service message text saved</b> for <b>${chat.title || chatIdStr}</b>.`;
@@ -741,16 +735,13 @@ module.exports = (bot) => {
                 return;
             }
 
-            // ===== CAPTCHA MESSAGE BUTTON =====
+            // CAPTCHA MESSAGE BUTTON
             if (ctx.session.awaitingCaptchaMessageButton) {
                 let { chatIdStr, userId, promptMessageId } = ctx.session.awaitingCaptchaMessageButton;
                 const raw = (ctx.message.text || "").trim();
 
                 const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-                if (!chat) {
-                    delete ctx.session.awaitingCaptchaMessageButton;
-                    return;
-                }
+                if (!chat) { delete ctx.session.awaitingCaptchaMessageButton; return; }
 
                 if (!raw || raw.length > 200) {
                     await ctx.reply("❌ Invalid button text. Send a short label (max 200 characters).");
@@ -759,24 +750,17 @@ module.exports = (bot) => {
 
                 await user_setting_module.findOneAndUpdate(
                     { user_id: userId },
-                    {
-                        $set: {
-                            [`settings.${chatIdStr}.captcha.button_text`]: raw,
-                        }
-                    },
+                    { $set: { [`settings.${chatIdStr}.captcha.button_text`]: raw } },
                     { upsert: true }
                 );
 
-                // delete prompt message if available
                 if (promptMessageId) {
-                    try {
-                        await ctx.deleteMessage(promptMessageId);
-                    } catch (e) { /* ignore */ }
+                    try { await ctx.deleteMessage(promptMessageId); } catch (e) { /* ignore */ }
                 }
 
                 const successMsg = `✅ <b>Service buttons saved</b> for <b>${chat.title || chatIdStr}</b>.`;
                 const buttons = [
-                    [Markup.button.callback("⬅️ Back", `CAPTCHA_CUSTOMIZE_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)],
+                    [Markup.button.callback("⬅️ Back", `CAPTCHA_CUSTOMIZE_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
                 ];
 
                 await ctx.reply(successMsg, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });

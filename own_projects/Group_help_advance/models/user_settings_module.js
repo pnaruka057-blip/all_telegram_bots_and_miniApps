@@ -225,7 +225,12 @@ const anti_floodSchema = new mongoose.Schema({
         type: String,
         default: "10 minutes"
     },
-    penalty_duration: { type: Number, default: 10 } // in minutes, if penalty is mute
+    penalty_duration: {
+        type: Number,
+        default: 10 * 60 * 1000, // 10 minutes in ms
+        min: 30 * 1000,          // minimum 30 seconds in ms
+        max: 365 * 24 * 3600 * 1000 // maximum 365 days in ms
+    }
 });
 
 // for alphabets settings
@@ -238,7 +243,9 @@ const singleLangSchema = new mongoose.Schema({
     // minutes
     penalty_duration: {
         type: Number,
-        default: 10
+        default: 10 * 60 * 1000, // 10 minutes in ms
+        min: 30 * 1000,          // minimum 30 seconds in ms
+        max: 365 * 24 * 3600 * 1000 // maximum 365 days in ms
     },
     penalty_duration_str: {
         type: String,
@@ -262,18 +269,20 @@ const captchaSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    time_str: {
+        type: String,
+        default: "10 minutes"
+    },
     time: {
         type: Number,
-        default: 3
+        default: 10 * 60 * 1000, // 10 minutes in ms
+        min: 30 * 1000,          // minimum 30 seconds in ms
+        max: 365 * 24 * 3600 * 1000 // maximum 365 days in ms
     },
     penalty: {
         type: String,
         enum: ["off", "warn", "kick", "mute", "ban"],
         default: "mute"
-    },
-    mute_duration: {
-        type: Number,
-        default: 10
     },
     mode: {
         type: String,
@@ -302,21 +311,66 @@ const captchaSchema = new mongoose.Schema({
     },
 }, { _id: false });
 
-// for checks settings
+// for checks settings (updated)
 const checksSchema = new mongoose.Schema({
-    obligations: {
-        surname: { type: Boolean, default: false },
-        username: { type: Boolean, default: false },
-        profile_picture: { type: Boolean, default: false },
-        channel_obligation: { type: Boolean, default: false },
-        obligation_to_add: { type: Boolean, default: false }
+    // Required conditions toggles
+    force: {
+        channel_join: { type: Boolean, default: false },
+        member_add: { type: Boolean, default: false }
     },
+
+    // profile penalties
+    profile_penalties: {
+        surname: { type: String, enum: ["off", "advise", "warn", "kick", "mute", "ban"], default: "off" },
+        username: { type: String, enum: ["off", "advise", "warn", "kick", "mute", "ban"], default: "off" },
+        profile_picture: { type: String, enum: ["off", "advise", "warn", "kick", "mute", "ban"], default: "off" },
+    },
+
+    force_channel_join: {
+        channels: { type: [String], default: [] },
+        message: { type: String, default: "" },      // custom prompt text
+        media: {
+            type: String,
+            default: "" // file_id or URL
+        },
+        media_type: {
+            type: String,
+            enum: ["photo", "video", "document", null],
+            default: null,
+        },
+    },
+
+    force_add_member: {
+        add_min: { type: Number, default: 0, min: 0, max: 10000 },
+        add_message: { type: String, default: "" },     // custom prompt text
+        media: {
+            type: String,
+            default: "" // file_id or URL
+        },
+        media_type: {
+            type: String,
+            enum: ["photo", "video", "document", null],
+            default: null,
+        },
+    },
+
+    // Name blocking toggles (legacy/visibility)
     name_blocks: {
         arabic: { type: Boolean, default: false },
         chinese: { type: Boolean, default: false },
         russian: { type: Boolean, default: false },
         spam: { type: Boolean, default: false }
     },
+
+    // Name block actions (new) — Off disables, others enforce selected action
+    name_blocks_penalty: {
+        arabic: { type: String, enum: ["off", "advise", "warn", "kick", "mute", "ban"], default: "off" },
+        chinese: { type: String, enum: ["off", "advise", "warn", "kick", "mute", "ban"], default: "off" },
+        russian: { type: String, enum: ["off", "advise", "warn", "kick", "mute", "ban"], default: "off" },
+        spam: { type: String, enum: ["off", "advise", "warn", "kick", "mute", "ban"], default: "off" }
+    },
+
+    // Global behavior toggles
     check_at_join: { type: Boolean, default: false },
     delete_messages: { type: Boolean, default: false }
 }, { _id: false });

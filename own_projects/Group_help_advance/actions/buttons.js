@@ -1,6 +1,6 @@
 module.exports = (bot) => {
     // Handle popup buttons
-    bot.action(/POPUP_(.+)/, async (ctx) => {
+    bot.action(/^POPUP_(.+)/, async (ctx) => {
         const encoded = ctx.match[1];
         const decoded = Buffer.from(encoded, "base64").toString("utf8");
 
@@ -13,7 +13,7 @@ module.exports = (bot) => {
     });
 
     // Handle alert buttons
-    bot.action(/ALERT_(.+)/, async (ctx) => {
+    bot.action(/^ALERT_(.+)/, async (ctx) => {
         const encoded = ctx.match[1];
         const decoded = Buffer.from(encoded, "base64").toString("utf8");
         const content = decoded.replace(/^alert:/, ""); // "alert:" remove
@@ -22,7 +22,7 @@ module.exports = (bot) => {
     });
 
     // Handle delete buttons
-    bot.action(/DEL_(.+)/, async (ctx) => {
+    bot.action(/^DEL_(.+)/, async (ctx) => {
         // decode content (abhi hamesha "del" hi hoga, but future safe hai)
         const encoded = ctx.match[1];
         const decoded = Buffer.from(encoded, "base64").toString("utf8");
@@ -35,7 +35,7 @@ module.exports = (bot) => {
     });
 
     // Handle personal buttons
-    bot.action(/PERSONAL_(.+)/, async (ctx) => {
+    bot.action(/^PERSONAL_(.+)/, async (ctx) => {
         try {
             const encoded = ctx.match[1];
             const decodedCommand = Buffer.from(encoded, "base64").toString("utf8");
@@ -71,7 +71,7 @@ module.exports = (bot) => {
     });
 
     // Generic fallback
-    bot.action(/GENERIC_(.+)_(.+)/, async (ctx) => {
+    bot.action(/^GENERIC_(.+)_(.+)/, async (ctx) => {
         const btnText = ctx.match[1];
         await ctx.answerCbQuery(`🔘 Generic button: ${btnText}`);
     });
