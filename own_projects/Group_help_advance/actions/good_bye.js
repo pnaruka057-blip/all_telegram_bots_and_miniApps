@@ -298,7 +298,9 @@ module.exports = (bot) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
-        const textMsg = `✍️ <b>Send now the goodbye text you want to set.</b>\n<i>You can include placeholders like {name} or {mention}.</i>`;
+        const textMsg =
+            "✍️ <b>Send the goodbye text you want to set.</b>\n\n" +
+            `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">click here</a>.`;
 
         const buttons = [
             [Markup.button.callback("🚫 Remove message", `REMOVE_GOODBYE_TEXT_${chatIdStr}`)],
@@ -328,15 +330,6 @@ module.exports = (bot) => {
             }
 
             await ctx.answerCbQuery();
-
-            await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
-                parse_mode: "HTML",
-                reply_markup: {
-                    inline_keyboard: [
-                        [Markup.button.callback("⬅️ Back", `CUSTOMIZE_GOODBYE_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
-                    ]
-                }
-            });
 
             await ctx.reply(txt, { parse_mode: "HTML" });
         } catch (err) {
@@ -383,15 +376,6 @@ module.exports = (bot) => {
                 return ctx.answerCbQuery("❌ No media set yet!", { show_alert: true });
             }
 
-            await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
-                parse_mode: "HTML",
-                reply_markup: {
-                    inline_keyboard: [
-                        [Markup.button.callback("⬅️ Back", `CUSTOMIZE_GOODBYE_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
-                    ]
-                }
-            });
-
             let sentMsg;
             if (msg?.media_type === "photo") {
                 sentMsg = await ctx.replyWithPhoto(msg.media);
@@ -414,10 +398,10 @@ module.exports = (bot) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
-        const builderUrl = "https://example.com/telegram-button-builder"; // replace with your real tool if available
+        const builderUrl = process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE; // replace with your real tool if available
         const textMsg =
             `👉🏻 <b>Send now the Buttons</b> you want to set.\n\n` +
-            `If you need a visual tool to build the buttons and get the exact code, \n<a href="${builderUrl}">click here</a>.\n\n`
+            `If you need a visual tool to build the buttons and get the exact code - \n<a href="${builderUrl}/buttons-design">Click Here</a>.\n\n`
 
         const buttons = [
             [Markup.button.callback("🚫 Remove Keyboard", `REMOVE_GOODBYE_BUTTONS_${chatIdStr}`)],
@@ -752,15 +736,6 @@ module.exports = (bot) => {
         if (!(goodbye.buttons && goodbye.buttons.length) && !goodbye.media) {
             await ctx.reply(goodbye.text || "", { parse_mode: "HTML" });
         }
-
-        await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
-            parse_mode: "HTML",
-            reply_markup: {
-                inline_keyboard: [
-                    [Markup.button.callback("⬅️ Back", `CUSTOMIZE_GOODBYE_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
-                ]
-            }
-        });
 
         await ctx.answerCbQuery();
     });

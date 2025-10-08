@@ -513,7 +513,9 @@ module.exports = (bot) => {
             const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
             if (!ok) return;
 
-            const textMsg = `✍️ <b>Send now the service message text you want to set.</b>\n<i>You can include placeholders like {name} or {mention}.</i>`;
+            const textMsg =
+                "✍️ <b>Send the service message text you want to set.</b>\n\n" +
+                `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">click here</a>.`;
 
             const buttons = [
                 [Markup.button.callback("🚫 Remove message", `REMOVE_CAPTCHA_MESSAGE_TEXT_${chatIdStr}`)],
@@ -550,14 +552,6 @@ module.exports = (bot) => {
             }
 
             await ctx.answerCbQuery();
-            await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
-                parse_mode: "HTML",
-                reply_markup: {
-                    inline_keyboard: [
-                        [Markup.button.callback("⬅️ Back", `CAPTCHA_CUSTOMIZE_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
-                    ]
-                }
-            });
 
             await ctx.reply(text, { parse_mode: "HTML" });
         } catch (err) {
@@ -607,10 +601,7 @@ module.exports = (bot) => {
             if (!ok) return;
 
             const textMsg =
-                "🔠 <b>Send the list of buttons</b> for the service message using this format:\n\n" +
-                "<code>Button text - https://example.com\nAnother - https://t.me/username</code>\n\n" +
-                "• To put 2 buttons in same row separate them with <b>&&</b>.\n" +
-                "• You can also use special keywords like <b>rules</b> if you support that.";
+                "🔠 <b>Send the text for the button:\n\n"
 
             const buttons = [
                 [Markup.button.callback("🚫 Remove Keyboard", `REMOVE_CAPTCHA_MESSAGE_BUTTONS_${chatIdStr}`)],

@@ -137,6 +137,9 @@ async function renderAlphabetLangMenu(ctx, chatIdStr, userId, langKey) {
     const L = LANGS[langKey];
     if (!L) return;
 
+    const isOwner = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+    if (!isOwner) return;
+
     const ok = "✅";
     const no = "❌";
 
@@ -183,7 +186,7 @@ async function renderAlphabetLangMenu(ctx, chatIdStr, userId, langKey) {
 
     buttons.push([Markup.button.callback("⬅️ Back", `SET_ALPHABETS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]);
 
-    text += `<i>Select one of the options below to change the settings.</i>`;
+    text += `<i>Select one of the options below to change the settings for <b>${isOwner?.title}</b>.</i>`;
 
     await safeEditOrSend(ctx, text, { parse_mode: "HTML", ...Markup.inlineKeyboard(buttons) });
 }

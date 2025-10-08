@@ -63,7 +63,7 @@ module.exports = (bot) => {
 
             // if nothing set, do NOT enable — open the CUSTOMIZE_RULES view automatically
             if (!hasText && !hasMedia && !hasButtons) {
-               
+
                 // Build the same menu as CUSTOMIZE_RULES handler so user sees editor immediately
                 const ok = "✅";
                 const no = "❌";
@@ -247,7 +247,9 @@ module.exports = (bot) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
-        const textMsg = `👉🏻 <b>Send now the message you want to set.</b>\n<i>You can send it already formatted or use HTML.</i>`;
+        const textMsg =
+            "👉🏻 <b>Send the message you want to set.</b>\n\n" +
+            `To see what you can do with message design (placeholders and HTML) - <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">Click Here</a>.`;
 
         const buttons = [
             [Markup.button.callback("🚫 Remove message", `REMOVE_REG_RULES_TEXT_${chatIdStr}`)],
@@ -292,10 +294,10 @@ module.exports = (bot) => {
         const userId = ctx.from.id;
 
         // Provide explanation + link to a button-builder website
-        const builderUrl = "https://example.com/telegram-button-builder"; // replace with your real tool if available
+        const builderUrl = process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE; // replace with your real tool if available
         const textMsg =
             `👉🏻 <b>Send now the Buttons</b> you want to set.\n\n` +
-            `If you need a visual tool to build the buttons and get the exact code, \n<a href="${builderUrl}">click here</a>.\n\n`
+            `If you need a visual tool to build the buttons and get the exact code - <a href="${builderUrl}/buttons-design">Click Here</a>.\n\n`
 
         const buttons = [
             [Markup.button.callback("🚫 Remove Keyboard", `REMOVE_REG_RULES_BUTTONS_${chatIdStr}`)],
@@ -523,16 +525,6 @@ module.exports = (bot) => {
             return ctx.answerCbQuery("❌ No text set yet!", { show_alert: true });
         }
 
-        // send navigation message
-        await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
-            parse_mode: "HTML",
-            reply_markup: {
-                inline_keyboard: [
-                    [Markup.button.callback("⬅️ Back", `CUSTOMIZE_RULES_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
-                ]
-            }
-        });
-
         await ctx.reply(text, { parse_mode: "HTML" });
     });
 
@@ -546,16 +538,6 @@ module.exports = (bot) => {
         if (!reg?.media) {
             return ctx.answerCbQuery("❌ No media set yet!", { show_alert: true });
         }
-
-        // send navigation message
-        await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
-            parse_mode: "HTML",
-            reply_markup: {
-                inline_keyboard: [
-                    [Markup.button.callback("⬅️ Back", `CUSTOMIZE_RULES_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
-                ]
-            }
-        });
 
         let sentMsg;
         if (reg?.media_type === "photo") {
@@ -759,19 +741,6 @@ module.exports = (bot) => {
         if (!(reg.buttons && reg.buttons.length) && !reg.media) {
             ctx.reply(reg.text, { parse_mode: "HTML" });
         }
-
-        // ====== 2) Send separate navigation message ======
-        await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
-            parse_mode: "HTML",
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        Markup.button.callback("⬅️ Back", `CUSTOMIZE_RULES_${chatIdStr}`),
-                        Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
-                    ]
-                ]
-            }
-        });
     });
 
     // ===== REMOVE TEXT =====

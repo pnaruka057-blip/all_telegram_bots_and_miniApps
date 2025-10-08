@@ -257,7 +257,7 @@ module.exports = (bot) => {
                 ` ${hasText ? ok : no} 📄 Text\n` +
                 ` ${hasMedia ? ok : no} 📸 Media\n` +
                 ` ${hasButtons ? ok : no} 🔠 Url Buttons\n\n` +
-                `👉 Use the buttons below to edit or preview the welcome message for <b>${chat.title || chatIdStr}</b>.`;
+                `<i>👉 Use the buttons below to edit or preview the welcome message for <b>${chat.title || chatIdStr}</b>.</i>`;
 
             const buttons = [
                 [
@@ -298,7 +298,9 @@ module.exports = (bot) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
-        const textMsg = `✍️ <b>Send now the welcome text you want to set.</b>\n<i>You can include placeholders like {name} or {mention}.</i>`;
+        const textMsg =
+            "✍️ <b>Send the welcome text you want to set.</b>\n\n" +
+            `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">click here</a>.`;
 
         const buttons = [
             [Markup.button.callback("🚫 Remove message", `REMOVE_WELCOME_TEXT_${chatIdStr}`)],
@@ -328,16 +330,6 @@ module.exports = (bot) => {
             }
 
             await ctx.answerCbQuery();
-
-            // send navigation message
-            await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
-                parse_mode: "HTML",
-                reply_markup: {
-                    inline_keyboard: [
-                        [Markup.button.callback("⬅️ Back", `CUSTOMIZE_WELCOME_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
-                    ]
-                }
-            });
 
             await ctx.reply(txt, { parse_mode: "HTML" });
         } catch (err) {
@@ -384,16 +376,6 @@ module.exports = (bot) => {
                 return ctx.answerCbQuery("❌ No media set yet!", { show_alert: true });
             }
 
-            // send navigation message
-            await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
-                parse_mode: "HTML",
-                reply_markup: {
-                    inline_keyboard: [
-                        [Markup.button.callback("⬅️ Back", `CUSTOMIZE_WELCOME_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
-                    ]
-                }
-            });
-
             let sentMsg;
             if (msg?.media_type === "photo") {
                 sentMsg = await ctx.replyWithPhoto(msg.media);
@@ -415,10 +397,10 @@ module.exports = (bot) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
-        const builderUrl = "https://example.com/telegram-button-builder"; // replace with your real tool if available
+        const builderUrl = process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE; // replace with your real tool if available
         const textMsg =
             `👉🏻 <b>Send now the Buttons</b> you want to set.\n\n` +
-            `If you need a visual tool to build the buttons and get the exact code, \n<a href="${builderUrl}">click here</a>.\n\n`
+            `If you need a visual tool to build the buttons and get the exact code - \n<a href="${builderUrl}/buttons-design">Click Here</a>.\n\n`
 
         const buttons = [
             [Markup.button.callback("🚫 Remove Keyboard", `REMOVE_WELCOME_BUTTONS_${chatIdStr}`)],
@@ -792,16 +774,6 @@ module.exports = (bot) => {
         if (!(welcome.buttons && welcome.buttons.length) && !welcome.media) {
             ctx.reply(welcome.text, { parse_mode: "HTML" });
         }
-
-        // send navigation message
-        await safeEditOrSend(ctx, "⚙️ Choose an option below:", {
-            parse_mode: "HTML",
-            reply_markup: {
-                inline_keyboard: [
-                    [Markup.button.callback("⬅️ Back", `CUSTOMIZE_WELCOME_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
-                ]
-            }
-        });
 
         await ctx.answerCbQuery();
     });

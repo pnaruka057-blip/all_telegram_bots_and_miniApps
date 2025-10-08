@@ -99,6 +99,8 @@ async function renderChecksMenu(ctx, chatIdStr, userId) {
 
 // ========== Force settings menu (2 items) ==========
 async function renderForceSettingsMenu(ctx, chatIdStr, userId) {
+    const isOwner = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+    if (!isOwner) return;
     const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
     const checks = userDoc?.settings?.[chatIdStr]?.checks || {};
     const force = checks.force || {};
@@ -111,9 +113,9 @@ async function renderForceSettingsMenu(ctx, chatIdStr, userId) {
 
     const text =
         `🔧 <b>Force settings</b>\n\n` +
-        `• Force channel join — Status: <b>${status(force.channel_join)}</b> | Channels: <b>${chCount}</b>\n` +
-        `• Force member add — Status: <b>${status(force.member_add)}</b> | Min: <b>${minAdd}</b>\n\n` +
-        `<i>Select a card to configure details, turn On/Off, set custom message (text/media), or preview.</i>`;
+        `• Force channel join — <b>Status</b>: ${status(force.channel_join)} | <b>Channels</b>: ${chCount}\n` +
+        `• Force member add — <b>Status</b>: <b>${status(force.member_add)}</b> | <b>Min</b>: <b>${minAdd}</b>\n\n` +
+        `<i>Select button to config force setting for <b>${isOwner?.title}</b>.</i>`;
 
     const rows = [
         [
@@ -264,12 +266,12 @@ async function renderForceChannelJoinMenu(ctx, chatIdStr, userId) {
 
     const text =
         `📣 <b>Force channel join</b>\n\n` +
-        `Status: <b>${enabled ? "On ✅" : "Off ❌"}</b>\n` +
-        `Channels:\n${list}\n\n` +
+        `<b>Status</b>: ${enabled ? "On ✅" : "Off ❌"}\n\n` +
+        `<b>Channels List</b>:\n${list}\n\n` +
         `<b>Custom prompt</b>\n` +
         `• Text: ${textSet ? "Set ✅" : "Default ❌"}\n` +
         `• Media: ${mediaSet ? `${fcj.media_type} ✅` : "None ❌"}\n\n` +
-        `<i>Turn On/Off, manage channels, customize text/media, or preview current prompt.</i>`;
+        `<i>Use the buttons below to control this setting.</i>`;
 
     const rows = [
         [
@@ -283,10 +285,10 @@ async function renderForceChannelJoinMenu(ctx, chatIdStr, userId) {
         [Markup.button.callback("🧹 Clear all channels", `FCJ_CLEAR_CH_${chatIdStr}`)],
         [
             Markup.button.callback("📝 Set text", `FCJ_SET_TEXT_${chatIdStr}`),
-            Markup.button.callback("🖼️ Set media", `FCJ_SET_MEDIA_${chatIdStr}`)
+            Markup.button.callback("👀 See text", `FCJ_SEE_TEXT_${chatIdStr}`),
         ],
         [
-            Markup.button.callback("👀 See text", `FCJ_SEE_TEXT_${chatIdStr}`),
+            Markup.button.callback("🖼️ Set media", `FCJ_SET_MEDIA_${chatIdStr}`),
             Markup.button.callback("👀 See media", `FCJ_SEE_MEDIA_${chatIdStr}`)
         ],
         [Markup.button.callback("⬅️ Back", `SET_FORCE_SETTINGS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
@@ -309,11 +311,11 @@ async function renderForceMemberAddMenu(ctx, chatIdStr, userId) {
 
     const text =
         `➕ <b>Force member add</b>\n\n` +
-        `Status: <b>${enabled ? "On ✅" : "Off ❌"}</b>\n` +
-        `Minimum members to add: <b>${minAdd || 0}</b>\n` +
+        `<b>Status</b>: ${enabled ? "On ✅" : "Off ❌"}\n` +
+        `<b>Minimum members to add</b>: ${minAdd || 0}\n` +
         `• Custom text: ${textSet ? "Set ✅" : "Default ❌"}\n` +
         `• Custom media: ${mediaSet ? `${fma.media_type} ✅` : "None ❌"}\n\n` +
-        `<i>Turn On/Off, set minimum, customize text/media, or preview current prompt.</i>`;
+        `<i>Use the buttons below to control this setting.</i>`;
 
     const rows = [
         [
@@ -322,13 +324,13 @@ async function renderForceMemberAddMenu(ctx, chatIdStr, userId) {
         ],
         [
             Markup.button.callback("🔢 Set minimum", `FMA_SET_MIN_${chatIdStr}`),
-            Markup.button.callback("📝 Set text", `FMA_SET_TEXT_${chatIdStr}`)
         ],
         [
-            Markup.button.callback("🖼️ Set media", `FMA_SET_MEDIA_${chatIdStr}`)
+            Markup.button.callback("📝 Set text", `FMA_SET_TEXT_${chatIdStr}`),
+            Markup.button.callback("👀 See text", `FMA_SEE_TEXT_${chatIdStr}`)
         ],
         [
-            Markup.button.callback("👀 See text", `FMA_SEE_TEXT_${chatIdStr}`),
+            Markup.button.callback("🖼️ Set media", `FMA_SET_MEDIA_${chatIdStr}`),
             Markup.button.callback("👀 See media", `FMA_SEE_MEDIA_${chatIdStr}`)
         ],
         [Markup.button.callback("⬅️ Back", `SET_FORCE_SETTINGS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
@@ -572,9 +574,9 @@ module.exports = (bot) => {
             const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId); if (!ok) return;
 
             const msg =
-                "🔗 <b>Add required channel</b>\n\n" +
-                "Send @username, https://t.me/username, or -1001234567890 (ID).\n" +
-                "<i>Also add this bot as admin in that channel for verification.</i>";
+                "🔗 <b>Add channel</b>\n\n" +
+                "Send <code>@username</code>, <code>https://t.me/username</code>, or <code>-1001234567890</code> (ID).\n\n" +
+                "Also add this bot as an <b>Admin to that Channel</b> for verification otherwise this setting won't work.";
 
             const sent = await safeEditOrSend(ctx, msg, {
                 parse_mode: "HTML",
@@ -606,37 +608,59 @@ module.exports = (bot) => {
 
     bot.action(/^FCJ_REM_ONE_(\d+)_(-?\d+)$/, async (ctx) => {
         try {
-            const idx = Number(ctx.match[1]); const chatIdStr = ctx.match[2]; const userId = ctx.from.id;
-            const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId); if (!ok) return;
+            const idx = Number(ctx.match[1]);
+            const chatIdStr = ctx.match[2];
+            const userId = ctx.from.id;
+            const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+            if (!ok) return;
 
             const doc = await user_setting_module.findOne({ user_id: userId }).lean();
             const arr = (doc?.settings?.[chatIdStr]?.checks?.force_channel_join?.channels || []).slice();
             if (idx < 0 || idx >= arr.length) { await ctx.answerCbQuery("Invalid item."); return; }
+
+            // Remove selected channel
             arr.splice(idx, 1);
+
+            // If no channels left, also turn OFF Force channel join
+            const update = {
+                $setOnInsert: { user_id: userId },
+                $set: { [`settings.${chatIdStr}.checks.force_channel_join.channels`]: arr }
+            };
+            if (arr.length === 0) {
+                update.$set[`settings.${chatIdStr}.checks.force.channel_join`] = false;
+            }
 
             await user_setting_module.updateOne(
                 { user_id: userId },
-                { $setOnInsert: { user_id: userId }, $set: { [`settings.${chatIdStr}.checks.force_channel_join.channels`]: arr } },
+                update,
                 { upsert: true }
             );
 
-            await ctx.answerCbQuery("Removed.");
+            await ctx.answerCbQuery(arr.length === 0 ? "Removed. No channels left; turned OFF." : "Removed.");
             await renderForceChannelJoinMenu(ctx, chatIdStr, userId);
         } catch (e) { console.error("FCJ_REM_ONE error:", e); }
     });
 
+    // Clear all channels AND turn Force channel join off
     bot.action(/^FCJ_CLEAR_CH_(-?\d+)$/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1], userId = ctx.from.id;
-            const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId); if (!ok) return;
+            const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+            if (!ok) return;
 
             await user_setting_module.updateOne(
                 { user_id: userId },
-                { $setOnInsert: { user_id: userId }, $set: { [`settings.${chatIdStr}.checks.force_channel_join.channels`]: [] } },
+                {
+                    $setOnInsert: { user_id: userId },
+                    $set: {
+                        [`settings.${chatIdStr}.checks.force_channel_join.channels`]: [],
+                        [`settings.${chatIdStr}.checks.force.channel_join`]: false
+                    }
+                },
                 { upsert: true }
             );
 
-            await ctx.answerCbQuery("Cleared all channels.");
+            await ctx.answerCbQuery("Cleared all channels and turned OFF Force channel join.");
             await renderForceChannelJoinMenu(ctx, chatIdStr, userId);
         } catch (e) { console.error("FCJ_CLEAR_CH error:", e); }
     });
@@ -645,20 +669,23 @@ module.exports = (bot) => {
     bot.action(/^FCJ_SET_TEXT_(-?\d+)$/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1], userId = ctx.from.id;
-            const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId); if (!ok) return;
-
+            const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+            if (!ok) return;
+           
             const msg =
-                "📝 <b>Set force channel join prompt text</b>\n\n" +
-                "Send the text shown to users who haven't joined the required channels.\n" +
-                "Placeholders: {name}, {mention}";
+                `📝 <b>Set force channel join prompt text</b>\n\n` +
+                `Send the text shown to users who haven't joined the required channels.\n` +
+                `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">click here</a>.`
 
             const sent = await safeEditOrSend(ctx, msg, {
                 parse_mode: "HTML",
-                reply_markup: Markup.inlineKeyboard([
+                disable_web_page_preview: true,
+                ...Markup.inlineKeyboard([
                     [Markup.button.callback("🚫 Remove message", `FCJ_DEL_TEXT_${chatIdStr}`)],
                     [Markup.button.callback("❌ Cancel", `OPEN_FORCE_CHANNEL_${chatIdStr}`)]
                 ])
             }, true);
+
             ctx.session = ctx.session || {};
             ctx.session.awaitingFCJText = { chatIdStr, userId, promptMessageId: sent };
             await ctx.answerCbQuery();
