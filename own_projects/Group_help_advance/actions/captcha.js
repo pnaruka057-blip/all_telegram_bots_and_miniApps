@@ -459,6 +459,7 @@ module.exports = (bot) => {
     // Customize message
     bot.action(/^CAPTCHA_CUSTOMIZE_(-?\d+)$/, async (ctx) => {
         try {
+            ctx.session = {};
             const chatIdStr = ctx.match[1];
             const chatId = Number(chatIdStr);
             const userId = ctx.from.id;
@@ -486,7 +487,7 @@ module.exports = (bot) => {
                     Markup.button.callback(hasText ? "👀 See" : "➕ Add", hasText ? `SEE_CAPTCHA_MESSAGE_TEXT_${chatIdStr}` : `SET_CAPTCHA_MESSAGE_TEXT_${chatIdStr}`)
                 ],
                 [
-                    Markup.button.callback("🔠 Button", `SET_CAPTCHA_MESSAGE_BUTTONS_${chatIdStr}`),
+                    Markup.button.callback("🔠 Button text", `SET_CAPTCHA_MESSAGE_BUTTONS_${chatIdStr}`),
                     Markup.button.callback(hasButton_text ? "👀 See" : "➕ Add", hasButton_text ? `SEE_CAPTCHA_MESSAGE_BUTTONS_${chatIdStr}` : `SET_CAPTCHA_MESSAGE_BUTTONS_${chatIdStr}`)
                 ],
                 [
@@ -515,7 +516,7 @@ module.exports = (bot) => {
 
             const textMsg =
                 "✍️ <b>Send the service message text you want to set.</b>\n\n" +
-                `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">click here</a>.`;
+                `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">Click Here</a>.`;
 
             const buttons = [
                 [Markup.button.callback("🚫 Remove message", `REMOVE_CAPTCHA_MESSAGE_TEXT_${chatIdStr}`)],

@@ -379,102 +379,387 @@ const checksSchema = new mongoose.Schema({
 const admin_sosSchema = new mongoose.Schema({
     // where to send reports: nobody | founder | staff
     send_to: { type: String, enum: ["nobody", "founder", "staff"], default: "nobody" },
-    // whether the @admin/report feature is active or disabled
-    active: { type: Boolean, default: true },
+
     // tag founder when reporting
     tag_founder: { type: Boolean, default: false },
+
     // array of admin ids to tag (store as strings for safety)
     tagged_admins: { type: [String], default: [] },
-    // optional: staff group link or id to send reports to
+
+    // normalized staff group identifier: "@username" or "-100<chat_id>"
+    // Example: "@MyStaffGroup" or "-1001234567890"
     staff_group: { type: String, default: null },
 
-    // --- Advanced options (new) ---
+    // --- Advanced options ---
     // Only accept @admin if used as a reply to another user's message
     only_in_reply: { type: Boolean, default: false },
 
     // Require a reason (text) when using @admin
     reason_required: { type: Boolean, default: false },
 
-    // If report is marked resolved, delete the report message(s)
+    // If report is marked resolved, delete the report message(s) in the origin chat
     delete_if_resolved: { type: Boolean, default: false },
 
     // If report resolved, delete the report message in staff group (if sent there)
     delete_in_staff_if_resolved: { type: Boolean, default: false },
 
-    // optional: extra flags (future use)
+    // optional: extensibility container
     meta: { type: mongoose.Schema.Types.Mixed, default: {} }
 }, { _id: false });
 
 // for blocks settings
-const blocksSchema = new mongoose.Schema({
-    blacklist: {
-        type: new mongoose.Schema({
-            enabled: { type: Boolean, default: false },
-            punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "ban" },
-            mute_duration: { type: Number, default: 10 },
-            mute_duration_str: { type: String, default: "10m" },
-            users: { type: [String], default: [] },
-        }, { _id: false }),
-        default: () => ({})
+const blocksSchema = new mongoose.Schema(
+    {
+        // ⛔ Blacklist
+        // UI: separate Turn On / Turn Off buttons; punishments shown: Off, Ban, Mute
+        blacklist: {
+            type: new mongoose.Schema(
+                {
+                    enabled: { type: Boolean, default: false },
+                    punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "ban" },
+                    // stores user IDs or @usernames
+                    users: { type: [String], default: [] }
+                },
+                { _id: false }
+            ),
+            default: () => ({})
+        },
+
+        // 🤖 Bot block
+        // UI: Off, Warn, Kick, Ban, Mute
+        botblock: {
+            type: new mongoose.Schema(
+                {
+                    punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+                    users: { type: [String], default: [] }
+                },
+                { _id: false }
+            ),
+            default: () => ({})
+        },
+
+        // 🙂 Join block
+        // UI: Off, Ban, Mute
+        joinblock: {
+            type: new mongoose.Schema(
+                {
+                    enabled: { type: Boolean, default: false },
+                    punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+                    users: { type: [String], default: [] }
+                },
+                { _id: false }
+            ),
+            default: () => ({})
+        },
+
+        // 📕 Leave block
+        // UI: Off, Ban
+        leaveblock: {
+            type: new mongoose.Schema(
+                {
+                    enabled: { type: Boolean, default: false },
+                    punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+                    users: { type: [String], default: [] }
+                },
+                { _id: false }
+            ),
+            default: () => ({})
+        },
+
+        // 🏃‍♂️ Join-Leave block
+        // UI: Delete toggle, Set Time (1–20), Set Join-Leave Limit (1–20), Off/Ban/Mute/Warn
+        // Renamed fields for clarity:
+        // - jl_time_seconds: the window in seconds within which a quick leave counts
+        // - jl_limit: how many quick leaves in that window trigger enforcement
+        joinleave: {
+            type: new mongoose.Schema(
+                {
+                    enabled: { type: Boolean, default: false },
+                    punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+                    users: { type: [String], default: [] },
+                    delete_service_message: { type: Boolean, default: false },
+                    jl_time_seconds: { type: Number, default: 3 },
+                    jl_limit: { type: Number, default: 2 }
+                },
+                { _id: false }
+            ),
+            default: () => ({})
+        },
+
+        // 👨‍👩‍👧‍👦 Multiple joins block (anti-raid burst)
+        // UI already implemented: threshold (joins), window (seconds)
+        multiple_joins: {
+            type: new mongoose.Schema(
+                {
+                    enabled: { type: Boolean, default: false },
+                    punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+                    users: { type: [String], default: [] },
+                    limit_for_join: { type: Number, default: 4 },
+                    multiple_join_seconds: { type: Number, default: 2 } // time window in seconds
+                },
+                { _id: false }
+            ),
+            default: () => ({})
+        }
     },
+    { _id: false }
+);
 
-    // Generic block template used for several block types (botblock, joinblock, leaveblock, joinleave)
-    botblock: {
-        type: new mongoose.Schema({
-            enabled: { type: Boolean, default: false },
-            punishment: { type: String, enum: ["warn", "kick", "mute", "ban"], default: "" },
-            mute_duration: { type: Number, default: 10 },
-            mute_duration_str: { type: String, default: "10m" },
-            users: { type: [String], default: [] },
-        }, { _id: false }),
-        default: () => ({})
+// for media settings
+const singleMediaRuleSchema = new mongoose.Schema(
+    {
+        punishment: {
+            type: String,
+            enum: ["off", "warn", "kick", "mute", "ban", "delete"],
+            default: "off"
+        },
+        penalty_duration_str: {
+            type: String,
+            default: "10 minutes"
+        },
+        delete_messages: {
+            type: Boolean,
+            default: false
+        },
+        penalty_duration: {
+            type: Number,
+            default: 10 * 60 * 1000,                  // 10 minutes in ms
+            min: 30 * 1000,                           // minimum 30s
+            max: 365 * 24 * 3600 * 1000               // maximum 365 days
+        }
     },
-
-    joinblock: {
-        type: new mongoose.Schema({
-            enabled: { type: Boolean, default: false },
-            punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
-            mute_duration: { type: Number, default: 10 },
-            mute_duration_str: { type: String, default: "10m" },
-            users: { type: [String], default: [] },
-        }, { _id: false }),
-        default: () => ({})
+    { _id: false }
+);
+// Main media schema holding all media types
+const mediaSchema = new mongoose.Schema(
+    {
+        story: { type: singleMediaRuleSchema, default: () => ({}) },
+        photo: { type: singleMediaRuleSchema, default: () => ({}) },
+        video: { type: singleMediaRuleSchema, default: () => ({}) },
+        album: { type: singleMediaRuleSchema, default: () => ({}) },
+        gif: { type: singleMediaRuleSchema, default: () => ({}) },
+        voice: { type: singleMediaRuleSchema, default: () => ({}) },
+        audio: { type: singleMediaRuleSchema, default: () => ({}) },
+        sticker: { type: singleMediaRuleSchema, default: () => ({}) },
+        animated_stickers: { type: singleMediaRuleSchema, default: () => ({}) },
+        animated_games: { type: singleMediaRuleSchema, default: () => ({}) },
+        animated_emoji: { type: singleMediaRuleSchema, default: () => ({}) },
+        premium_emoji: { type: singleMediaRuleSchema, default: () => ({}) },
+        file: { type: singleMediaRuleSchema, default: () => ({}) }
     },
+    { _id: false }
+);
 
-    leaveblock: {
-        type: new mongoose.Schema({
-            enabled: { type: Boolean, default: false },
-            punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
-            mute_duration: { type: Number, default: 10 },
-            mute_duration_str: { type: String, default: "10m" },
-            users: { type: [String], default: [] },
-        }, { _id: false }),
-        default: () => ({})
+// for porn settings
+const pornSchema = new mongoose.Schema(
+    {
+        enabled: {
+            type: Boolean,
+            default: false
+        },
+        penalty: {
+            type: String,
+            enum: ["off", "warn", "kick", "mute", "ban"],
+            default: "off"
+        },
+        penalty_duration_str: {
+            type: String,
+            default: "10 minutes"
+        },
+        penalty_duration: {
+            type: Number,
+            default: 10 * 60 * 1000,                 // 10 minutes in ms
+            min: 30 * 1000,                          // minimum 30 seconds
+            max: 365 * 24 * 3600 * 1000              // maximum 365 days
+        },
+        delete_messages: {
+            type: Boolean,
+            default: false
+        }
     },
+    { _id: false }
+);
 
-    joinleave: {
-        type: new mongoose.Schema({
-            enabled: { type: Boolean, default: false },
-            punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
-            mute_duration: { type: Number, default: 10 },
-            mute_duration_str: { type: String, default: "10m" },
-            users: { type: [String], default: [] },
-        }, { _id: false }),
-        default: () => ({})
+// for warns settings
+const warnsSchema = new mongoose.Schema(
+    {
+        // What to do when a member exceeds the warn limit
+        penalty: {
+            type: String,
+            enum: ["off", "kick", "mute", "ban"],
+            default: "mute"
+        },
+
+        // Optional duration for mute/ban: both human text and ms
+        penalty_duration_str: {
+            type: String,
+            default: "10 minutes"
+        },
+        penalty_duration: {
+            type: Number,
+            default: 10 * 60 * 1000,                 // 10 minutes in ms
+            min: 30 * 1000,                          // minimum 30 seconds
+            max: 365 * 24 * 3600 * 1000              // maximum 365 days
+        },
+
+        // Max warns allowed before applying the penalty
+        max_warns: {
+            type: Number,
+            default: 3,
+            min: 1,
+            max: 10
+        },
+
+        // Users who have reached the warn limit
+        warned: {
+            type: [
+                {
+                    _id: false,                          // no _id per warned entry
+                    user_id: { type: Number, required: true },
+                    username: { type: String, default: "" }, // store without '@'
+                    name: { type: String, default: "" }      // display name
+                }
+            ],
+            default: () => []
+        }
     },
+    { _id: false }
+);
 
-    multiple_joins: {
-        type: new mongoose.Schema({
-            enabled: { type: Boolean, default: false },
-            punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
-            mute_duration: { type: Number, default: 10 },
-            mute_duration_str: { type: String, default: "10m" },
-            users: { type: [String], default: [] },
-        }, { _id: false }),
-        default: () => ({})
-    }
+// for night mode settings
+const nightSchema = new mongoose.Schema(
+    {
+        // "off" | "delete" (delete medias) | "silence" (global silence)
+        mode: {
+            type: String,
+            enum: ["off", "delete", "silence"],
+            default: "off",
+            index: true
+        },
+        // Active window (local hours 0–23, end strictly greater than start in this UI)
+        start_hour: {
+            type: Number,
+            min: 0,
+            max: 23,
+            default: undefined
+        },
+        end_hour: {
+            type: Number,
+            min: 0,
+            max: 23,
+            default: undefined
+        },
+        // Show start/end notifications when window toggles
+        advise: {
+            type: Boolean,
+            default: false
+        },
+    },
+    { _id: false }
+);
 
+// for time zone settings
+const timeZoneSchema = new mongoose.Schema(
+    {
+        // Human-readable zone:
+        // Prefer IANA names like "Asia/Kolkata".
+        // If derived from location only, you can store "GMT+05:30".
+        tz_name: {
+            type: String,
+            default: ""
+        },
+    },
+    { _id: false }
+);
+
+// for Approval mode settings
+const approvalSchema = new mongoose.Schema(
+    {
+        // Whether the bot handles join requests for this chat
+        enabled: {
+            type: Boolean,
+            default: false,
+            index: true
+        },
+        verify_mode: {
+            type: String,
+            enum: ["button", "recaptcha", "presentation", "regulation", "math", "quiz"],
+            default: null // set to "quiz" on first Turn on if null
+        }
+    },
+    { _id: false }
+);
+
+// for delete setting
+const timedField = new mongoose.Schema({
+    enabled: { type: Boolean, default: false },
+    time_ms: { type: Number, default: 10 * 60 * 1000 },
+    time_str: { type: String, default: "10 minutes" }
 }, { _id: false });
+
+const deleteSettingsSchema = new mongoose.Schema({
+    global_silence: { type: Boolean, default: false },
+
+    edit_checks: {
+        enabled: { type: Boolean, default: false },
+        time_ms: { type: Number, default: 10 * 60 * 1000 },
+        time_str: { type: String, default: "10 minutes" },
+        edit_suggestion: { type: Boolean, default: false }
+    },
+
+    // EXACT service set requested
+    service_messages: {
+        join: { type: timedField, default: () => ({ enabled: true, time_ms: 1 * 60 * 1000, time_str: "1 minute" }) }, // Join: after 1 mins
+        exit: { type: timedField, default: () => ({ enabled: false, time_ms: 10 * 60 * 1000, time_str: "10 minutes" }) }, // Exit: Off
+        new_photo: { type: timedField, default: () => ({ enabled: false, time_ms: 10 * 60 * 1000, time_str: "10 minutes" }) }, // New Photo: Off
+        new_title: { type: timedField, default: () => ({ enabled: false, time_ms: 10 * 60 * 1000, time_str: "10 minutes" }) }, // New Title: Off
+        pinned: { type: timedField, default: () => ({ enabled: false, time_ms: 10 * 60 * 1000, time_str: "10 minutes" }) }, // Pinned messages: Off
+        topics: { type: timedField, default: () => ({ enabled: true, time_ms: 0, time_str: "0 minutes" }) },            // Topics: after 0 mins
+        boost: { type: timedField, default: () => ({ enabled: false, time_ms: 10 * 60 * 1000, time_str: "10 minutes" }) }, // Boost: Off
+        video_invites: { type: timedField, default: () => ({ enabled: false, time_ms: 10 * 60 * 1000, time_str: "10 minutes" }) },// Video Chats invites: Off
+        checklist: { type: timedField, default: () => ({ enabled: false, time_ms: 10 * 60 * 1000, time_str: "10 minutes" }) }, // Checklist: Off
+    },
+
+    scheduled: {
+        welcome: { type: timedField, default: () => ({}) },
+        goodbye: { type: timedField, default: () => ({}) },
+        regulation: { type: timedField, default: () => ({}) },
+        personal_commands: { type: timedField, default: () => ({}) },
+        punishments: { type: timedField, default: () => ({}) },
+        manual_punishments: { type: timedField, default: () => ({}) }
+    },
+
+    self_destruct: {
+        enabled: { type: Boolean, default: false },
+        time_ms: { type: Number, default: 10 * 60 * 1000 },
+        time_str: { type: String, default: "10 minutes" }
+    }
+}, { _id: false });
+
+// for language settings
+const languageSchema = new mongoose.Schema({
+    value: {
+        type: String,
+        enum: [
+            "en", "it", "es", "pt", "de", "fr", "ro", "nl",
+            "zh_cn", "zh_tw", "uk", "ru", "kk", "tr", "id", "az",
+            "uz_latn", "uz_cyrl", "ms", "so", "sq", "sr", "am",
+            "el", "ar", "ko", "fa", "ckb", "hi", "si", "bn", "ur"
+        ],
+        default: "en"
+    },
+}, { _id: false });
+
+// for banned words settings
+const bannedWordsSchema = new mongoose.Schema({
+    penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
+    delete_messages: { type: Boolean, default: true },
+    username_check: { type: Boolean, default: false },
+    name_check: { type: Boolean, default: false },
+    bio_check: { type: Boolean, default: false },
+    words: { type: [String], default: [] }
+}, { _id: false }
+);
 
 // Settings schema (key = chatId, value = regulationSchema wrapper)
 const settingsSchema = new mongoose.Schema(
@@ -489,6 +774,15 @@ const settingsSchema = new mongoose.Schema(
         checks: checksSchema,
         admin_sos: admin_sosSchema,
         blocks: blocksSchema,
+        media: mediaSchema,
+        porn: pornSchema,
+        warns: warnsSchema,
+        night: nightSchema,
+        time_zone: timeZoneSchema,
+        approval: approvalSchema,
+        delete_settings: deleteSettingsSchema,
+        lang: languageSchema,
+        word_filter: bannedWordsSchema
     },
     { _id: false }
 );

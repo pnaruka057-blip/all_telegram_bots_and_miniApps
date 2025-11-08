@@ -179,6 +179,7 @@ module.exports = (bot) => {
     // ====== CUSTOMIZE RULES ======
     bot.action(/^CUSTOMIZE_RULES_(.+)$/, async (ctx) => {
         try {
+            ctx.session = {};
             const userId = ctx.from.id;
             const chatIdStr = ctx.match[1];
             const chatId = Number(chatIdStr);
@@ -249,7 +250,7 @@ module.exports = (bot) => {
 
         const textMsg =
             "👉🏻 <b>Send the message you want to set.</b>\n\n" +
-            `To see what you can do with message design (placeholders and HTML) - <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">Click Here</a>.`;
+            `To see what you can do with message design (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">Click Here</a>.`;
 
         const buttons = [
             [Markup.button.callback("🚫 Remove message", `REMOVE_REG_RULES_TEXT_${chatIdStr}`)],
@@ -271,8 +272,7 @@ module.exports = (bot) => {
         const userId = ctx.from.id;
 
         const textMsg =
-            "👉🏻 <b>Send now the media</b> (photos, videos, stickers...) you want to set.\n" +
-            "<i>You can also enter a caption.</i>";
+            "👉🏻 <b>Send now the media</b> (photos, videos, audio, stickers...) you want to set."
 
         const buttons = [
             [Markup.button.callback("🚫 Remove message", `REMOVE_REG_RULES_MEDIA_${chatIdStr}`)],
@@ -297,7 +297,7 @@ module.exports = (bot) => {
         const builderUrl = process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE; // replace with your real tool if available
         const textMsg =
             `👉🏻 <b>Send now the Buttons</b> you want to set.\n\n` +
-            `If you need a visual tool to build the buttons and get the exact code - <a href="${builderUrl}/buttons-design">Click Here</a>.\n\n`
+            `If you need a visual tool to build the buttons and get the exact code, <a href="${builderUrl}/buttons-design">Click Here</a>.\n\n`
 
         const buttons = [
             [Markup.button.callback("🚫 Remove Keyboard", `REMOVE_REG_RULES_BUTTONS_${chatIdStr}`)],
@@ -306,7 +306,6 @@ module.exports = (bot) => {
 
         await safeEditOrSend(ctx, textMsg, {
             parse_mode: "HTML",
-            disable_web_page_preview: true,
             ...Markup.inlineKeyboard(buttons)
         });
 
@@ -745,6 +744,7 @@ module.exports = (bot) => {
 
     // ===== REMOVE TEXT =====
     bot.action(/REMOVE_REG_RULES_TEXT_(.+)/, async (ctx) => {
+        ctx.session = {};
         const chatIdStr = ctx.match[1];
         const chatId = Number(chatIdStr);
         const userId = ctx.from.id;

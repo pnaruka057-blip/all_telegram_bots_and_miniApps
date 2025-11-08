@@ -240,6 +240,7 @@ module.exports = (bot) => {
 
     // Exceptions menu
     bot.action(/TGLINKS_EXCEPTIONS_(.+)/, async (ctx) => {
+        ctx.session = {}
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
@@ -301,7 +302,6 @@ module.exports = (bot) => {
 
         await safeEditOrSend(ctx, text, {
             parse_mode: "HTML",
-            disable_web_page_preview: true,
             reply_markup: keyboard
         });
     });
@@ -316,9 +316,11 @@ module.exports = (bot) => {
 
         const text =
             "➕ <b>Add to Whitelist</b>\n\n" +
-            "Send one or more Telegram links or <code>@usernames</code> of users/bots/channels/groups to add them to the whitelist.\n\n" +
-            "👉 Send each link/username on a new line (without extra symbols), or forward a message from the users/bots/channels/groups you want to add.\n\n" +
-            "<b>Example:</b>\n<code>@GroupHelp</code>\n<code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>";
+            "Send one or more Telegram links, <code>@usernames</code>, to add them to the whitelist.\n\n" +
+            "👉 Send each link/username on a new line (without extra symbols) you want to add.\n\n" +
+            "<b>Example:</b>\n" +
+            "• Usesrname : <code>@example</code>\n" +
+            "• Telegram links : <code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>\n"
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("❌ Cancel", `TGLINKS_EXCEPTIONS_${chatIdStr}`)]
@@ -367,9 +369,11 @@ module.exports = (bot) => {
 
         const text =
             "➖ <b>Remove from Whitelist</b>\n\n" +
-            "Send one or more Telegram links or <code>@usernames</code> of users/bots/channels/groups to remove them from the whitelist.\n\n" +
-            "👉 Send each link/username on a new line (without extra symbols), or forward a message from the users/bots/channels/groups you want to remove.\n\n" +
-            "<b>Example:</b>\n<code>@GroupHelp</code>\n<code>https://t.me/joinchat/COVT7z7KD0sN8kZpJg60Ug</code>";
+            "Send one or more Telegram links, <code>@usernames</code>, to remove them from the whitelist.\n\n" +
+            "👉 Send each link/username on a new line (without extra symbols) you want to remove.\n\n" +
+            "<b>Example:</b>\n" +
+            "• Usesrname : <code>@example</code>\n" +
+            "• Telegram links : <code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>\n"
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("❌ Cancel", `TGLINKS_EXCEPTIONS_${chatIdStr}`)]
@@ -1111,6 +1115,7 @@ module.exports = (bot) => {
     // FORWARDING EXCEPTIONS MENU (reworked to match Antispam exceptions behavior)
     // -------------------------
     bot.action(/^ANTISPAM_FORWARD_EXCEPTIONS_(-?\d+)$/, async (ctx) => {
+        ctx.session = {}
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
         const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
@@ -1160,7 +1165,6 @@ module.exports = (bot) => {
 
         await safeEditOrSend(ctx, text, {
             parse_mode: "HTML",
-            disable_web_page_preview: true,
             reply_markup: keyboard
         });
     });
@@ -1176,11 +1180,13 @@ module.exports = (bot) => {
 
         const text =
             "➕ <b>Add to Whitelist</b>\n\n" +
-            "Send one or more Telegram links or <code>@usernames</code> of users/bots/channels/groups to add them to the whitelist.\n\n" +
-            "👉 Send each link/username on a new line (without extra symbols), or forward a message from the users/bots/channels/groups you want to add.\n\n" +
+            "Send one or more Telegram links, <code>@usernames</code>, or numeric IDs (user IDs or chat IDs like <code>-100...</code>) to add them to the whitelist.\n\n" +
+            "👉 Send each link/username/ID on a new line (without extra symbols), or forward a message from the users/bots/channels/groups you want to add.\n\n" +
             "<b>Example:</b>\n" +
-            "<code>@GroupHelp</code>\n" +
-            "<code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>";
+            "• Usesrname : <code>@example</code>\n" +
+            "• Telegram link : <code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>\n" +
+            "• User/bot ID : <code>123456789</code>\n" +
+            "• Group/channel ID : <code>-1001234567890</code>";
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("❌ Cancel", `ANTISPAM_FORWARD_EXCEPTIONS_${chatIdStr}`)]
@@ -1192,7 +1198,6 @@ module.exports = (bot) => {
         // send the prompt and capture returned message (best-effort)
         const sent = await safeEditOrSend(ctx, text, {
             parse_mode: "HTML",
-            disable_web_page_preview: true,
             reply_markup: keyboard.reply_markup
         }, true);
 
@@ -1224,11 +1229,13 @@ module.exports = (bot) => {
 
         const text =
             "➖ <b>Remove from Whitelist</b>\n\n" +
-            "Send one or more Telegram links or <code>@usernames</code> of channels/groups to remove them from the whitelist.\n\n" +
-            "👉 Send each link/username on a new line (without extra symbols), or forward a message from the channel/group you want to remove.\n\n" +
+            "Send one or more Telegram links, <code>@usernames</code>, or numeric IDs (user IDs or chat IDs like <code>-100...</code>) to remove them from the whitelist.\n\n" +
+            "👉 Send each link/username/ID on a new line (without extra symbols), or forward a message from the users/bots/channels/groups you want to remove.\n\n" +
             "<b>Example:</b>\n" +
-            "<code>@GroupHelp</code>\n" +
-            "<code>https://t.me/joinchat/COVT7z7KD0sN8kZpJg60Ug</code>";
+            "• Usesrname : <code>@example</code>\n" +
+            "• Telegram link : <code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>\n" +
+            "• User/bot ID : <code>123456789</code>\n" +
+            "• Group/channel ID : <code>-1001234567890</code>";
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("❌ Cancel", `ANTISPAM_FORWARD_EXCEPTIONS_${chatIdStr}`)]
@@ -1239,7 +1246,6 @@ module.exports = (bot) => {
 
         const sent = await safeEditOrSend(ctx, text, {
             parse_mode: "HTML",
-            disable_web_page_preview: true,
             reply_markup: keyboard.reply_markup
         }, true);
 
@@ -1723,6 +1729,7 @@ module.exports = (bot) => {
 
     // Quote Exceptions menu (mirrors Forward Exceptions; wire to own whitelist path)
     bot.action(/^ANTISPAM_QUOTE_EXCEPTIONS_(-?\d+)$/, async (ctx) => {
+        ctx.session = {};
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
@@ -1780,7 +1787,6 @@ module.exports = (bot) => {
 
         await safeEditOrSend(ctx, text, {
             parse_mode: "HTML",
-            disable_web_page_preview: true,
             reply_markup: keyboard
         });
     });
@@ -1796,11 +1802,13 @@ module.exports = (bot) => {
 
         const text =
             "➕ <b>Add to Whitelist</b>\n\n" +
-            "Send one or more Telegram links or <code>@usernames</code> of users/bots/channels/groups to add them to the whitelist.\n\n" +
-            "👉 Send each link/username on a new line (without extra symbols), or forward a message from the users/bots/channels/groups you want to add.\n\n" +
+            "Send one or more Telegram links, <code>@usernames</code>, or numeric IDs (user IDs or chat IDs like <code>-100...</code>) to add them to the whitelist.\n\n" +
+            "👉 Send each link/username/ID on a new line (without extra symbols), or forward a message from the users/bots/channels/groups you want to add.\n\n" +
             "<b>Example:</b>\n" +
-            "<code>@GroupHelp</code>\n" +
-            "<code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>";
+            "• Usesrname : <code>@example</code>\n" +
+            "• Telegram link : <code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>\n" +
+            "• User/bot ID : <code>123456789</code>\n" +
+            "• Group/channel ID : <code>-1001234567890</code>";
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("❌ Cancel", `ANTISPAM_QUOTE_EXCEPTIONS_${chatIdStr}`)]
@@ -1811,7 +1819,6 @@ module.exports = (bot) => {
 
         const sent = await safeEditOrSend(ctx, text, {
             parse_mode: "HTML",
-            disable_web_page_preview: true,
             reply_markup: keyboard.reply_markup
         }, true);
 
@@ -1843,9 +1850,13 @@ module.exports = (bot) => {
 
         const text =
             "➖ <b>Remove from Quote Whitelist</b>\n\n" +
-            "<code>@usernames</code> (users/bots/channels/groups) alag lines par bhejein ya unka message forward karein.\n\n" +
+            "Send one or more Telegram links, <code>@usernames</code>, or numeric IDs (user IDs or chat IDs like <code>-100...</code>) to remove them from the whitelist.\n\n" +
+            "👉 Send each link/username/ID on a new line (without extra symbols), or forward a message from the users/bots/channels/groups you want to remove.\n\n" +
             "<b>Example:</b>\n" +
-            "<code>@GroupHelp</code>";
+            "• Usesrname : <code>@example</code>\n" +
+            "• Telegram link : <code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>\n" +
+            "• User/bot ID : <code>123456789</code>\n" +
+            "• Group/channel ID : <code>-1001234567890</code>";
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("❌ Cancel", `ANTISPAM_QUOTE_EXCEPTIONS_${chatIdStr}`)]
@@ -1856,7 +1867,6 @@ module.exports = (bot) => {
 
         const sent = await safeEditOrSend(ctx, text, {
             parse_mode: "HTML",
-            disable_web_page_preview: true,
             reply_markup: keyboard.reply_markup
         }, true);
 
@@ -1913,16 +1923,16 @@ module.exports = (bot) => {
 
         const rows = [
             [
-                Markup.button.callback("❌ Off", `BLOCK_PUNISH_OFF_${chatIdStr}`),
-                Markup.button.callback("⚠ Warn", `BLOCK_PUNISH_WARN_${chatIdStr}`),
-                Markup.button.callback("🚪 Kick", `BLOCK_PUNISH_KICK_${chatIdStr}`)
+                Markup.button.callback("❌ Off", `ANTISPAM_BLOCK_PUNISH_OFF_${chatIdStr}`),
+                Markup.button.callback("⚠ Warn", `ANTISPAM_BLOCK_PUNISH_WARN_${chatIdStr}`),
+                Markup.button.callback("🚪 Kick", `ANTISPAM_BLOCK_PUNISH_KICK_${chatIdStr}`)
             ],
             [
-                Markup.button.callback("🔇 Mute", `BLOCK_PUNISH_MUTe_${chatIdStr}`.replace("MutE".toLowerCase(), "MUTE")), // ensure MUTE
-                Markup.button.callback("⛔ Ban", `BLOCK_PUNISH_BAN_${chatIdStr}`)
+                Markup.button.callback("🔇 Mute", `ANTISPAM_BLOCK_PUNISH_MUTe_${chatIdStr}`.replace("MutE".toLowerCase(), "MUTE")), // ensure MUTE
+                Markup.button.callback("⛔ Ban", `ANTISPAM_BLOCK_PUNISH_BAN_${chatIdStr}`)
             ],
             [Markup.button.callback("🌟 Exceptions", `ANTISPAM_BLOCK_EXCEPTIONS_${chatIdStr}`)],
-            [Markup.button.callback(`🗑 Delete Messages ${deleteMessages}`, `BLOCK_TOGGLE_DELETE_${chatIdStr}`)]
+            [Markup.button.callback(`🗑 Delete Messages ${deleteMessages}`, `ANTISPAM_BLOCK_TOGGLE_DELETE_${chatIdStr}`)]
         ];
 
         if (["warn", "mute", "ban"].includes(penalty)) {
@@ -1930,7 +1940,7 @@ module.exports = (bot) => {
             rows.push([
                 Markup.button.callback(
                     `⏲️ Set ${label} Duration (${penaltyDurationStr})`,
-                    `BLOCK_SET_${label.toUpperCase()}_DURATION_${chatIdStr}`
+                    `ANTISPAM_BLOCK_SET_${label.toUpperCase()}_DURATION_${chatIdStr}`
                 )
             ]);
         }
@@ -1960,7 +1970,7 @@ module.exports = (bot) => {
     }
 
     // Set penalty: OFF/WARN/KICK/MUTE/BAN
-    bot.action(/^BLOCK_PUNISH_(OFF|WARN|KICK|MUTE|BAN)_(.+)/i, async (ctx) => {
+    bot.action(/^ANTISPAM_BLOCK_PUNISH_(OFF|WARN|KICK|MUTE|BAN)_(.+)/i, async (ctx) => {
         try {
             const action = ctx.match[1].toLowerCase();
             const chatIdStr = ctx.match[2];
@@ -2005,12 +2015,12 @@ module.exports = (bot) => {
             );
             await renderLinksBlockMenu(ctx, chatIdStr, userId, chat);
         } catch (err) {
-            console.error("Error in BLOCK_PUNISH_* handler:", err);
+            console.error("Error in ANTISPAM_BLOCK_PUNISH_* handler:", err);
         }
     });
 
     // Toggle delete_messages
-    bot.action(/^BLOCK_TOGGLE_DELETE_(.+)/, async (ctx) => {
+    bot.action(/^ANTISPAM_BLOCK_TOGGLE_DELETE_(.+)/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
             const userId = ctx.from.id;
@@ -2030,12 +2040,12 @@ module.exports = (bot) => {
             await ctx.answerCbQuery(`🗑 Delete Messages ${newVal ? "enabled ✔" : "disabled ✖"}`);
             await renderLinksBlockMenu(ctx, chatIdStr, userId, chat);
         } catch (err) {
-            console.error("Error in BLOCK_TOGGLE_DELETE handler:", err);
+            console.error("Error in ANTISPAM_BLOCK_TOGGLE_DELETE handler:", err);
         }
     });
 
     // WARN duration prompt
-    bot.action(/^BLOCK_SET_WARN_DURATION_(.+)/, async (ctx) => {
+    bot.action(/^ANTISPAM_BLOCK_SET_WARN_DURATION_(.+)/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
             const userId = ctx.from.id;
@@ -2058,8 +2068,8 @@ module.exports = (bot) => {
                 `<b>Current duration:</b> ${current}\n\n`;
 
             const buttons = [
-                [Markup.button.callback("🗑️ Remove duration", `BLOCK_REMOVE_PUNISHMENT_${chatIdStr}`)],
-                [Markup.button.callback("❌ Cancel", `BLOCK_CANCEL_SET_${chatIdStr}`)]
+                [Markup.button.callback("🗑️ Remove duration", `ANTISPAM_BLOCK_REMOVE_PUNISHMENT_${chatIdStr}`)],
+                [Markup.button.callback("❌ Cancel", `ANTISPAM_BLOCK_CANCEL_SET_${chatIdStr}`)]
             ];
 
             const sent = await safeEditOrSend(ctx, text, { parse_mode: "HTML", reply_markup: { inline_keyboard: buttons } });
@@ -2078,12 +2088,12 @@ module.exports = (bot) => {
 
             try { await ctx.answerCbQuery(); } catch (_) { }
         } catch (err) {
-            console.error("BLOCK_SET_WARN_DURATION error:", err);
+            console.error("ANTISPAM_BLOCK_SET_WARN_DURATION error:", err);
         }
     });
 
     // MUTE duration prompt
-    bot.action(/^BLOCK_SET_MUTE_DURATION_(.+)/, async (ctx) => {
+    bot.action(/^ANTISPAM_BLOCK_SET_MUTE_DURATION_(.+)/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
             const userId = ctx.from.id;
@@ -2106,8 +2116,8 @@ module.exports = (bot) => {
                 `<b>Current duration:</b> ${current}\n\n`;
 
             const buttons = [
-                [Markup.button.callback("🗑️ Remove duration", `BLOCK_REMOVE_PUNISHMENT_${chatIdStr}`)],
-                [Markup.button.callback("❌ Cancel", `BLOCK_CANCEL_SET_${chatIdStr}`)]
+                [Markup.button.callback("🗑️ Remove duration", `ANTISPAM_BLOCK_REMOVE_PUNISHMENT_${chatIdStr}`)],
+                [Markup.button.callback("❌ Cancel", `ANTISPAM_BLOCK_CANCEL_SET_${chatIdStr}`)]
             ];
 
             const sent = await safeEditOrSend(ctx, text, { parse_mode: "HTML", reply_markup: { inline_keyboard: buttons } });
@@ -2125,12 +2135,12 @@ module.exports = (bot) => {
 
             try { await ctx.answerCbQuery(); } catch (_) { }
         } catch (err) {
-            console.error("BLOCK_SET_MUTE_DURATION error:", err);
+            console.error("ANTISPAM_BLOCK_SET_MUTE_DURATION error:", err);
         }
     });
 
     // BAN duration prompt
-    bot.action(/^BLOCK_SET_BAN_DURATION_(.+)/, async (ctx) => {
+    bot.action(/^ANTISPAM_BLOCK_SET_BAN_DURATION_(.+)/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
             const userId = ctx.from.id;
@@ -2153,8 +2163,8 @@ module.exports = (bot) => {
                 `<b>Current duration:</b> ${current}\n\n`;
 
             const buttons = [
-                [Markup.button.callback("🗑️ Remove duration", `BLOCK_REMOVE_PUNISHMENT_${chatIdStr}`)],
-                [Markup.button.callback("❌ Cancel", `BLOCK_CANCEL_SET_${chatIdStr}`)]
+                [Markup.button.callback("🗑️ Remove duration", `ANTISPAM_BLOCK_REMOVE_PUNISHMENT_${chatIdStr}`)],
+                [Markup.button.callback("❌ Cancel", `ANTISPAM_BLOCK_CANCEL_SET_${chatIdStr}`)]
             ];
 
             const sent = await safeEditOrSend(ctx, text, { parse_mode: "HTML", reply_markup: { inline_keyboard: buttons } });
@@ -2172,12 +2182,12 @@ module.exports = (bot) => {
 
             try { await ctx.answerCbQuery(); } catch (_) { }
         } catch (err) {
-            console.error("BLOCK_SET_BAN_DURATION error:", err);
+            console.error("ANTISPAM_BLOCK_SET_BAN_DURATION error:", err);
         }
     });
 
     // Remove duration (unset)
-    bot.action(/^BLOCK_REMOVE_PUNISHMENT_(.+)/, async (ctx) => {
+    bot.action(/^ANTISPAM_BLOCK_REMOVE_PUNISHMENT_(.+)/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
             const userId = ctx.from.id;
@@ -2204,12 +2214,12 @@ module.exports = (bot) => {
             await ctx.answerCbQuery("Punishment duration removed.");
             await renderLinksBlockMenu(ctx, chatIdStr, userId, chat);
         } catch (err) {
-            console.error("BLOCK_REMOVE_PUNISHMENT error:", err);
+            console.error("ANTISPAM_BLOCK_REMOVE_PUNISHMENT error:", err);
         }
     });
 
     // Cancel set (cleanup)
-    bot.action(/^BLOCK_CANCEL_SET_(.+)/, async (ctx) => {
+    bot.action(/^ANTISPAM_BLOCK_CANCEL_SET_(.+)/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
             const sW = ctx.session?.awaitingLinksWarnDuration;
@@ -2232,12 +2242,13 @@ module.exports = (bot) => {
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
             if (chat) await renderLinksBlockMenu(ctx, chatIdStr, userId, chat);
         } catch (err) {
-            console.error("BLOCK_CANCEL_SET error:", err);
+            console.error("ANTISPAM_BLOCK_CANCEL_SET error:", err);
         }
     });
 
     // Open Total Links Exceptions menu
     bot.action(/^ANTISPAM_BLOCK_EXCEPTIONS_(-?\d+)$/, async (ctx) => {
+        ctx.session = {};
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
@@ -2287,7 +2298,7 @@ module.exports = (bot) => {
             ]
         };
 
-        await safeEditOrSend(ctx, text, { parse_mode: "HTML", disable_web_page_preview: true, reply_markup: keyboard });
+        await safeEditOrSend(ctx, text, { parse_mode: "HTML", reply_markup: keyboard });
     });
 
     // ADD prompt for links_block whitelist
@@ -2300,13 +2311,14 @@ module.exports = (bot) => {
         if (!ok) return;
 
         const text =
-            "➕ <b>Add to Total Links Whitelist</b>\n\n" +
-            "Send one or more items on separate lines:\n" +
-            "• Any URL, e.g., <code>https://example.com/</code>\n" +
-            "• Bare domains, e.g., <code>example.com</code>\n\n" +
-            "<b>Examples:</b>\n" +
-            "<code>https://t.me/somechannel</code>\n" +
-            "<code>example.com</code>";
+            "➕ <b>Add to Whitelist</b>\n\n" +
+            "Send one or more Telegram links, <code>@usernames</code>, or numeric IDs (user IDs or chat IDs like <code>-100...</code>) to add them to the whitelist.\n\n" +
+            "👉 Send each link/username/ID on a new line (without extra symbols), or forward a message from the users/bots/channels/groups you want to add.\n\n" +
+            "<b>Example:</b>\n" +
+            "• Usesrname : <code>@example</code>\n" +
+            "• Telegram link : <code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>\n" +
+            "• User/bot ID : <code>123456789</code>\n" +
+            "• Group/channel ID : <code>-1001234567890</code>";
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("❌ Cancel", `ANTISPAM_BLOCK_EXCEPTIONS_${chatIdStr}`)]
@@ -2315,7 +2327,7 @@ module.exports = (bot) => {
         ctx.session = ctx.session || {};
         ctx.session.awaitingLinksBlockAdd = { chatIdStr, userId, promptMessage: null };
 
-        const sent = await safeEditOrSend(ctx, text, { parse_mode: "HTML", disable_web_page_preview: true, reply_markup: keyboard.reply_markup }, true);
+        const sent = await safeEditOrSend(ctx, text, { parse_mode: "HTML", reply_markup: keyboard.reply_markup }, true);
 
         let promptChatId = null, promptMsgId = null;
         if (sent && typeof sent === "object" && (sent.message_id || sent.messageId || sent.id)) {
@@ -2342,13 +2354,14 @@ module.exports = (bot) => {
         if (!ok) return;
 
         const text =
-            "➖ <b>Remove from Total Links Whitelist</b>\n\n" +
-            "Send one or more items on separate lines:\n" +
-            "• Any URL, e.g., <code>https://example.com/</code>\n" +
-            "• Bare domains, e.g., <code>example.com</code>\n\n" +
-            "<b>Examples:</b>\n" +
-            "<code>https://t.me/somechannel</code>\n" +
-            "<code>example.com</code>";
+            "➖ <b>Remove from Quote Whitelist</b>\n\n" +
+            "Send one or more Telegram links, <code>@usernames</code>, or numeric IDs (user IDs or chat IDs like <code>-100...</code>) to remove them from the whitelist.\n\n" +
+            "👉 Send each link/username/ID on a new line (without extra symbols), or forward a message from the users/bots/channels/groups you want to remove.\n\n" +
+            "<b>Example:</b>\n" +
+            "• Usesrname : <code>@example</code>\n" +
+            "• Telegram link : <code>https://t.me/joinchat/AAAAAEJxVruWWN-0mma-ew</code>\n" +
+            "• User/bot ID : <code>123456789</code>\n" +
+            "• Group/channel ID : <code>-1001234567890</code>";
 
         const keyboard = Markup.inlineKeyboard([
             [Markup.button.callback("❌ Cancel", `ANTISPAM_BLOCK_EXCEPTIONS_${chatIdStr}`)]
@@ -2357,7 +2370,7 @@ module.exports = (bot) => {
         ctx.session = ctx.session || {};
         ctx.session.awaitingLinksBlockRemove = { chatIdStr, userId, promptMessage: null };
 
-        const sent = await safeEditOrSend(ctx, text, { parse_mode: "HTML", disable_web_page_preview: true, reply_markup: keyboard.reply_markup }, true);
+        const sent = await safeEditOrSend(ctx, text, { parse_mode: "HTML", reply_markup: keyboard.reply_markup }, true);
 
         let promptChatId = null, promptMsgId = null;
         if (sent && typeof sent === "object" && (sent.message_id || sent.messageId || sent.id)) {
@@ -2381,54 +2394,84 @@ module.exports = (bot) => {
         ctx.session = ctx.session || {};
 
         // -------------------------
-        // WHITELIST ADD
+        // tg link / username WHITELIST ADD
         // -------------------------
         if (ctx.session.awaitingWhitelistAdd) {
             const { chatIdStr, userId, promptMessage } = ctx.session.awaitingWhitelistAdd;
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-            if (!chat) { delete ctx.session.awaitingWhitelistAdd; return; }
-
-            const inputText = (ctx.message.text || "").trim();
-            const entries = [];
-            const invalid = [];
-
-            if (ctx.message.forward_from_chat) {
-                const fc = ctx.message.forward_from_chat;
-                if (fc.username) entries.push(`@${fc.username}`);
-                else entries.push(`https://t.me/c/${Math.abs(fc.id)}`);
-            } else if (ctx.message.forward_from) {
-                const fu = ctx.message.forward_from;
-                if (fu.username) entries.push(`@${fu.username}`);
-                else entries.push(`tg://user?id=${fu.id}`);
-            } else {
-                const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
-                for (const line of lines) {
-                    const norm = validate_telegram_link_or_username(line);
-                    if (norm) entries.push(norm);
-                    else invalid.push(line);
-                }
-            }
-
-            if (!entries.length) {
-                await safeEditOrSend(ctx,
-                    "❌ No valid usernames/links found. Please send usernames (e.g. @GroupHelp) or links (https://t.me/...) each on a new line.",
-                    { parse_mode: "HTML", disable_web_page_preview: true }
-                );
+            if (!chat) {
+                // Keep session so the user can resolve ownership/context without losing state
                 return;
             }
+
+            const inputText = (ctx.message.text || "").trim();
 
             const escapeHTML = (s = "") => String(s)
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;");
 
+            const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
+
+            // Simple English error if a number is sent or username core starts with a digit
+            const hasNumericOrDigitStart = lines.some((raw) => {
+                let s = raw.trim();
+                if (!s) return false;
+
+                // Extract core from t.me / telegram.me links
+                const m = s.match(/^(?:https?:\/\/)?(?:t(?:elegram)?\.me)\/([^/?#]+)/i);
+                let core = s;
+                if (m) core = m[1];
+
+                // Strip leading @
+                core = core.replace(/^@/, "");
+
+                // Ignore phone deep-links and joinchat invite codes
+                if (core.startsWith("+") || /^joinchat/i.test(core)) return false;
+
+                const isNumericOnly = /^\+?\d+$/.test(core);
+                const startsWithDigit = /^\d/.test(core);
+                return isNumericOnly || startsWithDigit;
+            });
+
+            if (hasNumericOrDigitStart) {
+                await safeEditOrSend(
+                    ctx,
+                    "❌ Only usernames (e.g., <code>@example</code>) or Telegram links (<code>t.me/...</code>) are allowed. Try again",
+                    { parse_mode: "HTML" }
+                );
+                // Do NOT delete session here; allow user to correct input and resend
+                return;
+            }
+
+            const entries = [];
+            const invalid = [];
+
+            for (const line of lines) {
+                const norm = validate_telegram_link_or_username(line);
+                if (norm) entries.push(norm);
+                else invalid.push(line);
+            }
+
+            if (!entries.length) {
+                await safeEditOrSend(
+                    ctx,
+                    "❌ No valid usernames/links found. Please send usernames (e.g., <code>@example</code>) or <code>t.me</code> links, one per line. Try again",
+                    { parse_mode: "HTML"
+                     }
+                );
+                // Keep session for correction
+                return;
+            }
+
+            let saved = false;
+
             try {
-                // atomic: ensure doc exists & add entries
+                // Atomic: ensure doc exists & add entries
                 await user_setting_module.findOneAndUpdate(
                     { user_id: userId },
                     {
                         $setOnInsert: { user_id: userId },
-                        // set some sane defaults on insert (won't overwrite existing)
                         $set: {
                             [`settings.${chatIdStr}.anti_spam.telegram_links.penalty`]: "off",
                             [`settings.${chatIdStr}.anti_spam.telegram_links.delete_messages`]: false,
@@ -2446,7 +2489,9 @@ module.exports = (bot) => {
                 const updatedWhitelist = updatedDoc?.settings?.[chatIdStr]?.anti_spam?.telegram_links?.whitelist || [];
 
                 const okList = entries.map(e => `• <code>${escapeHTML(e)}</code>`).join("\n");
-                const invalidList = invalid.length ? `\n\nInvalid lines (not added):\n${invalid.map(i => `• <code>${escapeHTML(i)}</code>`).join("\n")}` : "";
+                const invalidList = invalid.length
+                    ? `\n\nInvalid lines (not added):\n${invalid.map(i => `• <code>${escapeHTML(i)}</code>`).join("\n")}`
+                    : "";
                 const fullListText = updatedWhitelist.length
                     ? updatedWhitelist.map((item, i) => `${i + 1}. <code>${escapeHTML(item)}</code>`).join("\n")
                     : "⚠️ Whitelist is currently empty.";
@@ -2458,65 +2503,108 @@ module.exports = (bot) => {
                     `📋 <b>Current whitelist (${updatedWhitelist.length})</b>:\n${fullListText}`;
 
                 const keyboard = Markup.inlineKeyboard([
-                    [Markup.button.callback("⬅️ Back", `TGLINKS_EXCEPTIONS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
+                    [
+                        Markup.button.callback("⬅️ Back", `TGLINKS_EXCEPTIONS_${chatIdStr}`),
+                        Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+                    ]
                 ]);
 
-                // delete the prompt/cancel message if we have it
+                // Clean up the prompt message if present
                 if (promptMessage && promptMessage.chatId && promptMessage.messageId) {
-                    try { await bot.telegram.deleteMessage(promptMessage.chatId, promptMessage.messageId); } catch (_) { /* ignore */ }
+                    try { await bot.telegram.deleteMessage(promptMessage.chatId, promptMessage.messageId); } catch (_) { }
                 }
 
-                await ctx.reply(replyText, { parse_mode: "HTML", disable_web_page_preview: true, ...keyboard });
+                await ctx.reply(replyText, { parse_mode: "HTML", ...keyboard });
+
+                // Mark as successfully saved so we can clear the session
+                saved = true;
             } catch (err) {
                 console.error("Error adding to whitelist:", err);
                 await ctx.reply("⚠️ Something went wrong while saving. Try again later.");
+                // Keep session to allow retry
             } finally {
-                delete ctx.session.awaitingWhitelistAdd;
+                if (saved) {
+                    delete ctx.session.awaitingWhitelistAdd;
+                }
             }
+
             return;
         }
 
         // -------------------------
-        // WHITELIST REMOVE
+        // tg link / username WHITELIST REMOVE
         // -------------------------
         if (ctx.session.awaitingWhitelistRemove) {
             const { chatIdStr, userId, promptMessage } = ctx.session.awaitingWhitelistRemove;
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-            if (!chat) { delete ctx.session.awaitingWhitelistRemove; return; }
-
-            const inputText = (ctx.message.text || "").trim();
-            const toRemove = [];
-            const invalid = [];
-
-            if (ctx.message.forward_from_chat) {
-                const fc = ctx.message.forward_from_chat;
-                if (fc.username) toRemove.push(`@${fc.username}`);
-                else toRemove.push(`https://t.me/c/${Math.abs(fc.id)}`);
-            } else if (ctx.message.forward_from) {
-                const fu = ctx.message.forward_from;
-                if (fu.username) toRemove.push(`@${fu.username}`);
-                else toRemove.push(`tg://user?id=${fu.id}`);
-            } else {
-                const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
-                for (const line of lines) {
-                    const norm = validate_telegram_link_or_username(line);
-                    if (norm) toRemove.push(norm);
-                    else invalid.push(line);
-                }
-            }
-
-            if (!toRemove.length) {
-                await safeEditOrSend(ctx,
-                    "❌ No valid usernames/links found to remove. Please send valid usernames (e.g. @GroupHelp) or links each on a new line.",
-                    { parse_mode: "HTML", disable_web_page_preview: true }
-                );
+            if (!chat) {
+                // Keep session so the user can resolve ownership/context without losing state
                 return;
             }
+
+            const inputText = (ctx.message.text || "").trim();
 
             const escapeHTML = (s = "") => String(s)
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;");
+
+            const toRemove = [];
+            const invalid = [];
+
+            // Helper: numeric-only or username core starts with a digit
+            const isNumericOrDigitStart = (raw) => {
+                let s = String(raw || "").trim();
+                if (!s) return false;
+
+                // Extract core from t.me / telegram.me links
+                const m = s.match(/^(?:https?:\/\/)?(?:t(?:elegram)?\.me)\/([^/?#]+)/i);
+                let core = s;
+                if (m) core = m[1];
+
+                // Strip leading @
+                core = core.replace(/^@/, "");
+
+                // Ignore phone deep-links (+...) and joinchat invite codes
+                if (core.startsWith("+") || /^joinchat/i.test(core)) return false;
+
+                const isNumericOnly = /^\+?\d+$/.test(core);
+                const startsWithDigit = /^\d/.test(core);
+                return isNumericOnly || startsWithDigit;
+            };
+
+            // Only typed usernames/links are allowed (forwarded inputs removed)
+            const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
+
+            // Simple English error if any typed line is numeric-only or starts with a digit
+            const hasNumericOrDigitStart = lines.some(isNumericOrDigitStart);
+            if (hasNumericOrDigitStart) {
+                await safeEditOrSend(
+                    ctx,
+                    "❌ Only usernames (e.g., <code>@example</code>) or Telegram links (<code>t.me/...</code>) are allowed. Try again",
+                    { parse_mode: "HTML" }
+                );
+                // Keep session for correction
+                return;
+            }
+
+            for (const line of lines) {
+                const norm = validate_telegram_link_or_username(line);
+                if (norm) toRemove.push(norm);
+                else invalid.push(line);
+            }
+
+            if (!toRemove.length) {
+                await safeEditOrSend(
+                    ctx,
+                    "❌ No valid usernames/links found to remove. Please send usernames (e.g., <code>@example</code>) or <code>t.me</code> links, one per line. Try again",
+                    { parse_mode: "HTML" }
+                );
+                // Keep session for correction
+                return;
+            }
+
+            let saved = false;
 
             try {
                 await user_setting_module.findOneAndUpdate(
@@ -2538,7 +2626,9 @@ module.exports = (bot) => {
                 const updatedWhitelist = updatedDoc?.settings?.[chatIdStr]?.anti_spam?.telegram_links?.whitelist || [];
 
                 const removedList = toRemove.map(e => `• <code>${escapeHTML(e)}</code>`).join("\n");
-                const invalidList = invalid.length ? `\n\nInvalid lines (not removed):\n${invalid.map(i => `• <code>${escapeHTML(i)}</code>`).join("\n")}` : "";
+                const invalidList = invalid.length
+                    ? `\n\nInvalid lines (not removed):\n${invalid.map(i => `• <code>${escapeHTML(i)}</code>`).join("\n")}`
+                    : "";
                 const fullListText = updatedWhitelist.length
                     ? updatedWhitelist.map((item, i) => `${i + 1}. <code>${escapeHTML(item)}</code>`).join("\n")
                     : "⚠️ Whitelist is currently empty.";
@@ -2550,7 +2640,10 @@ module.exports = (bot) => {
                     `📋 <b>Current whitelist (${updatedWhitelist.length})</b>:\n${fullListText}`;
 
                 const keyboard = Markup.inlineKeyboard([
-                    [Markup.button.callback("⬅️ Back", `TGLINKS_EXCEPTIONS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
+                    [
+                        Markup.button.callback("⬅️ Back", `TGLINKS_EXCEPTIONS_${chatIdStr}`),
+                        Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)
+                    ]
                 ]);
 
                 // delete prompt/cancel message if exists
@@ -2558,12 +2651,17 @@ module.exports = (bot) => {
                     try { await bot.telegram.deleteMessage(promptMessage.chatId, promptMessage.messageId); } catch (_) { /* ignore */ }
                 }
 
-                await ctx.reply(replyText, { parse_mode: "HTML", disable_web_page_preview: true, ...keyboard });
+                await ctx.reply(replyText, { parse_mode: "HTML",...keyboard });
+
+                saved = true;
             } catch (err) {
                 console.error("Error removing from whitelist:", err);
                 await ctx.reply("⚠️ Something went wrong while removing. Try again later.");
+                // Keep session to allow retry
             } finally {
-                delete ctx.session.awaitingWhitelistRemove;
+                if (saved) {
+                    delete ctx.session.awaitingWhitelistRemove;
+                }
             }
             return;
         }
@@ -2574,42 +2672,124 @@ module.exports = (bot) => {
         if (ctx.session.awaitingForwardAdd) {
             const { chatIdStr, userId, promptMessage } = ctx.session.awaitingForwardAdd;
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-            if (!chat) { delete ctx.session.awaitingForwardAdd; return; }
-
-            const inputText = (ctx.message.text || "").trim();
-            const entries = [];
-            const invalid = [];
-
-            if (ctx.message.forward_from_chat) {
-                const fc = ctx.message.forward_from_chat;
-                if (fc.username) entries.push(`@${fc.username}`);
-                else entries.push(`https://t.me/c/${Math.abs(fc.id)}`);
-            } else if (ctx.message.forward_from) {
-                const fu = ctx.message.forward_from;
-                if (fu.username) entries.push(`@${fu.username}`);
-                else entries.push(`tg://user?id=${fu.id}`);
-            } else {
-                const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
-                for (const line of lines) {
-                    // support both sync & async validators
-                    const norm = await Promise.resolve(validate_telegram_link_or_username(line));
-                    if (norm) entries.push(norm);
-                    else invalid.push(line);
-                }
-            }
-
-            if (!entries.length) {
-                await ctx.reply("❌ No valid usernames/IDs/links found. Try again.", { disable_web_page_preview: true });
+            if (!chat) {
+                // Keep session so state isn’t lost
                 return;
             }
+
+            const inputText = (ctx.message.text || "").trim();
 
             const escapeHTML = (s = "") => String(s)
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;");
 
+            const entries = [];
+            const invalid = [];
+
+            // Regexes for accepted ID/link formats
+            const reUserIdBare = /^\d{5,20}$/;                    // bare user id (digits only)
+            const reTgUserId = /^tg:\/\/user\?id=(\d{5,20})$/i; // input accepted but normalized to bare id
+            const reChatId = /^-100\d{5,20}$/;                // supergroup/channel chat id
+            const reTmeC = /^(?:https?:\/\/)?t(?:elegram)?\.me\/c\/(\d{5,20})(?:\/\d+)?$/i; // t.me/c/<id>(/post)
+
+            // Username must not start with a digit
+            const startsWithDigitUsername = (raw) => {
+                let s = String(raw || "").trim();
+                // Extract username core from t.me/username if present
+                const mUser = s.match(/^(?:https?:\/\/)?t(?:elegram)?\.me\/([^\/?#]+)/i);
+                let core = mUser ? mUser[1] : s;
+                core = core.replace(/^@/, "");
+                if (!core) return false;
+                // Skip phone deep-links and invite joins
+                if (core.startsWith("+") || /^joinchat/i.test(core)) return false;
+                return /^[0-9]/.test(core);
+            };
+
+            // Collect inputs from forward metadata or typed text
+            if (ctx.message.forward_from_chat) {
+                const fc = ctx.message.forward_from_chat;
+                if (fc.username) entries.push(`@${fc.username}`);
+                else entries.push(String(fc.id)); // store direct -100... chat id
+            } else if (ctx.message.forward_from) {
+                const fu = ctx.message.forward_from;
+                if (fu.username) entries.push(`@${fu.username}`);
+                else entries.push(String(fu.id)); // store direct user id
+            } else {
+                const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
+
+                // Early validation: reject digit-leading usernames, but allow numeric IDs if valid
+                const hasBadUsernames = lines.some((s) => {
+                    if (reUserIdBare.test(s)) return false;
+                    if (reTgUserId.test(s)) return false;
+                    if (reChatId.test(s)) return false;
+                    if (reTmeC.test(s)) return false;
+                    return startsWithDigitUsername(s);
+                });
+
+                // Detect malformed numeric-like inputs
+                const hasMalformedNumeric = lines.some((s) => {
+                    if (reUserIdBare.test(s)) return false;
+                    if (reTgUserId.test(s)) return false;
+                    if (reChatId.test(s)) return false;
+                    if (reTmeC.test(s)) return false;
+                    // If it looks numeric-ish but not one of the accepted patterns, mark malformed
+                    const numericish = /^[+\-]?\d+$/.test(s) || /id=\d+/.test(s) || /\/c\/\d+/.test(s);
+                    return numericish;
+                });
+
+                if (hasBadUsernames || hasMalformedNumeric) {
+                    await ctx.reply(
+                        "❌ Only <code>@username</code>, <code>t.me</code> links, user IDs, or -100 chat IDs are allowed. Try again",
+                    );
+                    // Keep session for correction
+                    return;
+                }
+
+                // Normalize and collect
+                for (const s of lines) {
+                    // Bare user id -> store as direct digits
+                    if (reUserIdBare.test(s)) {
+                        entries.push(s);
+                        continue;
+                    }
+                    // tg://user?id=<id> -> normalize to bare id (no tg:// stored or shown)
+                    const mTg = s.match(reTgUserId);
+                    if (mTg) {
+                        entries.push(mTg[1]);
+                        continue;
+                    }
+                    // -100... chat id -> keep as-is (bare -100 id)
+                    if (reChatId.test(s)) {
+                        entries.push(s);
+                        continue;
+                    }
+                    // t.me/c/<id>(/post) -> normalize to bare -100<id>
+                    const mC = s.match(reTmeC);
+                    if (mC) {
+                        entries.push(`-100${mC[1]}`);
+                        continue;
+                    }
+
+                    // Fallback to existing validator for @username or t.me/username
+                    const norm = await Promise.resolve(validate_telegram_link_or_username(s));
+                    if (norm) entries.push(norm);
+                    else invalid.push(s);
+                }
+            }
+
+            if (!entries.length) {
+                await ctx.reply(
+                    "❌ No valid usernames/IDs/links found. Please send <code>@username</code>, <code>t.me</code> links, user IDs or -100 chat IDs. Try again",
+                );
+                // Keep session for correction
+                return;
+            }
+
+            let saved = false;
+
             try {
-                // atomic upsert + addToSet
+                // Upsert + addToSet
                 await user_setting_module.findOneAndUpdate(
                     { user_id: userId },
                     {
@@ -2620,7 +2800,7 @@ module.exports = (bot) => {
                     { upsert: true, new: true }
                 );
 
-                // fetch updated forwarding whitelist
+                // Fetch updated forward whitelist
                 const updatedDoc = await user_setting_module.findOne({ user_id: userId }).lean();
                 const updatedWhitelist = updatedDoc?.settings?.[chatIdStr]?.anti_spam?.forwarding?.whitelist || [];
 
@@ -2631,23 +2811,29 @@ module.exports = (bot) => {
                     : "⚠️ No exceptions added yet.";
 
                 const keyboard = Markup.inlineKeyboard([
-                    [Markup.button.callback("⬅️ Back", `ANTISPAM_FORWARD_EXCEPTIONS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
+                    [Markup.button.callback("⬅️ Back", `ANTISPAM_FORWARD_EXCEPTIONS_${chatIdStr}`),
+                    Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
                 ]);
 
                 const safeTitle = escapeHTML(chat.title || chatIdStr);
-                const replyText = `✅ <b>Added to whitelist</b> for <b>${safeTitle}</b>:\n\n${okList}${invalidList}\n\n📋 <b>Current forward whitelist (${updatedWhitelist.length})</b>:\n${fullListText}`;
+                const replyText =
+                    `✅ <b>Added to whitelist</b> for <b>${safeTitle}</b>:\n\n${okList}${invalidList}\n\n📋 <b>Current forward whitelist (${updatedWhitelist.length})</b>:\n${fullListText}`;
 
-                // delete the prompt/cancel message if we have it
                 if (promptMessage && promptMessage.chatId && promptMessage.messageId) {
-                    try { await bot.telegram.deleteMessage(promptMessage.chatId, promptMessage.messageId); } catch (_) { /* ignore */ }
+                    try { await bot.telegram.deleteMessage(promptMessage.chatId, promptMessage.messageId); } catch (_) { }
                 }
 
-                await ctx.reply(replyText, { parse_mode: "HTML", disable_web_page_preview: true, ...keyboard });
+                await ctx.reply(replyText, { parse_mode: "HTML", ...keyboard });
+
+                saved = true;
             } catch (err) {
                 console.error("Error adding to forward exceptions:", err);
-                await ctx.reply("⚠️ Something went wrong while saving. Try again later.", { disable_web_page_preview: true });
+                await ctx.reply("⚠️ Something went wrong while saving. Try again later.");
+                // Keep session for retry
             } finally {
-                delete ctx.session.awaitingForwardAdd;
+                if (saved) {
+                    delete ctx.session.awaitingForwardAdd;
+                }
             }
             return;
         }
@@ -2682,7 +2868,7 @@ module.exports = (bot) => {
             }
 
             if (!toRemove.length) {
-                await ctx.reply("❌ No valid usernames/IDs/links found to remove. Try again.", { disable_web_page_preview: true });
+                await ctx.reply("❌ Only <code>@username</code>, <code>t.me</code> links, user IDs, or -100 chat IDs are allowed. Try again");
                 return;
             }
 
@@ -2723,10 +2909,10 @@ module.exports = (bot) => {
                     try { await bot.telegram.deleteMessage(promptMessage.chatId, promptMessage.messageId); } catch (_) { /* ignore */ }
                 }
 
-                await ctx.reply(text, { parse_mode: "HTML", disable_web_page_preview: true, reply_markup: keyboard.reply_markup });
+                await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard.reply_markup });
             } catch (err) {
                 console.error("Error removing from forward exceptions:", err);
-                await ctx.reply("⚠️ Something went wrong while removing. Try again later.", { disable_web_page_preview: true });
+                await ctx.reply("⚠️ Something went wrong while removing. Try again later.");
             } finally {
                 delete ctx.session.awaitingForwardRemove;
             }
@@ -2807,38 +2993,121 @@ module.exports = (bot) => {
         if (ctx.session?.awaitingQuoteAdd) {
             const { chatIdStr, userId, promptMessage } = ctx.session.awaitingQuoteAdd;
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-            if (!chat) { delete ctx.session.awaitingQuoteAdd; return; }
-
-            const inputText = (ctx.message.text || "").trim();
-            const entries = [];
-            const invalid = [];
-
-            if (ctx.message.forward_from_chat) {
-                const fc = ctx.message.forward_from_chat;
-                if (fc.username) entries.push(`@${fc.username}`);
-                else entries.push(`tme:c/${Math.abs(fc.id)}`); // placeholder form to avoid external URLs
-            } else if (ctx.message.forward_from) {
-                const fu = ctx.message.forward_from;
-                if (fu.username) entries.push(`@${fu.username}`);
-                else entries.push(`tg://user?id=${fu.id}`);
-            } else {
-                const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
-                for (const line of lines) {
-                    const norm = await Promise.resolve(validate_telegram_link_or_username(line));
-                    if (norm) entries.push(norm);
-                    else invalid.push(line);
-                }
-            }
-
-            if (!entries.length) {
-                await ctx.reply("❌ No valid usernames/IDs/links found. Try again.", { disable_web_page_preview: true });
+            if (!chat) {
+                // Keep session so state isn’t lost
                 return;
             }
+
+            const inputText = (ctx.message.text || "").trim();
 
             const escapeHTML = (s = "") => String(s)
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;");
+
+            const entries = [];
+            const invalid = [];
+
+            // Regexes for accepted ID/link formats (no external URLs stored)
+            const reUserIdBare = /^\d{5,20}$/;                    // bare user id (digits only) [accept/store bare]
+            const reTgUserId = /^tg:\/\/user\?id=(\d{5,20})$/i; // accepted input; normalized to bare id
+            const reChatId = /^-100\d{5,20}$/;                // supergroup/channel chat id (store bare -100...)
+            const reTmeC = /^(?:https?:\/\/)?t(?:elegram)?\.me\/c\/(\d{5,20})(?:\/\d+)?$/i; // t.me/c/<id>(/post) -> -100<id>
+
+            // Username must not start with a digit
+            const startsWithDigitUsername = (raw) => {
+                let s = String(raw || "").trim();
+                // Extract username core from t.me/username if present
+                const mUser = s.match(/^(?:https?:\/\/)?t(?:elegram)?\.me\/([^\/?#]+)/i);
+                let core = mUser ? mUser[1] : s;
+                core = core.replace(/^@/, "");
+                if (!core) return false;
+                // Skip phone deep-links and invite joins
+                if (core.startsWith("+") || /^joinchat/i.test(core)) return false;
+                return /^[0-9]/.test(core);
+            };
+
+            // Collect inputs from forward metadata or typed text
+            if (ctx.message.forward_from_chat) {
+                const fc = ctx.message.forward_from_chat;
+                if (fc.username) entries.push(`@${fc.username}`);
+                else entries.push(String(fc.id)); // store direct -100... chat id
+            } else if (ctx.message.forward_from) {
+                const fu = ctx.message.forward_from;
+                if (fu.username) entries.push(`@${fu.username}`);
+                else entries.push(String(fu.id)); // store direct user id
+            } else {
+                const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
+
+                // Early validation: reject digit-leading usernames; allow valid numeric ID shapes
+                const hasBadUsernames = lines.some((s) => {
+                    if (reUserIdBare.test(s)) return false;
+                    if (reTgUserId.test(s)) return false;
+                    if (reChatId.test(s)) return false;
+                    if (reTmeC.test(s)) return false;
+                    return startsWithDigitUsername(s);
+                });
+
+                // Detect malformed numeric-like inputs
+                const hasMalformedNumeric = lines.some((s) => {
+                    if (reUserIdBare.test(s)) return false;
+                    if (reTgUserId.test(s)) return false;
+                    if (reChatId.test(s)) return false;
+                    if (reTmeC.test(s)) return false;
+                    // If it looks numeric-ish but not one of the accepted patterns, mark malformed
+                    const numericish = /^[+\-]?\d+$/.test(s) || /id=\d+/.test(s) || /\/c\/\d+/.test(s);
+                    return numericish;
+                });
+
+                if (hasBadUsernames || hasMalformedNumeric) {
+                    await ctx.reply(
+                        "❌ Only <code>@username</code>, <code>t.me/username</code>, user IDs (digits only), or -100 chat IDs are allowed. Try again.",
+                    );
+                    // Keep session for correction
+                    return;
+                }
+
+                // Normalize and collect
+                for (const s of lines) {
+                    // Bare user id -> store as direct digits
+                    if (reUserIdBare.test(s)) {
+                        entries.push(s);
+                        continue;
+                    }
+                    // tg://user?id=<id> -> normalize to bare id (no tg:// stored)
+                    const mTg = s.match(reTgUserId);
+                    if (mTg) {
+                        entries.push(mTg[1]);
+                        continue;
+                    }
+                    // -100... chat id -> keep as-is (bare -100 id)
+                    if (reChatId.test(s)) {
+                        entries.push(s);
+                        continue;
+                    }
+                    // t.me/c/<id>(/post) -> normalize to bare -100<id>
+                    const mC = s.match(reTmeC);
+                    if (mC) {
+                        entries.push(`-100${mC[1]}`);
+                        continue;
+                    }
+
+                    // Fallback to existing validator for @username or t.me/username
+                    const norm = await Promise.resolve(validate_telegram_link_or_username(s));
+                    if (norm) entries.push(norm);
+                    else invalid.push(s);
+                }
+            }
+
+            if (!entries.length) {
+                await ctx.reply(
+                    "❌ No valid usernames/IDs/links found. Please send <code>@username</code>, <code>t.me/username</code>, user IDs (digits only), or -100 chat IDs.",
+                );
+                // Keep session for correction
+                return;
+            }
+
+            let saved = false;
 
             try {
                 await user_setting_module.findOneAndUpdate(
@@ -2864,18 +3133,23 @@ module.exports = (bot) => {
                 ]);
 
                 const safeTitle = escapeHTML(chat.title || chatIdStr);
-                const replyText = `✅ <b>Added to quote whitelist</b> for <b>${safeTitle}</b>:\n\n${okList}${invalidList}\n\n📋 <b>Current quote whitelist (${updatedWhitelist.length})</b>:\n${fullListText}`;
+                const replyText =
+                    `✅ <b>Added to quote whitelist</b> for <b>${safeTitle}</b>:\n\n${okList}${invalidList}\n\n📋 <b>Current quote whitelist (${updatedWhitelist.length})</b>:\n${fullListText}`;
 
                 if (promptMessage?.chatId && promptMessage?.messageId) {
                     try { await bot.telegram.deleteMessage(promptMessage.chatId, promptMessage.messageId); } catch (_) { }
                 }
 
-                await ctx.reply(replyText, { parse_mode: "HTML", disable_web_page_preview: true, ...keyboard });
+                await ctx.reply(replyText, { parse_mode: "HTML", ...keyboard });
+
+                saved = true;
             } catch (err) {
                 console.error("Error adding to quote exceptions:", err);
-                await ctx.reply("⚠️ Something went wrong while saving. Try again later.", { disable_web_page_preview: true });
+                await ctx.reply("⚠️ Something went wrong while saving. Try again later.");
             } finally {
-                delete ctx.session.awaitingQuoteAdd;
+                if (saved) {
+                    delete ctx.session.awaitingQuoteAdd;
+                }
             }
             return;
         }
@@ -2886,38 +3160,96 @@ module.exports = (bot) => {
         if (ctx.session?.awaitingQuoteRemove) {
             const { chatIdStr, userId, promptMessage } = ctx.session.awaitingQuoteRemove;
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-            if (!chat) { delete ctx.session.awaitingQuoteRemove; return; }
-
-            const inputText = (ctx.message.text || "").trim();
-            const toRemove = [];
-            const invalid = [];
-
-            if (ctx.message.forward_from_chat) {
-                const fc = ctx.message.forward_from_chat;
-                if (fc.username) toRemove.push(`@${fc.username}`);
-                else toRemove.push(`tme:c/${Math.abs(fc.id)}`); // placeholder form to avoid external URLs
-            } else if (ctx.message.forward_from) {
-                const fu = ctx.message.forward_from;
-                if (fu.username) toRemove.push(`@${fu.username}`);
-                else toRemove.push(`tg://user?id=${fu.id}`);
-            } else {
-                const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
-                for (const line of lines) {
-                    const norm = await Promise.resolve(validate_telegram_link_or_username(line));
-                    if (norm) toRemove.push(norm);
-                    else invalid.push(line);
-                }
-            }
-
-            if (!toRemove.length) {
-                await ctx.reply("❌ No valid usernames/IDs/links found to remove. Try again.", { disable_web_page_preview: true });
+            if (!chat) {
+                // Keep session so state isn’t lost
                 return;
             }
+
+            const inputText = (ctx.message.text || "").trim();
 
             const escapeHTML = (s = "") => String(s)
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;");
+
+            const toRemove = [];
+            const invalid = [];
+
+            // Accept only typed or forwarded; normalize to raw IDs/usernames
+            if (ctx.message.forward_from_chat) {
+                const fc = ctx.message.forward_from_chat;
+                if (fc.username) toRemove.push(`@${fc.username}`);
+                else toRemove.push(String(fc.id)); // store direct -100... chat id
+            } else if (ctx.message.forward_from) {
+                const fu = ctx.message.forward_from;
+                if (fu.username) toRemove.push(`@${fu.username}`);
+                else toRemove.push(String(fu.id)); // store direct user id
+            } else {
+                const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
+
+                // Same validators as ADD
+                const reUserIdBare = /^\d{5,20}$/;
+                const reTgUserId = /^tg:\/\/user\?id=(\d{5,20})$/i;
+                const reChatId = /^-100\d{5,20}$/;
+                const reTmeC = /^(?:https?:\/\/)?t(?:elegram)?\.me\/c\/(\d{5,20})(?:\/\d+)?$/i;
+
+                const startsWithDigitUsername = (raw) => {
+                    let s = String(raw || "").trim();
+                    const mUser = s.match(/^(?:https?:\/\/)?t(?:elegram)?\.me\/([^\/?#]+)/i);
+                    let core = mUser ? mUser[1] : s;
+                    core = core.replace(/^@/, "");
+                    if (!core) return false;
+                    if (core.startsWith("+") || /^joinchat/i.test(core)) return false;
+                    return /^[0-9]/.test(core);
+                };
+
+                const hasBadUsernames = lines.some((s) => {
+                    if (reUserIdBare.test(s)) return false;
+                    if (reTgUserId.test(s)) return false;
+                    if (reChatId.test(s)) return false;
+                    if (reTmeC.test(s)) return false;
+                    return startsWithDigitUsername(s);
+                });
+
+                const hasMalformedNumeric = lines.some((s) => {
+                    if (reUserIdBare.test(s)) return false;
+                    if (reTgUserId.test(s)) return false;
+                    if (reChatId.test(s)) return false;
+                    if (reTmeC.test(s)) return false;
+                    const numericish = /^[+\-]?\d+$/.test(s) || /id=\d+/.test(s) || /\/c\/\d+/.test(s);
+                    return numericish;
+                });
+
+                if (hasBadUsernames || hasMalformedNumeric) {
+                    await ctx.reply("❌ Only <code>@username</code>, <code>t.me/username</code>, user IDs (digits only), or -100 chat IDs are allowed. Try again.");
+                    return;
+                }
+
+                for (const line of lines) {
+                    const s = line;
+
+                    if (reUserIdBare.test(s)) { toRemove.push(s); continue; }
+
+                    const mTg = s.match(reTgUserId);
+                    if (mTg) { toRemove.push(mTg[1]); continue; }
+
+                    if (reChatId.test(s)) { toRemove.push(s); continue; }
+
+                    const mC = s.match(reTmeC);
+                    if (mC) { toRemove.push(`-100${mC[1]}`); continue; }
+
+                    const norm = await Promise.resolve(validate_telegram_link_or_username(s));
+                    if (norm) toRemove.push(norm);
+                    else invalid.push(s);
+                }
+            }
+
+            if (!toRemove.length) {
+                await ctx.reply("❌ No valid usernames/IDs/links found to remove. Please send <code>@username</code>, <code>t.me/username</code>, user IDs (digits only), or -100 chat IDs.");
+                return;
+            }
+
+            let saved = false;
 
             try {
                 await user_setting_module.findOneAndUpdate(
@@ -2939,7 +3271,8 @@ module.exports = (bot) => {
                     : "⚠️ No exceptions added yet.";
 
                 const safeTitle = escapeHTML(chat.title || chatIdStr);
-                const text = `✅ <b>Removed from quote exceptions</b> for <b>${safeTitle}</b>:\n\n${removedList}${invalidList}\n\n📋 <b>Current quote whitelist (${updatedWhitelist.length})</b>:\n${fullListText}`;
+                const text =
+                    `✅ <b>Removed from quote exceptions</b> for <b>${safeTitle}</b>:\n\n${removedList}${invalidList}\n\n📋 <b>Current quote whitelist (${updatedWhitelist.length})</b>:\n${fullListText}`;
 
                 const keyboard = Markup.inlineKeyboard([
                     [Markup.button.callback("⬅️ Back", `ANTISPAM_QUOTE_EXCEPTIONS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
@@ -2949,16 +3282,19 @@ module.exports = (bot) => {
                     try { await bot.telegram.deleteMessage(promptMessage.chatId, promptMessage.messageId); } catch (_) { }
                 }
 
-                await ctx.reply(text, { parse_mode: "HTML", disable_web_page_preview: true, reply_markup: keyboard.reply_markup });
+                await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard.reply_markup });
+
+                saved = true;
             } catch (err) {
                 console.error("Error removing from quote exceptions:", err);
-                await ctx.reply("⚠️ Something went wrong while removing. Try again later.", { disable_web_page_preview: true });
+                await ctx.reply("⚠️ Something went wrong while removing. Try again later.");
             } finally {
-                delete ctx.session.awaitingQuoteRemove;
+                if (saved) {
+                    delete ctx.session.awaitingQuoteRemove;
+                }
             }
             return;
         }
-
 
         // Utility: simple URL/domain detector
         const isLikelyUrlOrDomain = (s) => {
@@ -2975,36 +3311,117 @@ module.exports = (bot) => {
         if (ctx.session?.awaitingLinksBlockAdd) {
             const { chatIdStr, userId, promptMessage } = ctx.session.awaitingLinksBlockAdd;
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-            if (!chat) { delete ctx.session.awaitingLinksBlockAdd; return; }
+            if (!chat) {
+                // Keep session so state isn’t lost
+                return;
+            }
 
             const inputText = (ctx.message.text || "").trim();
             const entries = [];
             const invalid = [];
 
+            const escapeHTML = (s = "") => String(s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // Telegram entity validators (store raw IDs / usernames)
+            const reUserIdBare = /^\d{5,20}$/;                    // bare user id (digits only) [store bare] [accept]
+            const reTgUserId = /^tg:\/\/user\?id=(\d{5,20})$/i; // accepted input; normalized to bare id [accept]
+            const reChatId = /^-100\d{5,20}$/;                // supergroup/channel chat id (store bare -100...) [accept]
+            const reTmeC = /^(?:https?:\/\/)?t(?:elegram)?\.me\/c\/(\d{5,20})(?:\/\d+)?$/i; // t.me/c/<id>(/post) -> -100<id> [accept]
+
+            // Username must not start with a digit
+            const startsWithDigitUsername = (raw) => {
+                let s = String(raw || "").trim();
+                // Extract username core from t.me/username if present
+                const mUser = s.match(/^(?:https?:\/\/)?t(?:elegram)?\.me\/([^\/?#]+)/i);
+                let core = mUser ? mUser[1] : s;
+                core = core.replace(/^@/, "");
+                if (!core) return false;
+                // Skip phone deep-links and invite joins
+                if (core.startsWith("+") || /^joinchat/i.test(core)) return false;
+                return /^[0-9]/.test(core);
+            };
+
+            // Handle forwards: store raw IDs or @username for Telegram entities; for generic links, user must type them
             if (ctx.message.forward_from_chat) {
                 const fc = ctx.message.forward_from_chat;
                 if (fc.username) entries.push(`@${fc.username}`);
-                else entries.push(`https://t.me/c/${Math.abs(fc.id)}`);
+                else entries.push(String(fc.id)); // store direct -100... chat id
             } else if (ctx.message.forward_from) {
                 const fu = ctx.message.forward_from;
                 if (fu.username) entries.push(`@${fu.username}`);
-                else entries.push(`tg://user?id=${fu.id}`);
+                else entries.push(String(fu.id)); // store direct user id
             } else {
                 const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
-                for (const line of lines) {
-                    const normTg = await Promise.resolve(validate_telegram_link_or_username(line));
+
+                // Early validation for Telegram usernames/IDs:
+                // - Reject digit-leading usernames
+                // - Allow valid numeric ID shapes
+                // - Allow generic non-Telegram links/domains via isLikelyUrlOrDomain
+                let hasBadUsernames = false;
+                let hasMalformedNumeric = false;
+
+                for (const s of lines) {
+                    // If it’s a generic URL/domain, allow; skip Telegram-specific checks for it
+                    if (isLikelyUrlOrDomain(s)) continue;
+
+                    // Telegram-specific acceptance
+                    if (reUserIdBare.test(s)) continue;
+                    if (reTgUserId.test(s)) continue;
+                    if (reChatId.test(s)) continue;
+                    if (reTmeC.test(s)) continue;
+
+                    // Digit-leading username?
+                    if (startsWithDigitUsername(s)) { hasBadUsernames = true; break; }
+
+                    // Numeric-ish but not acceptable Telegram ID shape?
+                    const numericish = /^[+\-]?\d+$/.test(s) || /id=\d+/.test(s) || /\/c\/\d+/.test(s);
+                    if (numericish) { hasMalformedNumeric = true; break; }
+                }
+
+                if (hasBadUsernames || hasMalformedNumeric) {
+                    await ctx.reply(
+                        "❌ Only <code>@username</code>, <code>t.me/username</code>, digits-only user IDs, -100 chat IDs, or valid links/domains are allowed. Try again.",
+                    );
+                    // Keep session for correction
+                    return;
+                }
+
+                // Normalize and collect
+                for (const s of lines) {
+                    // Non-Telegram: allow domains/URLs as-is
+                    if (isLikelyUrlOrDomain(s)) {
+                        entries.push(s.trim());
+                        continue;
+                    }
+
+                    // Telegram numeric/usernames normalization
+                    if (reUserIdBare.test(s)) { entries.push(s); continue; }
+
+                    const mTg = s.match(reTgUserId);
+                    if (mTg) { entries.push(mTg[1]); continue; }
+
+                    if (reChatId.test(s)) { entries.push(s); continue; }
+
+                    const mC = s.match(reTmeC);
+                    if (mC) { entries.push(`-100${mC[1]}`); continue; }
+
+                    // Fallback: @username or t.me/username
+                    const normTg = await Promise.resolve(validate_telegram_link_or_username(s));
                     if (normTg) { entries.push(normTg); continue; }
-                    if (isLikelyUrlOrDomain(line)) { entries.push(line.trim()); continue; }
-                    invalid.push(line);
+
+                    invalid.push(s);
                 }
             }
 
             if (!entries.length) {
-                await ctx.reply("❌ No valid usernames/IDs/links/domains found. Try again.", { disable_web_page_preview: true });
+                await ctx.reply("❌ No valid usernames/IDs/links/domains found. Try again.");
                 return;
             }
 
-            const escapeHTML = (s = "") => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            let saved = false;
 
             try {
                 await user_setting_module.findOneAndUpdate(
@@ -3030,18 +3447,23 @@ module.exports = (bot) => {
                 ]);
 
                 const safeTitle = escapeHTML(chat.title || chatIdStr);
-                const replyText = `✅ <b>Added to total links whitelist</b> for <b>${safeTitle}</b>:\n\n${okList}${invalidList}\n\n📋 <b>Current whitelist (${updatedWhitelist.length})</b>:\n${fullListText}`;
+                const replyText =
+                    `✅ <b>Added to total links whitelist</b> for <b>${safeTitle}</b>:\n\n${okList}${invalidList}\n\n📋 <b>Current whitelist (${updatedWhitelist.length})</b>:\n${fullListText}`;
 
                 if (promptMessage?.chatId && promptMessage?.messageId) {
                     try { await bot.telegram.deleteMessage(promptMessage.chatId, promptMessage.messageId); } catch (_) { }
                 }
 
-                await ctx.reply(replyText, { parse_mode: "HTML", disable_web_page_preview: true, reply_markup: keyboard.reply_markup });
+                await ctx.reply(replyText, { parse_mode: "HTML", reply_markup: keyboard.reply_markup });
+
+                saved = true;
             } catch (err) {
                 console.error("Error adding to links_block exceptions:", err);
-                await ctx.reply("⚠️ Something went wrong while saving. Try again later.", { disable_web_page_preview: true });
+                await ctx.reply("⚠️ Something went wrong while saving. Try again later.");
             } finally {
-                delete ctx.session.awaitingLinksBlockAdd;
+                if (saved) {
+                    delete ctx.session.awaitingLinksBlockAdd;
+                }
             }
             return;
         }
@@ -3052,36 +3474,96 @@ module.exports = (bot) => {
         if (ctx.session?.awaitingLinksBlockRemove) {
             const { chatIdStr, userId, promptMessage } = ctx.session.awaitingLinksBlockRemove;
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-            if (!chat) { delete ctx.session.awaitingLinksBlockRemove; return; }
+            if (!chat) {
+                // Keep session so state isn’t lost
+                return;
+            }
 
             const inputText = (ctx.message.text || "").trim();
             const toRemove = [];
             const invalid = [];
 
+            const escapeHTML = (s = "") => String(s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // Same validators as ADD
+            const reUserIdBare = /^\d{5,20}$/;
+            const reTgUserId = /^tg:\/\/user\?id=(\d{5,20})$/i;
+            const reChatId = /^-100\d{5,20}$/;
+            const reTmeC = /^(?:https?:\/\/)?t(?:elegram)?\.me\/c\/(\d{5,20})(?:\/\d+)?$/i;
+
+            const startsWithDigitUsername = (raw) => {
+                let s = String(raw || "").trim();
+                const mUser = s.match(/^(?:https?:\/\/)?t(?:elegram)?\.me\/([^\/?#]+)/i);
+                let core = mUser ? mUser[1] : s;
+                core = core.replace(/^@/, "");
+                if (!core) return false;
+                if (core.startsWith("+") || /^joinchat/i.test(core)) return false;
+                return /^[0-9]/.test(core);
+            };
+
+            // Handle forwards similar to ADD: raw IDs or @username for Telegram; typed lines support Telegram + generic URLs/domains
             if (ctx.message.forward_from_chat) {
                 const fc = ctx.message.forward_from_chat;
                 if (fc.username) toRemove.push(`@${fc.username}`);
-                else toRemove.push(`https://t.me/c/${Math.abs(fc.id)}`);
+                else toRemove.push(String(fc.id)); // direct -100...
             } else if (ctx.message.forward_from) {
                 const fu = ctx.message.forward_from;
                 if (fu.username) toRemove.push(`@${fu.username}`);
-                else toRemove.push(`tg://user?id=${fu.id}`);
+                else toRemove.push(String(fu.id)); // direct user id
             } else {
                 const lines = inputText.split("\n").map(l => l.trim()).filter(Boolean);
-                for (const line of lines) {
-                    const normTg = await Promise.resolve(validate_telegram_link_or_username(line));
+
+                let hasBadUsernames = false;
+                let hasMalformedNumeric = false;
+
+                for (const s of lines) {
+                    if (isLikelyUrlOrDomain(s)) continue;
+
+                    if (reUserIdBare.test(s)) continue;
+                    if (reTgUserId.test(s)) continue;
+                    if (reChatId.test(s)) continue;
+                    if (reTmeC.test(s)) continue;
+
+                    if (startsWithDigitUsername(s)) { hasBadUsernames = true; break; }
+
+                    const numericish = /^[+\-]?\d+$/.test(s) || /id=\d+/.test(s) || /\/c\/\d+/.test(s);
+                    if (numericish) { hasMalformedNumeric = true; break; }
+                }
+
+                if (hasBadUsernames || hasMalformedNumeric) {
+                    await ctx.reply("❌ Only <code>@username</code>, <code>t.me/username</code>, digits-only user IDs, -100 chat IDs, or valid links/domains are allowed. Try again.");
+                    return;
+                }
+
+                for (const s of lines) {
+                    if (isLikelyUrlOrDomain(s)) { toRemove.push(s.trim()); continue; }
+
+                    if (reUserIdBare.test(s)) { toRemove.push(s); continue; }
+
+                    const mTg = s.match(reTgUserId);
+                    if (mTg) { toRemove.push(mTg[1]); continue; }
+
+                    if (reChatId.test(s)) { toRemove.push(s); continue; }
+
+                    const mC = s.match(reTmeC);
+                    if (mC) { toRemove.push(`-100${mC[1]}`); continue; }
+
+                    const normTg = await Promise.resolve(validate_telegram_link_or_username(s));
                     if (normTg) { toRemove.push(normTg); continue; }
-                    if (isLikelyUrlOrDomain(line)) { toRemove.push(line.trim()); continue; }
-                    invalid.push(line);
+
+                    invalid.push(s);
                 }
             }
 
             if (!toRemove.length) {
-                await ctx.reply("❌ No valid usernames/IDs/links/domains found to remove. Try again.", { disable_web_page_preview: true });
+                await ctx.reply("❌ No valid usernames/IDs/links/domains found to remove. Try again.");
                 return;
             }
 
-            const escapeHTML = (s = "") => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            let saved = false;
 
             try {
                 await user_setting_module.findOneAndUpdate(
@@ -3103,7 +3585,8 @@ module.exports = (bot) => {
                     : "⚠️ No exceptions added yet.";
 
                 const safeTitle = escapeHTML(chat.title || chatIdStr);
-                const text = `✅ <b>Removed from total links exceptions</b> for <b>${safeTitle}</b>:\n\n${removedList}${invalidList}\n\n📋 <b>Current whitelist (${updatedWhitelist.length})</b>:\n${fullListText}`;
+                const text =
+                    `✅ <b>Removed from total links exceptions</b> for <b>${safeTitle}</b>:\n\n${removedList}${invalidList}\n\n📋 <b>Current whitelist (${updatedWhitelist.length})</b>:\n${fullListText}`;
 
                 const keyboard = Markup.inlineKeyboard([
                     [Markup.button.callback("⬅️ Back", `ANTISPAM_BLOCK_EXCEPTIONS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
@@ -3113,12 +3596,16 @@ module.exports = (bot) => {
                     try { await bot.telegram.deleteMessage(promptMessage.chatId, promptMessage.messageId); } catch (_) { }
                 }
 
-                await ctx.reply(text, { parse_mode: "HTML", disable_web_page_preview: true, reply_markup: keyboard.reply_markup });
+                await ctx.reply(text, { parse_mode: "HTML", reply_markup: keyboard.reply_markup });
+
+                saved = true;
             } catch (err) {
                 console.error("Error removing from links_block exceptions:", err);
-                await ctx.reply("⚠️ Something went wrong while removing. Try again later.", { disable_web_page_preview: true });
+                await ctx.reply("⚠️ Something went wrong while removing. Try again later.");
             } finally {
-                delete ctx.session.awaitingLinksBlockRemove;
+                if (saved) {
+                    delete ctx.session.awaitingLinksBlockRemove;
+                }
             }
             return;
         }

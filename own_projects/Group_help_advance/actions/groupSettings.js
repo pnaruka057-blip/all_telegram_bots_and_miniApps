@@ -23,10 +23,17 @@ module.exports = (bot) => {
                 [Markup.button.callback("🆘 @Admin", `SET_ATADMIN_${chatIdStr}`), Markup.button.callback("🔒 Blocks", `SET_BLOCKS_${chatIdStr}`)],
                 [Markup.button.callback("🎞️ Media", `SET_MEDIA_${chatIdStr}`), Markup.button.callback("🚫 Porn", `SET_PORN_${chatIdStr}`)],
                 [Markup.button.callback("❗ Warns", `SET_WARNS_${chatIdStr}`), Markup.button.callback("🌙 Night", `SET_NIGHT_${chatIdStr}`)],
-                [Markup.button.callback("🔔 Tag", `SET_TAG_${chatIdStr}`), Markup.button.callback("🔗 Link", `SET_LINK_${chatIdStr}`)],
+                // [Markup.button.callback("🔔 Tag", `SET_TAG_${chatIdStr}`), Markup.button.callback("🔗 Link", `SET_LINK_${chatIdStr}`)],
                 [Markup.button.callback("📨 Approval mode", `SET_APPROVAL_${chatIdStr}`)],
                 [Markup.button.callback("🗑️ Deleting Messages", `SET_DELETING_${chatIdStr}`)],
-                [Markup.button.callback("🏳️ Lang", `SET_LANG_${chatIdStr}`), Markup.button.callback("✅ Close", `CLOSE_SETTINGS_${chatIdStr}`), Markup.button.callback("▶️ Other", `SET_OTHER_${chatIdStr}`)],
+                // [Markup.button.callback("🕰 Time Zone", `NIGHT_TZ_${chatIdStr}`), Markup.button.callback("🏳️ Lang", `SET_LANG_${chatIdStr}`)],
+                [Markup.button.callback("🕰 Time Zone", `NIGHT_TZ_${chatIdStr}`)],
+                [Markup.button.callback("🔤 Banned Words", `SET_BANNED_WORDS_${chatIdStr}`)],
+                [Markup.button.callback("🕓 Recurring messages", `RECURRING_MESSAGES_${chatIdStr}`)],
+                [Markup.button.callback("👥 Members Management", `MEMBERS_MANAGEMENT_${chatIdStr}`)],
+                [Markup.button.callback("😶‍🌫️ Masked users", `MASKED_USERS_${chatIdStr}`)],
+                [Markup.button.callback("📱 Personal Commands", `PERSONAL_COMMANDS_${chatIdStr}`)],
+                [Markup.button.callback("📏 Message length", `MESSAGE_LENGTH_${chatIdStr}`)],
                 [Markup.button.callback("⬅️ Back", "MANAGE_GROUPS")]
             ]);
 

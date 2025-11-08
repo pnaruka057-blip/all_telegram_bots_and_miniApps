@@ -17,6 +17,16 @@ const captcha_action = require('./actions/captcha')
 const checks_action = require('./actions/checks')
 const admin_sos_action = require('./actions/admin_sos')
 const block_action = require('./actions/blocks')
+const media_action = require('./actions/media');
+const porn_action = require('./actions/porn')
+const warns_action = require('./actions/warns');
+const nightmode_action = require('./actions/nightmode');
+const time_zone_action = require('./actions/time_zone');
+const approval_mode_action = require('./actions/approval_mode');
+const delete_messages_action = require('./actions/delete_messages');
+const language_action = require('./actions/language');
+const bannedWords_action = require('./actions/banned_words');
+const recurring_messages_action = require('./actions/recurring_messages');
 
 module.exports = (bot) => {
     // Middleware to handle sessions and scenes
@@ -56,4 +66,14 @@ module.exports = (bot) => {
     checks_action(bot)
     admin_sos_action(bot)
     block_action(bot)
+    media_action(bot)
+    porn_action(bot)
+    warns_action(bot)
+    nightmode_action(bot)
+    time_zone_action(bot)
+    approval_mode_action(bot)
+    delete_messages_action(bot)
+    language_action(bot)
+    bannedWords_action(bot)
+    recurring_messages_action(bot)
 }

@@ -1,4 +1,3 @@
-// checks.js (Part 1/3) — Force settings with preview
 const { Markup } = require("telegraf");
 const safeEditOrSend = require("../helpers/safeEditOrSend");
 const validateOwner = require("../helpers/validateOwner");
@@ -35,28 +34,29 @@ function extractMediaForSchema(message) {
     return null;
 }
 
-// Channel normalizer
-function normalizeChannel(input) {
-    const raw = (input || "").trim();
-    if (!raw) return "";
-    if (raw.startsWith("https://t.me/")) {
-        const u = raw.replace("https://t.me/", "").split(/[/?#]/)[0];
-        return u ? `@${u.replace(/^@+/, "")}` : raw;
-    }
-    if (raw.startsWith("@")) return raw;
-    if (/^-100\d{5,}$/.test(raw)) return raw;
-    if (/^[a-zA-Z0-9_]{5,32}$/.test(raw)) return `@${raw}`;
-    return raw;
-}
-
 // ========== Main compact settings menu ==========
 async function renderChecksMenu(ctx, chatIdStr, userId) {
     const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
     const checks = userDoc?.settings?.[chatIdStr]?.checks || {};
 
     const force = checks.force || {};
-    const nb = checks.name_blocks || {};
-    const statusOn = (v) => (v ? "On" : "Off");
+    const nbRaw = checks.name_blocks || {};
+    const penaltyPrettySafe = (v) => penaltyPretty(v || "off");
+
+    // Normalize name_blocks entries to read penalty consistently
+    // Supports both old boolean-only and new object { enabled, penalty, delete_messages }
+    const normNB = (v) => {
+        if (typeof v === "object" && v !== null) return v;
+        return { enabled: !!v, penalty: v ? "Warn" : "Off" };
+    };
+    const nb = {
+        arabic: normNB(nbRaw.arabic),
+        chinese: normNB(nbRaw.chinese),
+        russian: normNB(nbRaw.russian),
+        spam: normNB(nbRaw.spam),
+    };
+
+    const statusOn = (v) => (v ? "On" : "Off"); // kept for other sections
 
     const text =
         `<b>FORCE SETTINGS</b>\n` +
@@ -64,15 +64,16 @@ async function renderChecksMenu(ctx, chatIdStr, userId) {
         `• Force member add: <b>${statusOn(force.member_add)}</b>\n\n` +
 
         `<b>PROFILE PENALTIES</b>\n` +
-        `• Surname penalty: <b>${penaltyPretty(checks.profile_penalties?.surname || "off")}</b>\n` +
-        `• Username penalty: <b>${penaltyPretty(checks.profile_penalties?.username || "off")}</b>\n` +
-        `• Profile picture penalty: <b>${penaltyPretty(checks.profile_penalties?.profile_picture || "off")}</b>\n\n` +
+        `• Surname penalty: <b>${penaltyPrettySafe(checks.profile_penalties?.surname)}</b>\n` +
+        `• Username penalty: <b>${penaltyPrettySafe(checks.profile_penalties?.username)}</b>\n` +
+        `• Profile picture penalty: <b>${penaltyPrettySafe(checks.profile_penalties?.profile_picture)}</b>\n\n` +
 
         `<b>NAME BLOCKS</b>\n` +
-        `• Arabic: <b>${statusOn(nb.arabic)}</b>\n` +
-        `• Chinese: <b>${statusOn(nb.chinese)}</b>\n` +
-        `• Russian: <b>${statusOn(nb.russian)}</b>\n` +
-        `• Spam: <b>${statusOn(nb.spam)}</b>\n\n` +
+        // Only penalty shown here, no On/Off
+        `• Arabic: <b>${penaltyPrettySafe(nb.arabic.penalty)}</b>\n` +
+        `• Chinese: <b>${penaltyPrettySafe(nb.chinese.penalty)}</b>\n` +
+        `• Russian: <b>${penaltyPrettySafe(nb.russian.penalty)}</b>\n` +
+        `• Spam: <b>${penaltyPrettySafe(nb.spam.penalty)}</b>\n\n` +
 
         `🚪 Check at join: <b>${statusOn(checks.check_at_join)}</b>\n` +
         `If active, the bot will check for force, profile and blocks even when users joins the group, as well as when sending a message.\n\n` +
@@ -84,10 +85,8 @@ async function renderChecksMenu(ctx, chatIdStr, userId) {
     const deleteMessages = getBool(checks, "delete_messages", false);
 
     const rows = [
-        [
-            Markup.button.callback("FORCE SETTINGS", `SET_FORCE_SETTINGS_${chatIdStr}`),
-            Markup.button.callback("PROFILE PENALTIES", `SET_PENALTIES_${chatIdStr}`)
-        ],
+        [Markup.button.callback("FORCE SETTINGS", `SET_FORCE_SETTINGS_${chatIdStr}`)],
+        [Markup.button.callback("PROFILE PENALTIES", `SET_PENALTIES_${chatIdStr}`)],
         [Markup.button.callback("NAME BLOCKS", `SET_NAME_BLOCKS_${chatIdStr}`)],
         [Markup.button.callback(`${checkAtJoin ? "📥 Check at the join ✓" : "📥 Check at the join ✗"}`, `TOGGLE_CHECK_JOIN_${chatIdStr}`)],
         [Markup.button.callback(`${deleteMessages ? "🗑️ Delete Messages ✓" : "🗑️ Delete Messages ✗"}`, `TOGGLE_DELETE_MESSAGES_${chatIdStr}`)],
@@ -113,15 +112,13 @@ async function renderForceSettingsMenu(ctx, chatIdStr, userId) {
 
     const text =
         `🔧 <b>Force settings</b>\n\n` +
-        `• Force channel join — <b>Status</b>: ${status(force.channel_join)} | <b>Channels</b>: ${chCount}\n` +
-        `• Force member add — <b>Status</b>: <b>${status(force.member_add)}</b> | <b>Min</b>: <b>${minAdd}</b>\n\n` +
+        `• Force channel join - \n   Status: ${status(force.channel_join)}\n   Channels: ${chCount}\n\n` +
+        `• Force member add - \n   Status: ${status(force.member_add)}\n   Min: ${minAdd}\n\n` +
         `<i>Select button to config force setting for <b>${isOwner?.title}</b>.</i>`;
 
     const rows = [
-        [
-            Markup.button.callback("📣 Force channel join", `OPEN_FORCE_CHANNEL_${chatIdStr}`),
-            Markup.button.callback("➕ Force member add", `OPEN_FORCE_ADD_${chatIdStr}`)
-        ],
+        [Markup.button.callback("📣 Force channel join", `OPEN_FORCE_CHANNEL_${chatIdStr}`)],
+        [Markup.button.callback("➕ Force member add", `OPEN_FORCE_ADD_${chatIdStr}`)],
         [Markup.button.callback("⬅️ Back", `SET_CHECKS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
     ];
 
@@ -190,25 +187,42 @@ async function renderSinglePenaltyPicker(ctx, chatIdStr, userId, key, label) {
 // ========== Name Blocks ==========
 async function renderNameBlocksMenu(ctx, chatIdStr, userId) {
     const userDoc = await user_setting_module.findOne({ user_id: userId }).lean();
-    const blocks = userDoc?.settings?.[chatIdStr]?.checks?.name_blocks || {};
-    const statusOn = (v) => (v ? "On ✅" : "Off ❌");
+    const nb = userDoc?.settings?.[chatIdStr]?.checks?.name_blocks || {};
+
+    // Backward-compat for boolean-only configs
+    const norm = (v) => (typeof v === "object" && v !== null ? v : { enabled: !!v, penalty: v ? "Warn" : "Off" });
+
+    const arabic = norm(nb.arabic);
+    const chinese = norm(nb.chinese);
+    const russian = norm(nb.russian);
+    const spam = norm(nb.spam);
+
+    const status = (x) => x.enabled ? "On ✅" : "Off ❌";
+    const penaltyText = (x) => x.penalty ? String(x.penalty) : "Off";
+    const delFlag = (x) => x.delete_messages ? " (del msgs)" : "";
+
+    const escapeHTML = (s = "") => String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
 
     const text =
         `🚫 <b>Name Blocks</b>\n\n` +
-        `• Arabic: ${statusOn(blocks.arabic)}\n` +
-        `• Chinese: ${statusOn(blocks.chinese)}\n` +
-        `• Russian: ${statusOn(blocks.russian)}\n` +
-        `• Spam: ${statusOn(blocks.spam)}\n\n` +
+        `<b>• Arabic:</b> ${escapeHTML(penaltyText(arabic))}\n` +
+        `<b>• Chinese:</b> ${escapeHTML(penaltyText(chinese))}\n` +
+        `<b>• Russian:</b> ${escapeHTML(penaltyText(russian))}\n` +
+        `<b>• Spam:</b> ${escapeHTML(penaltyText(spam))}\n\n` +
         `<b>How it works</b>\n` +
-        `If a member’s profile name contains characters from any enabled language, the bot will enforce the configured action for name blocks (e.g., warn/kick/mute/ban) automatically.\n` +
-        `Checks run when the member joins (if “Check at join” is enabled) and when they send messages; if “Delete messages” is enabled, their messages will be removed during enforcement.\n\n` +
-        `Toggle each block below:`;
+        `If a member’s profile name hits any enabled block, the selected penalty (Warn/Mute/Kick/Ban/Off) is enforced; messages can also be auto-deleted if enabled.\n` +
+        `Checks run on join (if enabled) and on messages.\n\n` +
+        `<i>Select a block below to adjust settings:</i>`;
 
+    // Buttons: plain names only (no "configure" text)
     const rows = [
-        [Markup.button.callback("🈶 Arabic (configure)", `OPEN_NB_PICK_arabic_${chatIdStr}`)],
-        [Markup.button.callback("中 Chinese (configure)", `OPEN_NB_PICK_chinese_${chatIdStr}`)],
-        [Markup.button.callback("RU Russian (configure)", `OPEN_NB_PICK_russian_${chatIdStr}`)],
-        [Markup.button.callback("🚩 Spam (configure)", `OPEN_NB_PICK_spam_${chatIdStr}`)],
+        [Markup.button.callback("🈶 Arabic", `OPEN_NB_PICK_arabic_${chatIdStr}`)],
+        [Markup.button.callback("中 Chinese", `OPEN_NB_PICK_chinese_${chatIdStr}`)],
+        [Markup.button.callback("RU Russian", `OPEN_NB_PICK_russian_${chatIdStr}`)],
+        [Markup.button.callback("🚩 Spam", `OPEN_NB_PICK_spam_${chatIdStr}`)],
         [Markup.button.callback("⬅️ Back", `SET_CHECKS_${chatIdStr}`), Markup.button.callback("🏠 Main Menu", `GROUP_SETTINGS_${chatIdStr}`)]
     ];
 
@@ -231,7 +245,7 @@ async function renderNameBlockPicker(ctx, chatIdStr, userId, langKey, langLabel)
         `<b>How it works</b>\n` +
         `If a member’s profile name contains ${langLabel} characters and this block is not Off, the selected action will be applied automatically when checks run.\n` +
         `Checks run on join (if “Check at join” is enabled) and on messages; with “Delete messages” enabled, their messages will be removed during enforcement.\n\n` +
-        `Choose an action:`;
+        `<i>Choose an action:</i>`;
 
     const rows = [
         [
@@ -278,10 +292,8 @@ async function renderForceChannelJoinMenu(ctx, chatIdStr, userId) {
             Markup.button.callback("✅ Turn on", `FCJ_TURN_ON_${chatIdStr}`),
             Markup.button.callback("❌ Turn off", `FCJ_TURN_OFF_${chatIdStr}`)
         ],
-        [
-            Markup.button.callback("➕ Add channel", `FCJ_ADD_CH_${chatIdStr}`),
-            Markup.button.callback("➖ Remove channel", `FCJ_REM_CH_${chatIdStr}`)
-        ],
+        [Markup.button.callback("➕ Add channel", `FCJ_ADD_CH_${chatIdStr}`)],
+        [Markup.button.callback("➖ Remove channel", `FCJ_REM_CH_${chatIdStr}`)],
         [Markup.button.callback("🧹 Clear all channels", `FCJ_CLEAR_CH_${chatIdStr}`)],
         [
             Markup.button.callback("📝 Set text", `FCJ_SET_TEXT_${chatIdStr}`),
@@ -339,7 +351,6 @@ async function renderForceMemberAddMenu(ctx, chatIdStr, userId) {
     await safeEditOrSend(ctx, text, { parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
 }
 
-// ========== Exports & root handlers header (continued in Part 2/3) ==========
 module.exports = (bot) => {
     // Open main checks menu
     bot.action(/^SET_CHECKS_(-?\d+)$/, async (ctx) => {
@@ -462,6 +473,7 @@ module.exports = (bot) => {
 
     bot.action(/^OPEN_FORCE_ADD_(-?\d+)$/, async (ctx) => {
         try {
+            ctx.session = {};
             const chatIdStr = ctx.match[1], userId = ctx.from.id;
             const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId); if (!ok) return;
             await renderForceMemberAddMenu(ctx, chatIdStr, userId);
@@ -671,15 +683,14 @@ module.exports = (bot) => {
             const chatIdStr = ctx.match[1], userId = ctx.from.id;
             const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
             if (!ok) return;
-           
+
             const msg =
                 `📝 <b>Set force channel join prompt text</b>\n\n` +
                 `Send the text shown to users who haven't joined the required channels.\n` +
-                `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">click here</a>.`
+                `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">Click Here</a>.`
 
             const sent = await safeEditOrSend(ctx, msg, {
                 parse_mode: "HTML",
-                disable_web_page_preview: true,
                 ...Markup.inlineKeyboard([
                     [Markup.button.callback("🚫 Remove message", `FCJ_DEL_TEXT_${chatIdStr}`)],
                     [Markup.button.callback("❌ Cancel", `OPEN_FORCE_CHANNEL_${chatIdStr}`)]
@@ -719,8 +730,7 @@ module.exports = (bot) => {
             const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId); if (!ok) return;
 
             const msg =
-                "🖼️ <b>Set force channel join prompt media</b>\n\n" +
-                "Send a photo, video, or document (caption is ignored).";
+                "👉🏻 <b>Send now the media</b> (photos, videos, audio, stickers...) you want to set"
 
             const sent = await safeEditOrSend(ctx, msg, {
                 parse_mode: "HTML",
@@ -800,7 +810,7 @@ module.exports = (bot) => {
             const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId); if (!ok) return;
             await user_setting_module.updateOne(
                 { user_id: userId },
-                { $setOnInsert: { user_id: userId }, $set: { [`settings.${chatIdStr}.checks.force.member_add`]: true } },
+                { $setOnInsert: { user_id: userId }, $set: { [`settings.${chatIdStr}.checks.force.member_add`]: true, [`settings.${chatIdStr}.checks.force_add_member.add_min`]: 5 } },
                 { upsert: true }
             );
             await ctx.answerCbQuery("Force member add: On");
@@ -834,7 +844,7 @@ module.exports = (bot) => {
 
             const sent = await safeEditOrSend(ctx, msg, {
                 parse_mode: "HTML",
-                reply_markup: Markup.inlineKeyboard([[Markup.button.callback("❌ Cancel", `OPEN_FORCE_ADD_${chatIdStr}`)]])
+                ...Markup.inlineKeyboard([[Markup.button.callback("❌ Cancel", `OPEN_FORCE_ADD_${chatIdStr}`)]])
             }, true);
             ctx.session = ctx.session || {};
             ctx.session.awaitingFMAMin = { chatIdStr, userId, promptMessageId: sent };
@@ -850,7 +860,7 @@ module.exports = (bot) => {
             const msg =
                 "📝 <b>Set force member add prompt text</b>\n\n" +
                 "Send the text shown until the user meets the minimum add requirement.\n" +
-                "Placeholders: {name}, {mention}";
+                `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">Click Here</a>.`
 
             const sent = await safeEditOrSend(ctx, msg, {
                 parse_mode: "HTML",
@@ -892,8 +902,7 @@ module.exports = (bot) => {
             const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId); if (!ok) return;
 
             const msg =
-                "🖼️ <b>Set force member add prompt media</b>\n\n" +
-                "Send a photo, video, or document (caption ignored).";
+                "👉🏻 <b>Send now the media</b> (photos, videos, audio, stickers...) you want to set"
 
             const sent = await safeEditOrSend(ctx, msg, {
                 parse_mode: "HTML",
@@ -910,6 +919,7 @@ module.exports = (bot) => {
 
     bot.action(/^FMA_DEL_MEDIA_(-?\d+)$/, async (ctx) => {
         try {
+            ctx.session = {};
             const chatIdStr = ctx.match[1], userId = ctx.from.id;
             const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId); if (!ok) return;
 
@@ -985,7 +995,6 @@ module.exports = (bot) => {
             await renderNameBlocksMenu(ctx, chatIdStr, userId);
         } catch (e) { console.error("TOGGLE_BLK error:", e); }
     });
-    // checks.js (Part 3/3) — unified text/media input handlers
 
     bot.on(["text", "photo", "video", "document"], async (ctx, next) => {
         try {
@@ -994,26 +1003,137 @@ module.exports = (bot) => {
             // Force channel join — Add channel
             if (ctx.session.awaitingFCJAddChannel) {
                 const { chatIdStr, userId, promptMessageId } = ctx.session.awaitingFCJAddChannel;
-                const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId); if (!ok) { delete ctx.session.awaitingFCJAddChannel; return; }
 
-                if (!("text" in ctx.message)) { await ctx.reply("❌ Please send channel @username / t.me link / -100id."); return; }
-                const normalized = normalizeChannel(ctx.message.text);
-                if (!normalized) { await ctx.reply("❌ Invalid input."); return; }
+                const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+                if (!ok) {
+                    // Keep session so the user can resolve context without losing state
+                    return;
+                }
 
-                const doc = await user_setting_module.findOne({ user_id: userId }).lean();
-                const arr = (doc?.settings?.[chatIdStr]?.checks?.force_channel_join?.channels || []).slice();
-                if (!arr.includes(normalized)) arr.push(normalized);
+                const escapeHTML = (s = "") => String(s)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;");
 
-                await user_setting_module.updateOne(
-                    { user_id: userId },
-                    { $setOnInsert: { user_id: userId }, $set: { [`settings.${chatIdStr}.checks.force_channel_join.channels`]: arr } },
-                    { upsert: true }
-                );
+                // Reusable, HTML-safe hints
+                const hintUser = "<code>@username</code>";              // do NOT escape again
+                const hintTmeUser = "<code>t.me/username</code>";       // do NOT escape again
+                const hintChatId = "&lt;chat_id&gt;";                   // escape only angle brackets
 
-                if (promptMessageId) { try { await ctx.deleteMessage(promptMessageId); } catch (_) { } }
-                await ctx.reply(`✅ Added channel: <b>${normalized}</b>`, { parse_mode: "HTML" });
-                delete ctx.session.awaitingFCJAddChannel;
-                await renderForceChannelJoinMenu(ctx, chatIdStr, userId);
+                const promptBase = `❌ Please send channel ${hintUser} / ${hintTmeUser} / -100${hintChatId}. Try again`;
+                const invalidBase = `❌ Invalid input. Send ${hintUser}, ${hintTmeUser}, or -100${hintChatId}. Try again`;
+                const digitRuleBase = `❌ Channel usernames must not start with a digit. Send ${hintUser}, ${hintTmeUser}, or -100${hintChatId}. Try again`;
+
+                if (!("text" in ctx.message)) {
+                    await safeEditOrSend(ctx, promptBase, { parse_mode: "HTML" });
+                    return;
+                }
+
+                const rawText = (ctx.message.text || "").trim();
+
+                // Validators
+                // Strict Telegram username core: 5–32, letters/digits/underscore, must start with a letter (no leading digit)
+                const reUsernameCore = /^[A-Za-z][A-Za-z0-9_]{4,31}$/;                  // core without @ [web:29]
+                const reAtUsername = /^@([A-Za-z0-9_]{5,32})$/;                        // with @ [web:29]
+                const reTmeUser = /^(?:https?:\/\/)?t(?:elegram)?\.me\/([A-Za-z0-9_]{5,32})\/?$/i; // t.me/username [web:29]
+                const reChatId = /^-100\d{5,20}$/;                                 // -100... chat id [web:33]
+                const reTmeC = /^(?:https?:\/\/)?t(?:elegram)?\.me\/c\/(\d{5,20})(?:\/\d+)?$/i; // t.me/c/<id> [web:33]
+
+                // Reject usernames that start with a digit for safety; core rule already enforces first char letter
+                const startsWithDigitUsername = (s) => {
+                    // Extract possible username core
+                    const mT = s.match(reTmeUser);
+                    let core = mT ? mT[1] : s.replace(/^@/, "");
+                    if (!core) return false;
+                    if (core.startsWith("+") || /^joinchat/i.test(core)) return false; // not usernames
+                    return /^[0-9]/.test(core);
+                };
+
+                // Normalize input:
+                // - @username or t.me/username -> store as @username
+                // - plain username (no @) that passes core rules -> store as @username
+                // - -100<digits> -> store as -100<digits>
+                // - t.me/c/<id> -> store as -100<id>
+                const normalizeChannel = (s) => {
+                    const x = String(s || "").trim();
+
+                    // -100 chat id
+                    if (reChatId.test(x)) return x;
+
+                    // t.me/c/<id> -> -100<id>
+                    const mc = x.match(reTmeC);
+                    if (mc) return `-100${mc[1]}`;
+
+                    // @username
+                    const mu = x.match(reAtUsername);
+                    if (mu) {
+                        // enforce leading letter: disallow leading digit explicitly
+                        if (!/^[A-Za-z]/.test(mu[1])) return null; // extra safety
+                        return `@${mu[1]}`;
+                    }
+
+                    // t.me/username
+                    const mt = x.match(reTmeUser);
+                    if (mt) {
+                        if (!/^[A-Za-z]/.test(mt[1])) return null; // extra safety
+                        return `@${mt[1]}`;
+                    }
+
+                    // plain username without @
+                    if (reUsernameCore.test(x)) {
+                        return `@${x}`;
+                    }
+
+                    return null;
+                };
+
+                // Early username rule check for clearer UX
+                if (startsWithDigitUsername(rawText)) {
+                    await safeEditOrSend(ctx, digitRuleBase, { parse_mode: "HTML" });
+                    return;
+                }
+
+                const normalized = normalizeChannel(rawText);
+                if (!normalized) {
+                    await safeEditOrSend(ctx, invalidBase, { parse_mode: "HTML" });
+                    return;
+                }
+
+                try {
+                    // Fetch existing
+                    const doc = await user_setting_module.findOne({ user_id: userId }).lean();
+                    const arr = (doc?.settings?.[chatIdStr]?.checks?.force_channel_join?.channels || []).slice();
+
+                    // Deduplicate
+                    if (!arr.includes(normalized)) arr.push(normalized);
+
+                    // Save
+                    await user_setting_module.updateOne(
+                        { user_id: userId },
+                        {
+                            $setOnInsert: { user_id: userId },
+                            $set: { [`settings.${chatIdStr}.checks.force_channel_join.channels`]: arr }
+                        },
+                        { upsert: true }
+                    );
+
+                    // Clean prompt if present
+                    if (promptMessageId) {
+                        try { await ctx.deleteMessage(promptMessageId); } catch (_) { }
+                    }
+
+                    await ctx.reply(`✅ Added channel: <b>${escapeHTML(normalized)}</b>`, { parse_mode: "HTML" });
+
+                    // Clear session only after successful save and reply
+                    delete ctx.session.awaitingFCJAddChannel;
+
+                    // Refresh menu
+                    await renderForceChannelJoinMenu(ctx, chatIdStr, userId);
+                } catch (err) {
+                    console.error("FCJ add channel error:", err);
+                    await ctx.reply("⚠️ Something went wrong while saving. Try again later.");
+                    // Keep session to allow retry
+                }
                 return;
             }
 

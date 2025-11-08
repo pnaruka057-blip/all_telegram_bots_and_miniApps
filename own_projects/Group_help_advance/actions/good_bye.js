@@ -279,6 +279,7 @@ module.exports = (bot) => {
     // ====== CUSTOMIZE GOODBYE (call renderer) ======
     bot.action(/^CUSTOMIZE_GOODBYE_(-?\d+)$/, async (ctx) => {
         try {
+            ctx.session = {};
             const userId = ctx.from.id;
             const chatIdStr = ctx.match[1];
             const chatId = Number(chatIdStr);
@@ -300,7 +301,7 @@ module.exports = (bot) => {
 
         const textMsg =
             "✍️ <b>Send the goodbye text you want to set.</b>\n\n" +
-            `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">click here</a>.`;
+            `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">Click Here</a>.`;
 
         const buttons = [
             [Markup.button.callback("🚫 Remove message", `REMOVE_GOODBYE_TEXT_${chatIdStr}`)],
@@ -344,8 +345,7 @@ module.exports = (bot) => {
             const userId = ctx.from.id;
 
             const textMsg =
-                "📸 <b>Send now the media</b> (photo/video/document) you want to use as goodbye media.\n" +
-                "<i>You can also forward a message from the source.</i>";
+                "👉🏻 <b>Send now the media</b> (photos, videos, audio, stickers...) you want to set."
 
             const buttons = [
                 [Markup.button.callback("🚫 Remove media", `REMOVE_GOODBYE_MEDIA_${chatIdStr}`)],
@@ -401,7 +401,7 @@ module.exports = (bot) => {
         const builderUrl = process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE; // replace with your real tool if available
         const textMsg =
             `👉🏻 <b>Send now the Buttons</b> you want to set.\n\n` +
-            `If you need a visual tool to build the buttons and get the exact code - \n<a href="${builderUrl}/buttons-design">Click Here</a>.\n\n`
+            `If you need a visual tool to build the buttons and get the exact code, \n<a href="${builderUrl}/buttons-design">Click Here</a>.\n\n`
 
         const buttons = [
             [Markup.button.callback("🚫 Remove Keyboard", `REMOVE_GOODBYE_BUTTONS_${chatIdStr}`)],
@@ -742,6 +742,7 @@ module.exports = (bot) => {
 
     // ===== REMOVE TEXT =====
     bot.action(/^REMOVE_GOODBYE_TEXT_(-?\d+)$/, async (ctx) => {
+        ctx.session = {};
         const chatIdStr = ctx.match[1];
         const chatId = Number(chatIdStr);
         const userId = ctx.from.id;
