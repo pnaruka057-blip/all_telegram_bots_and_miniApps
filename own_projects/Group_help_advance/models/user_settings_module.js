@@ -761,6 +761,87 @@ const bannedWordsSchema = new mongoose.Schema({
 }, { _id: false }
 );
 
+// for recurring messages settings
+const recurringSchema = new mongoose.Schema({
+    // Global on/off for the whole recurring module
+    enabled: { type: Boolean, default: false },
+
+    // Items array (inline object schema)
+    items: [{
+        // Per-item enable switch
+        enabled: { type: Boolean, default: false },
+
+        // Start time
+        start_time: {
+            h: { type: Number, min: 0, max: 23, default: 0 },
+            m: { type: Number, min: 0, max: 59, default: 0 }
+        },
+
+        // Repetition configuration
+        repetition: {
+            // When per_messages > 0, it takes priority (hours/minutes should be 0)
+            hours: { type: Number, min: 0, max: 240, default: 24 },
+            minutes: { type: Number, min: 0, max: 59, default: 0 },
+            per_messages: { type: Number, min: 0, default: null }
+        },
+
+        // Message content
+        text: { type: String, default: "" },
+        media: {
+            // null means "no media set"
+            type: { type: String, enum: ["photo", "video", "document", "sticker", null], default: null },
+            file_id: { type: String, default: null },
+            caption: { type: String, default: "" }
+        },
+
+        // Array of rows; each row is an array of {text,url}
+        url_buttons: {
+            type: [[{
+                text: { type: String, trim: true, default: "" },
+                url: { type: String, trim: true, default: "" }
+            }]],
+            default: []
+        },
+
+        // Behavior flags
+        pin: { type: Boolean, default: false },
+        delete_last: { type: Boolean, default: false },
+        message_check: { type: Boolean, default: true },
+
+        // Scheduling constraints
+        // 0..6 (Sun..Sat)
+        days_of_week: { type: [Number], default: [] },
+        // 1..31
+        days_of_month: { type: [Number], default: [] },
+
+        // Optional hour slot
+        slot: {
+            from: { type: Number, min: 0, max: 23, default: null },
+            to: { type: Number, min: 0, max: 23, default: null }
+        },
+
+        // Optional date range
+        start_date: { type: Date, default: null },
+        end_date: { type: Date, default: null },
+
+        // Telegram topic/thread id (if applicable)
+        topic_id: { type: Number, default: null }
+    }]
+}, { _id: false });
+
+// for message length settings
+const msglenInline = {
+    enabled: { type: Boolean, default: false },                 // module on/off
+    penalty: { type: String, enum: ["off", "warn", "kick"], default: "off" }, // action
+    mute: { type: Boolean, default: false },                    // extra flag
+    ban: { type: Boolean, default: false },                     // extra flag
+    delete_messages: { type: Boolean, default: false },         // delete offending msgs
+    // Picker semantics: min=0 => "No limit", max=null => "No limit"
+    min: { type: Number, default: 0, min: 0, max: 4000 },
+    max: { type: Number, default: null, min: 1, max: 4096 },
+    updated_at: { type: Date, default: Date.now }
+};
+
 // Settings schema (key = chatId, value = regulationSchema wrapper)
 const settingsSchema = new mongoose.Schema(
     {
@@ -782,7 +863,9 @@ const settingsSchema = new mongoose.Schema(
         approval: approvalSchema,
         delete_settings: deleteSettingsSchema,
         lang: languageSchema,
-        word_filter: bannedWordsSchema
+        word_filter: bannedWordsSchema,
+        recurring: recurringSchema,
+        msglen: msglenInline,
     },
     { _id: false }
 );

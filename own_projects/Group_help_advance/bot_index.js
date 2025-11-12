@@ -27,6 +27,8 @@ const delete_messages_action = require('./actions/delete_messages');
 const language_action = require('./actions/language');
 const bannedWords_action = require('./actions/banned_words');
 const recurring_messages_action = require('./actions/recurring_messages');
+const members_management_action = require('./actions/members_management');
+const message_length_action = require('./actions/message_length');
 
 module.exports = (bot) => {
     // Middleware to handle sessions and scenes
@@ -76,4 +78,6 @@ module.exports = (bot) => {
     language_action(bot)
     bannedWords_action(bot)
     recurring_messages_action(bot)
+    members_management_action(bot)
+    message_length_action(bot)
 }
