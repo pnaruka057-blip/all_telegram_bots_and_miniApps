@@ -14,6 +14,7 @@ const message_auto_save_and_post = require('./clients/mr_akash/Message_auto_save
 const crypto_news_all_actions = require('./clients/mr_akash/Crypto_news/crypto_news_bot')
 const movies_hub_all_actions = require('./own_projects/movies_hub/bot_index')
 const group_help_advance_all_actions = require('./own_projects/Group_help_advance/bot_index')
+const Checker_Gái_Đẹp_all_actions = require('./clients/co_tat_ca_20usdt_10usdt_per_month/co_tat_ca_20usdt_10usdt_per_month')
 const globle_domain = process.env.GLOBLE_DOMAIN
 
 // all system middleware
@@ -35,7 +36,7 @@ if (process.env.PROMOX_NODE_ENV && process.env.PROMOX_NODE_ENV !== 'development'
     // Webhook binding (specific route)
     app.post('/telegram-webhook-for-promox', promoX_bot.webhookCallback('/telegram-webhook-for-promox'));
     promoX_bot.telegram.setWebhook(
-        `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-promox`
+        `${globle_domain}/telegram-webhook-for-promox`
     );
 }
 
@@ -47,7 +48,7 @@ if (process.env.CRYPTO_NEWS_NODE_ENV && process.env.CRYPTO_NEWS_NODE_ENV !== 'de
     // Webhook binding (specific route)
     app.post('/telegram-webhook-for-crypto-news', crypto_news_bot.webhookCallback('/telegram-webhook-for-crypto-news'));
     crypto_news_bot.telegram.setWebhook(
-        `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-crypto-news`
+        `${globle_domain}/telegram-webhook-for-crypto-news`
     );
 }
 
@@ -59,7 +60,7 @@ if (process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.env.MESSAGE_AUTO_
     // Webhook binding (specific route)
     app.post('/telegram-webhook-for-message-auto-save-and-post', message_auto_save_and_post_bot.webhookCallback('/telegram-webhook-for-message-auto-save-and-post'));
     message_auto_save_and_post_bot.telegram.setWebhook(
-        `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-message-auto-save-and-post`
+        `${globle_domain}/telegram-webhook-for-message-auto-save-and-post`
     );
 }
 
@@ -71,7 +72,7 @@ if (process.env.MOVIES_HUB_NODE_ENV && process.env.MOVIES_HUB_NODE_ENV !== 'deve
     // Webhook binding (specific route)
     app.post('/telegram-webhook-for-movies-hub', movies_hub_bot.webhookCallback('/telegram-webhook-for-movies-hub'));
     movies_hub_bot.telegram.setWebhook(
-        `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-movies-hub`
+        `${globle_domain}/telegram-webhook-for-movies-hub`
     );
 }
 
@@ -83,7 +84,19 @@ if (process.env.GROUP_HELP_ADVANCE_NODE_ENV && process.env.GROUP_HELP_ADVANCE_NO
     // Webhook binding (specific route)
     app.post('/telegram-webhook-for-group-help-advance', group_help_advance_bot.webhookCallback('/telegram-webhook-for-group-help-advance'));
     group_help_advance_bot.telegram.setWebhook(
-        `${process.env.GLOBLE_DOMAIN}/telegram-webhook-for-group-help-advance`
+        `${globle_domain}/telegram-webhook-for-group-help-advance`
+    );
+}
+
+// Initialize and launch Checker Gái Đẹp if CHECKER_GAI_DEP_NODE_ENV is not 'development'
+if (process.env.CHECKER_GAI_DEP_NODE_ENV && process.env.CHECKER_GAI_DEP_NODE_ENV !== 'development') {
+    const checker_gai_dep_bot = new Telegraf(process.env.BOT_TOKEN_CHECKER_GAI_DEP);
+    Checker_Gái_Đẹp_all_actions(checker_gai_dep_bot)
+
+    // Webhook binding (specific route)
+    app.post('/telegram-webhook-for-checker-gai-dep', checker_gai_dep_bot.webhookCallback('/telegram-webhook-for-checker-gai-dep'));
+    checker_gai_dep_bot.telegram.setWebhook(
+        `${globle_domain}/telegram-webhook-for-checker-gai-dep`
     );
 }
 

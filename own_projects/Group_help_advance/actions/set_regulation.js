@@ -119,7 +119,7 @@ module.exports = (bot) => {
             await ctx.answerCbQuery("✅ Regulation turned ON", { show_alert: false });
 
             // refresh the menu to reflect new state
-            const textMsg = `📜 <b>Group's regulations</b>\nFrom this menu you can manage the group's regulations, that will be shown with the command /rules.\n\nCurrent status: <b>On ✅</b>`;
+            const textMsg = `📜 <b>Group's regulations</b>\n\nFrom this menu you can manage the group's regulations, that will be shown with the command /rules.\n\nCurrent status: <b>On ✅</b>\n\n<i>👉 Use the buttons below to manage the regulation for <b>${chat.title || chatIdStr}</b>.</i>`;
             const buttons = [
                 [
                     Markup.button.callback("✅ Turn On", `TURN_ON_REG_${chatIdStr}`),
@@ -157,7 +157,7 @@ module.exports = (bot) => {
             await ctx.answerCbQuery("✅ Regulation turned OFF", { show_alert: false });
 
             // refresh the menu to reflect new state
-            const textMsg = `📜 <b>Group's regulations</b>\nFrom this menu you can manage the group's regulations, that will be shown with the command /rules.\n\nCurrent status: <b>Off ❌</b>`;
+            const textMsg = `📜 <b>Group's regulations</b>\n\nFrom this menu you can manage the group's regulations, that will be shown with the command /rules.\n\nCurrent status: <b>Off ❌</b>\n\n<i>👉 Use the buttons below to manage the regulation for <b>${chat.title || chatIdStr}</b>.</i>`;
             const buttons = [
                 [
                     Markup.button.callback("✅ Turn On", `TURN_ON_REG_${chatIdStr}`),

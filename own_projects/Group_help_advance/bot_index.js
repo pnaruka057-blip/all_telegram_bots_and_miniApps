@@ -29,6 +29,8 @@ const bannedWords_action = require('./actions/banned_words');
 const recurring_messages_action = require('./actions/recurring_messages');
 const members_management_action = require('./actions/members_management');
 const message_length_action = require('./actions/message_length');
+const masked_users_action = require('./actions/masked_users');
+const personal_commands_action = require('./actions/personal_commands');
 
 module.exports = (bot) => {
     // Middleware to handle sessions and scenes
@@ -58,7 +60,7 @@ module.exports = (bot) => {
     go_back_to_start_action(bot)
     groupSettings_action(bot)
     set_regulation_action(bot)
-    button_actions(bot)
+    // button_actions(bot)
     anti_spam_action(bot)
     set_welcome_action(bot)
     anti_flood_action(bot)
@@ -80,4 +82,6 @@ module.exports = (bot) => {
     recurring_messages_action(bot)
     members_management_action(bot)
     message_length_action(bot)
+    masked_users_action(bot)
+    personal_commands_action(bot)
 }

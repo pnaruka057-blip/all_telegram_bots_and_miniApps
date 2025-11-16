@@ -30,7 +30,7 @@ if (process.env.MOVIES_HUB_NODE_ENV && process.env.MOVIES_HUB_NODE_ENV !== 'deve
   });
 }
 
-let group_help_advance_connection
+let group_help_advance_connection;
 // Group Help Advance
 if (process.env.GROUP_HELP_ADVANCE_NODE_ENV && process.env.GROUP_HELP_ADVANCE_NODE_ENV !== 'development') {
   group_help_advance_connection = mongoose.createConnection(process.env.MONGO_URL_GROUP_HELP_ADVANCE, {
@@ -45,4 +45,19 @@ if (process.env.GROUP_HELP_ADVANCE_NODE_ENV && process.env.GROUP_HELP_ADVANCE_NO
   });
 }
 
-module.exports = { promoX_connection, Movies_hub_connection, group_help_advance_connection }
+let checker_gai_dep_connection;
+// Checker Gái Đẹp
+if (process.env.CHECKER_GAI_DEP_NODE_ENV && process.env.CHECKER_GAI_DEP_NODE_ENV !== 'development') {
+  checker_gai_dep_connection = mongoose.createConnection(process.env.MONGO_URL_CHECKER_GAI_DEP, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+  checker_gai_dep_connection.on("connected", () => {
+    console.log(`📦 Checker Gái Đẹp Connected to MongoDB: ${process.env.MONGO_URL_CHECKER_GAI_DEP}`);
+  });
+  checker_gai_dep_connection.on("error", (err) => {
+    console.error(`❌ Checker Gái Đẹp MongoDB connection error: ${err}`);
+  });
+}
+
+module.exports = { promoX_connection, Movies_hub_connection, group_help_advance_connection, checker_gai_dep_connection }

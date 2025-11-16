@@ -210,14 +210,16 @@ module.exports = (bot) => {
         if (st.mode === "add_words") {
             await addWords(userId, chatIdStr, items);
             try { await ctx.reply(`Added ${items.length} word(s).`); } catch { }
+            try { await ctx.deleteMessage(st?.promptMessageId); } catch { }
+            const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+            if (ok) await renderWordsMenu(ctx, chatIdStr, userId, ok);
         } else if (st.mode === "remove_words") {
             await removeWords(userId, chatIdStr, items);
             try { await ctx.reply(`Removed ${items.length} word(s).`); } catch { }
+            try { await ctx.deleteMessage(st?.promptMessageId); } catch { }
+            const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
+            if (ok) await renderWordsMenu(ctx, chatIdStr, userId, ok);
         }
-
-        try { await ctx.deleteMessage(st?.promptMessageId); } catch { }
-        const ok = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
-        if (ok) await renderWordsMenu(ctx, chatIdStr, userId, ok);
-        return;
+        return next && next();
     });
 };

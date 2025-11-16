@@ -842,6 +842,20 @@ const msglenInline = {
     updated_at: { type: Date, default: Date.now }
 };
 
+// for masked users settings
+const maskedUsersInline = {
+    enabled: { type: Boolean, default: false },
+    delete_messages: { type: Boolean, default: false },
+    whitelist: { type: [String], default: [] }
+};
+
+// for personal commands settings
+const personalCommandsInline = {
+    // Array of objects:
+    // { name, aliases[], text, media? }
+    commands: { type: Array, default: [] }
+};
+
 // Settings schema (key = chatId, value = regulationSchema wrapper)
 const settingsSchema = new mongoose.Schema(
     {
@@ -866,6 +880,8 @@ const settingsSchema = new mongoose.Schema(
         word_filter: bannedWordsSchema,
         recurring: recurringSchema,
         msglen: msglenInline,
+        masked_users: maskedUsersInline,
+        personal_commands: personalCommandsInline,
     },
     { _id: false }
 );
