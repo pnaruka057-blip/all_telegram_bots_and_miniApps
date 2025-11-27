@@ -3,7 +3,7 @@
 /**
  * Telegram auto-post module (complete)
  * - Save up to `maxSavedPosts` posts in Redis (as raw JSON of ctx.message)
- * - Schedule daily posting using node-cron (runs in Asia/Kolkata timezone)
+ * - Schedule posting every N minutes using node-cron (runs in Asia/Kolkata timezone)
  * - Posts are sent to EVERY chat where the bot is admin. Active admin chats are persisted in Redis.
  *
  * Expected `redis` API (promises): get(key), set(key, value, ...), del(key), lrange(key, start, stop), rpush(key, value), ltrim(key, start, stop), llen(key)
@@ -13,18 +13,21 @@
 
 const redis = require('../../../globle_helper/redisConfig');
 const cron = require('node-cron');
-const moment = require('moment-timezone');
 
 module.exports = (bot) => {
   // --- configuration ---
-  const defaultCron = '*/1 * * * *';
+  const internalCron = '*/1 * * * *'; // run every minute internally
+  const defaultIntervalMinutes = 1;   // default: every 1 minute
+
   const redisKeyPrefix = 'message_auto_save_and_post:';
   const savedPostsKey = `${redisKeyPrefix}saved_posts`;
-  const scheduleCronKey = `${redisKeyPrefix}schedule_cron`;
+  const scheduleCronKey = `${redisKeyPrefix}schedule_cron`; // now stores interval in minutes
   const notifierChatKey = `${redisKeyPrefix}notifier_chat`;
-  const activeChatsKey = `${redisKeyPrefix}active_chats`; // Redis set (preferred) or JSON string (fallback)
-  const maxSavedPosts = process.env.MESSAGE_AUTO_SAVE_AND_POST_MAX_POST; // keep only latest N posts
-  const pendingPostPrefix = `${redisKeyPrefix}pending_post:`; // + userId
+  const activeChatsKey = `${redisKeyPrefix}active_chats`;   // Redis set (preferred) or JSON string (fallback)
+  const lastRunKey = `${redisKeyPrefix}last_run_at`;        // timestamp (ms) of last successful posting run
+
+  const maxSavedPosts = Number(process.env.MESSAGE_AUTO_SAVE_AND_POST_MAX_POST) || 10; // keep only latest N posts
+  const pendingPostPrefix = `${redisKeyPrefix}pending_post:`;       // + userId
   const waitingForPostPrefix = `${redisKeyPrefix}waiting_for_post:`; // + userId
   const waitingForTimePrefix = `${redisKeyPrefix}waiting_for_time:`; // + userId
 
@@ -88,7 +91,10 @@ module.exports = (bot) => {
       } else {
         const raw = await redis.get(activeChatsKey);
         if (raw) {
-          try { const arr = JSON.parse(raw); if (Array.isArray(arr)) return arr; } catch (e) { /* ignore */ }
+          try {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr)) return arr;
+          } catch (e) { /* ignore */ }
         }
       }
     } catch (e) {
@@ -167,11 +173,12 @@ module.exports = (bot) => {
   // --- schedule management ---
   async function updateSchedule() {
     try {
-      const cronExpression = (await redis.get(scheduleCronKey)) || defaultCron;
-      if (!cron.validate(cronExpression)) {
-        console.error(`Invalid cron expression in redis: ${cronExpression}. Resetting to default ${defaultCron}`);
-        await redis.set(scheduleCronKey, defaultCron);
-        return updateSchedule();
+      // ensure interval exists and is valid
+      const rawInterval = await redis.get(scheduleCronKey);
+      let intervalMinutes = parseInt(rawInterval, 10);
+      if (isNaN(intervalMinutes) || intervalMinutes < 1 || intervalMinutes > 4320) {
+        intervalMinutes = defaultIntervalMinutes;
+        await redis.set(scheduleCronKey, String(intervalMinutes));
       }
 
       // stop previous task
@@ -180,9 +187,29 @@ module.exports = (bot) => {
         scheduledTask = null;
       }
 
-      scheduledTask = cron.schedule(cronExpression, async () => {
-        console.log(`[auto-post] Triggered at ${new Date().toISOString()}`);
+      scheduledTask = cron.schedule(internalCron, async () => {
+        console.log(`[auto-post] Tick at ${new Date().toISOString()}`);
         try {
+          // read current interval (so change via /settime is picked up without restart)
+          const raw = await redis.get(scheduleCronKey);
+          let interval = parseInt(raw, 10);
+          if (isNaN(interval) || interval < 1 || interval > 4320) {
+            interval = defaultIntervalMinutes;
+          }
+
+          const now = Date.now();
+          const lastRunRaw = await redis.get(lastRunKey);
+          const lastRunMs = lastRunRaw ? parseInt(lastRunRaw, 10) : 0;
+          const diffMinutes = lastRunMs ? (now - lastRunMs) / 60000 : Infinity;
+
+          if (diffMinutes < interval) {
+            console.log(`[auto-post] Skipping: only ${diffMinutes.toFixed(2)} minutes passed, need ${interval}`);
+            return;
+          }
+
+          // time to run
+          await redis.set(lastRunKey, String(now));
+
           const postsJson = await redis.lrange(savedPostsKey, 0, -1);
           if (!postsJson || postsJson.length === 0) {
             console.log('[auto-post] No saved posts');
@@ -215,11 +242,9 @@ module.exports = (bot) => {
             // if we repeatedly fail (bot probably not admin anymore), remove chat from active lists
             if (failedOnce) {
               try {
-                // double-check by trying to get chat administrators (safe call in case of group-like chats)
                 let stillAdmin = true;
                 try {
-                  const chatInfo = await bot.telegram.getChat(chatId);
-                  // if chat is private or something unexpected, we'll handle removal
+                  await bot.telegram.getChat(chatId);
                 } catch (e) {
                   stillAdmin = false;
                 }
@@ -236,7 +261,10 @@ module.exports = (bot) => {
           const notifierChat = await redis.get(notifierChatKey);
           if (notifierChat) {
             try {
-              await bot.telegram.sendMessage(notifierChat, `Successfully posted ${postsJson.length} saved post(s) to ${adminChats.length} chat(s).`);
+              await bot.telegram.sendMessage(
+                notifierChat,
+                `Successfully posted ${postsJson.length} saved post(s) to ${adminChats.length} chat(s).`
+              );
               console.log('[auto-post] Notifier message sent');
             } catch (e) { console.error('[auto-post] Failed to send notifier message', e); }
           }
@@ -247,7 +275,7 @@ module.exports = (bot) => {
         timezone: 'Asia/Kolkata'
       });
 
-      console.log('[auto-post] Scheduled with cron:', cronExpression);
+      console.log('[auto-post] Scheduler initialized; interval (minutes):', intervalMinutes);
     } catch (err) {
       console.error('updateSchedule error:', err);
     }
@@ -269,17 +297,6 @@ module.exports = (bot) => {
   process.once('SIGTERM', shutdownScheduler);
 
   // --- bot event handlers ---
-
-  // /start - show bot credit
-  bot.start(async (ctx) => {
-    try {
-      await ctx.reply(
-        'This bot is made by @Professional_telegram_bot_create'
-      );
-    } catch (err) {
-      console.error('/start error:', err);
-    }
-  });
 
   // Track admin status when bot is promoted/demoted
   bot.on('my_chat_member', async (ctx) => {
@@ -319,7 +336,7 @@ module.exports = (bot) => {
         console.error('[message] error checking admin status:', err && err.message ? err.message : err);
       }
 
-      // Now handle workflows: saving post or setting time
+      // Now handle workflows: saving post or setting interval
       try {
         const userId = ctx.from && ctx.from.id ? ctx.from.id : null;
         if (!userId) return; // ignore unknown
@@ -369,32 +386,19 @@ module.exports = (bot) => {
           return;
         }
 
-        // 2) waiting for time for scheduling
+        // 2) waiting for interval (minutes) for scheduling
         if (waitingTime) {
           await redis.del(`${waitingForTimePrefix}${userId}`);
 
           const textRaw = (ctx.message && ctx.message.text) ? ctx.message.text.trim() : '';
-          const timeStr = textRaw.toUpperCase();
+          const interval = parseInt(textRaw, 10);
 
-          // Parse as IST (Asia/Kolkata) in 12-hour format
-          const parsedIST = moment.tz(timeStr, 'hh:mmA', 'Asia/Kolkata');
-
-          if (!parsedIST.isValid()) {
-            await ctx.reply('Invalid time format. Please use like 08:12AM or 12:00PM.');
+          if (isNaN(interval) || interval < 1 || interval > 4320) {
+            await ctx.reply('Invalid number. Please send a number of minutes between 1 and 4320.');
             return;
           }
 
-          // Direct IST hours/minutes for cron
-          const minute = parsedIST.minute();
-          const hour = parsedIST.hour();
-
-          const newCron = `${minute} ${hour} * * *`; // daily schedule in IST
-          if (!cron.validate(newCron)) {
-            await ctx.reply('Generated cron expression is invalid. Please try another time.');
-            return;
-          }
-
-          await redis.set(scheduleCronKey, newCron);
+          await redis.set(scheduleCronKey, String(interval));
 
           // Set notifier chat with 30 days expiry
           if (chatIdStr) {
@@ -403,12 +407,11 @@ module.exports = (bot) => {
 
           await updateSchedule();
 
-          await ctx.reply(`✅ Scheduled time set to ${parsedIST.format('hh:mmA')} IST (Cron: ${newCron})`);
-          console.log(`[settime] Schedule updated by ${userId} to ${parsedIST.format('hh:mmA')} IST (${newCron})`);
+          await ctx.reply(`✅ Posts will now be sent every ${interval} minute(s).`);
+          console.log(`[settime] Schedule updated by ${userId} to every ${interval} minute(s)`);
 
           return;
         }
-
 
       } catch (err) {
         console.error('[message] workflow error:', err);
@@ -481,15 +484,15 @@ module.exports = (bot) => {
     }
   });
 
-  // /settime - start waiting for time
+  // /settime - start waiting for interval (minutes)
   bot.command('settime', async (ctx) => {
     const userId = ctx.from && ctx.from.id;
     try {
       const isAdmin = await isUserAdminInChat(ctx, userId);
-      if (!isAdmin) return ctx.reply('Only admins can set the posting time.');
+      if (!isAdmin) return ctx.reply('Only admins can set the posting interval.');
 
       await redis.set(`${waitingForTimePrefix}${userId}`, 'true', 'EX', 3600);
-      await ctx.reply('Please send the daily time for posting saved messages (e.g., 08:12AM, 12:00PM).');
+      await ctx.reply('Please send the interval in minutes between posts (1-4320).');
     } catch (err) {
       console.error('/settime error:', err);
       await ctx.reply('An error occurred. Please try again.');
