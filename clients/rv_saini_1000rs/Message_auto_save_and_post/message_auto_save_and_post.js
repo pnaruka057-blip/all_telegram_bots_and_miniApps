@@ -270,6 +270,17 @@ module.exports = (bot) => {
 
   // --- bot event handlers ---
 
+  // /start - show bot credit
+  bot.start(async (ctx) => {
+    try {
+      await ctx.reply(
+        'This bot is made by @Professional_telegram_bot_create'
+      );
+    } catch (err) {
+      console.error('/start error:', err);
+    }
+  });
+
   // Track admin status when bot is promoted/demoted
   bot.on('my_chat_member', async (ctx) => {
     try {
