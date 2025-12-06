@@ -6,11 +6,10 @@
  * - Saara state Redis me (WhatsApp session, selected groups, saved posts, schedule time, notifier chat, QR attempts)
  * - /login + password se WhatsApp login (QR max 2 attempts per login cycle)
  * - /logout se current Telegram user ka WhatsApp session destroy
- * - /setgroups fast hai (no long wait) → Railway/Grammy 90s timeout ke bahar
+ * - /setgroups fast hai (no long wait) → hosting ka 90s timeout safe
  * - Cron se daily auto-post (Asia/Kolkata)
  *
  * WARNING: Unofficial WhatsApp automation se account ban ka risk hota hai.
- * Use sirf apne personal / test accounts par.
  */
 
 const qrcode = require('qrcode');
@@ -129,7 +128,6 @@ module.exports = (bot) => {
 
     /**
      * ensureWAClientForUser: WhatsApp client create/reuse with Redis session
-     * Container-friendly puppeteer options (Railway/Render/etc).
      */
     function ensureWAClientForUser(userId) {
         const key = String(userId);
@@ -192,7 +190,6 @@ module.exports = (bot) => {
                     },
                 };
 
-                // optional executablePath from env (Railway / custom Chromium)
                 const exePath =
                     process.env.PUPPETEER_EXECUTABLE_PATH ||
                     process.env.CHROME_BIN ||
@@ -609,8 +606,25 @@ module.exports = (bot) => {
             try {
                 chats = await getChatsSafe(meta.client, 20000, 2, 1000);
             } catch (e) {
-                console.error('/setgroups getChatsSafe error:', e && e.message ? e.message : e);
-                await ctx.reply('Failed to fetch WhatsApp chats (timeout or error). Try again later.');
+                const msg = e && e.message ? e.message : String(e);
+                console.error('/setgroups getChatsSafe error:', msg);
+
+                // yaha naya logic: agar "Session closed" ya "Target closed" ho
+                if (msg.includes('Session closed') || msg.includes('Target closed')) {
+                    const key = String(userId);
+                    const m = waClients.get(key);
+                    if (m && m.client) {
+                        try { await m.client.destroy(); } catch (_) { }
+                    }
+                    waClients.delete(key);
+                    try { await redis.del(`${waSessionKey}${userId}`); } catch (_) { }
+
+                    await ctx.reply(
+                        'WhatsApp session seems closed / crashed. Please use /login again, QR scan karo aur phir /setgroups run karo.'
+                    );
+                } else {
+                    await ctx.reply('Failed to fetch WhatsApp chats (timeout or error). Try again later.');
+                }
                 return;
             }
 
