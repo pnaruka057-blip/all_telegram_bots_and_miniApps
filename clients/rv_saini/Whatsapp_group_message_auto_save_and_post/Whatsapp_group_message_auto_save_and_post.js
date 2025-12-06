@@ -6,12 +6,16 @@
  * - Saara state Redis me (WhatsApp session, selected groups, saved posts, interval minutes, notifier chat, QR attempts)
  * - /login + password se WhatsApp login (QR max 2 attempts per login cycle)
  * - /logout se current Telegram user ka WhatsApp session destroy
- * - /setgroups fast hai (no long wait) → hosting ka 90s timeout safe
+ * - /setgroups fast hai (no long wait)
  * - Interval-based auto-post using minutes (min 3, max 4320, default 3)
  *
+ * IMPORTANT: Ensure the container allows writing to the chosen cache path (default: /tmp).
  * WARNING: Unofficial WhatsApp automation se account ban ka risk hota hai.
  */
 
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const qrcode = require('qrcode');
 const axios = require('axios');
 const { Client, MessageMedia } = require('whatsapp-web.js');
@@ -20,7 +24,6 @@ const { Client, MessageMedia } = require('whatsapp-web.js');
 const redis = require('../../../globle_helper/redisConfig');
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD_WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST || 'changeme';
-const TZ = 'Asia/Kolkata'; // kept for reference; interval job isn't timezone-dependent
 const maxSavedPosts = Number(process.env.WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_MAX_POST) || 10;
 
 // QR limit per login cycle
@@ -31,6 +34,9 @@ const QR_ATTEMPT_TTL = 60 * 60; // 1 hour (seconds)
 const MIN_INTERVAL_MINUTES = 3;
 const MAX_INTERVAL_MINUTES = 4320;
 const DEFAULT_INTERVAL_MINUTES = 3;
+
+// default base cache dir (can override with env)
+const BASE_CACHE_DIR = process.env.WEBJS_CACHE_DIR || '/tmp';
 
 // global error safety
 process.on('unhandledRejection', (reason, p) => {
@@ -55,6 +61,46 @@ module.exports = (bot) => {
 
     const waClients = new Map();       // userId -> meta
     const scheduledJobs = new Map();   // userId -> { timer: Timeout, minutes: Number }
+
+    // ---------- helpers: cache dir ----------
+
+    function getCacheDirForUser(userId) {
+        // Use base dir + unique user folder
+        const safeBase = BASE_CACHE_DIR || os.tmpdir();
+        return path.join(safeBase, `wwebjs_${String(userId)}`);
+    }
+
+    function ensureCacheDirWritable(userId) {
+        const cacheDir = getCacheDirForUser(userId);
+        try {
+            fs.mkdirSync(cacheDir, { recursive: true });
+        } catch (e) {
+            throw new Error(`Could not create cache dir ${cacheDir}: ${e && e.message ? e.message : e}`);
+        }
+        // write test
+        try {
+            const testFile = path.join(cacheDir, '.write_test');
+            fs.writeFileSync(testFile, String(Date.now()));
+            // optionally remove test file
+            try { fs.unlinkSync(testFile); } catch (_) { /* ignore */ }
+        } catch (e) {
+            throw new Error(`Cache dir ${cacheDir} not writable: ${e && e.message ? e.message : e}`);
+        }
+        return cacheDir;
+    }
+
+    function removeCacheDir(userId) {
+        const cacheDir = getCacheDirForUser(userId);
+        try {
+            if (fs.existsSync(cacheDir)) {
+                // recursive remove
+                fs.rmSync(cacheDir, { recursive: true, force: true });
+                console.log('[wa] removed cache dir for user', userId, cacheDir);
+            }
+        } catch (e) {
+            console.warn('[wa] failed to remove cache dir', cacheDir, e && e.message ? e.message : e);
+        }
+    }
 
     // ---------- helpers: time parsing & interval scheduling ----------
 
@@ -94,6 +140,9 @@ module.exports = (bot) => {
         // remove redis session & qr attempts to ensure a fresh start
         try { await redis.del(`${waSessionKey}${userId}`).catch(() => null); } catch (e) { /* ignore */ }
         try { await redis.del(`${qrAttemptsKeyPrefix}${userId}`).catch(() => null); } catch (e) { /* ignore */ }
+
+        // try remove cache dir too
+        try { removeCacheDir(userId); } catch (_) { /* ignore */ }
     }
 
     // background me WA ready/QR ka wait — sirf scheduled job ke liye, Telegram update ke andar nahi
@@ -149,6 +198,7 @@ module.exports = (bot) => {
             initError: false,
             initErrorMsg: null,
             qrLimitNotified: false,
+            cacheDir: null,
         };
         waClients.set(key, meta);
 
@@ -174,6 +224,28 @@ module.exports = (bot) => {
                     if (!existing) await redis.set(attemptsKey, '0', 'EX', QR_ATTEMPT_TTL);
                 } catch (e) { /* ignore */ }
 
+                // ensure cache dir writable and set userDataDir for puppeteer
+                let cacheDir = null;
+                try {
+                    cacheDir = ensureCacheDirWritable(userId); // may throw
+                    meta.cacheDir = cacheDir;
+                    console.log('[wa] using cacheDir for user', userId, cacheDir);
+                } catch (e) {
+                    meta.initError = true;
+                    meta.initErrorMsg = `Cache dir setup failed: ${e && e.message ? e.message : e}`;
+                    console.error('[wa] cache dir writable check failed for user', userId, meta.initErrorMsg);
+                    // notify user if notifier set
+                    try {
+                        const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
+                        if (notifier) {
+                            await bot.telegram.sendMessage(notifier, `⚠️ Server can't write WhatsApp cache files. Please contact admin (cache dir issue). Error: ${meta.initErrorMsg}`);
+                        }
+                    } catch (_) { /* ignore */ }
+                    // cleanup and bail
+                    waClients.delete(key);
+                    return;
+                }
+
                 // puppeteer options: container friendly
                 const puppeteerArgs = [
                     '--no-sandbox',
@@ -194,6 +266,8 @@ module.exports = (bot) => {
                     puppeteer: {
                         headless: true,
                         args: puppeteerArgs,
+                        // set userDataDir to cacheDir so Chromium and whatsapp-web.js can create files
+                        userDataDir: cacheDir,
                     },
                 };
 
@@ -337,6 +411,9 @@ module.exports = (bot) => {
                         meta.qrTimeout = null;
                     }
                     waClients.delete(key);
+                    // remove cache dir (attempt)
+                    try { removeCacheDir(userId); } catch (_) { /* ignore */ }
+
                     try {
                         const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                         if (notifier) {
@@ -505,7 +582,7 @@ module.exports = (bot) => {
                 closed = true;
                 console.error('[wa] Detected closed browser/session while sending message. Resetting client for user', userId);
 
-                // reset client + session
+                // reset client + session + cache dir
                 try {
                     await forceResetUserClient(userId);
                 } catch (resetErr) {
@@ -664,7 +741,7 @@ module.exports = (bot) => {
             await ctx.reply('Enter the password to proceed.');
         } catch (e) {
             console.error('/login error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred. Try again.'); } catch (_) {}
+            try { await ctx.reply('An error occurred. Try again.'); } catch (_) { }
         }
     });
 
@@ -693,10 +770,13 @@ module.exports = (bot) => {
                 scheduledJobs.delete(key);
             }
 
+            // remove cache dir on logout
+            try { removeCacheDir(userId); } catch (_) { /* ignore */ }
+
             await ctx.reply('Logged out from WhatsApp for this Telegram account. To login again, use /login.');
         } catch (e) {
             console.error('/logout error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred while logging out.'); } catch (_) {}
+            try { await ctx.reply('An error occurred while logging out.'); } catch (_) { }
         }
     });
 
@@ -752,6 +832,7 @@ module.exports = (bot) => {
                     }
                     waClients.delete(key);
                     try { await redis.del(`${waSessionKey}${userId}`); } catch (_) { }
+                    try { removeCacheDir(userId); } catch (_) { /* ignore */ }
 
                     await ctx.reply(
                         'WhatsApp session seems closed / crashed. Please use /login again, scan QR and then run /setgroups.'
@@ -782,7 +863,7 @@ module.exports = (bot) => {
             await ctx.reply('Select groups (toggle):', { reply_markup: { inline_keyboard: keyboard } });
         } catch (e) {
             console.error('/setgroups handler error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred while processing /setgroups.'); } catch (_) {}
+            try { await ctx.reply('An error occurred while processing /setgroups.'); } catch (_) { }
         }
     });
 
@@ -796,7 +877,7 @@ module.exports = (bot) => {
             await ctx.reply('Please send the interval in minutes between posts (3-4320).');
         } catch (e) {
             console.error('/settime error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred.'); } catch (_) {}
+            try { await ctx.reply('An error occurred.'); } catch (_) { }
         }
     });
 
@@ -809,7 +890,7 @@ module.exports = (bot) => {
             await ctx.reply('Send the post (photo, video, document, audio, voice, sticker, or text). I will save it for scheduled posting.');
         } catch (e) {
             console.error('/save error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred.'); } catch (_) {}
+            try { await ctx.reply('An error occurred.'); } catch (_) { }
         }
     });
 
@@ -822,7 +903,7 @@ module.exports = (bot) => {
             await ctx.reply(`You have ${count} saved post(s). Use /save to add more or /clearposts to remove all.`);
         } catch (e) {
             console.error('/listposts error:', e && e.message ? e.message : e);
-            try { await ctx.reply('Error fetching posts.'); } catch (_) {}
+            try { await ctx.reply('Error fetching posts.'); } catch (_) { }
         }
     });
 
@@ -834,7 +915,7 @@ module.exports = (bot) => {
             await ctx.reply('All saved posts cleared.');
         } catch (e) {
             console.error('/clearposts error:', e && e.message ? e.message : e);
-            try { await ctx.reply('Error clearing posts.'); } catch (_) {}
+            try { await ctx.reply('Error clearing posts.'); } catch (_) { }
         }
     });
 
@@ -851,12 +932,13 @@ module.exports = (bot) => {
             const attempts = await redis.get(`${qrAttemptsKeyPrefix}${userId}`).catch(() => null);
             const jobObj = scheduledJobs.get(String(userId));
             const scheduled = jobObj ? `every ${jobObj.minutes} minute(s)` : 'not scheduled';
+            const cacheDir = meta && meta.cacheDir ? meta.cacheDir : getCacheDirForUser(userId);
             await ctx.reply(
-                `WA status:\nconnected: ${ready}\nqr: ${qr}\nqr_attempts: ${attempts || 0}/${MAX_QR_ATTEMPTS}\nselected_groups: ${selected.length}\nsaved_posts: ${posts.length}\ninterval_minutes: ${interval || DEFAULT_INTERVAL_MINUTES}\nscheduled: ${scheduled}`
+                `WA status:\nconnected: ${ready}\nqr: ${qr}\nqr_attempts: ${attempts || 0}/${MAX_QR_ATTEMPTS}\nselected_groups: ${selected.length}\nsaved_posts: ${posts.length}\ninterval_minutes: ${interval || DEFAULT_INTERVAL_MINUTES}\nscheduled: ${scheduled}\ncache_dir: ${cacheDir}`
             );
         } catch (e) {
             console.error('/wa_status error:', e && e.message ? e.message : e);
-            try { await ctx.reply('Error fetching WA status.'); } catch (_) {}
+            try { await ctx.reply('Error fetching WA status.'); } catch (_) { }
         }
     });
 
@@ -934,7 +1016,7 @@ module.exports = (bot) => {
             }
         } catch (e) {
             console.error('callback_query error:', e && e.message ? e.message : e);
-            try { await ctx.answerCbQuery('Error processing action.'); } catch (_) {}
+            try { await ctx.answerCbQuery('Error processing action.'); } catch (_) { }
         }
     });
 
@@ -971,9 +1053,9 @@ module.exports = (bot) => {
                         await ctx.reply(
                             '✅ Password accepted.\nWhatsApp client ko naye se start kar raha hoon.\nAgar kuch hi der me QR na aaye, to /setgroups ya /wa_status se status check karo.'
                         );
-                    } catch (_) {}
+                    } catch (_) { }
                 } else {
-                    try { await ctx.reply('❌ Wrong password.'); } catch (_) {}
+                    try { await ctx.reply('❌ Wrong password.'); } catch (_) { }
                 }
                 return;
             }
@@ -1011,7 +1093,7 @@ module.exports = (bot) => {
                 } catch (e) {
                     try {
                         await ctx.reply('Do you want to save this post? Reply with Yes/No or use the inline keyboard if available.');
-                    } catch (_) {}
+                    } catch (_) { }
                 }
                 return;
             }
