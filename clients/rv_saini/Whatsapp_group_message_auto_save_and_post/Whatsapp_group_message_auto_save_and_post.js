@@ -429,7 +429,13 @@ module.exports = (bot) => {
         }
     }
 
-    async function sendMessageToWhatsAppGroup(client, savedMsg, groupId) {
+    /**
+     * sendMessageToWhatsAppGroup:
+     *  - returns { ok: boolean, closed: boolean }
+     *  - closed = true jab "Session closed" / "Target closed" type error aaye
+     */
+    async function sendMessageToWhatsAppGroup(userId, client, savedMsg, groupId) {
+        let closed = false;
         try {
             if (!client) throw new Error('WA client not available');
 
@@ -444,7 +450,7 @@ module.exports = (bot) => {
                 const mime = photo.mime_type || 'image/jpeg';
                 const media = new MessageMedia(mime, base64);
                 await client.sendMessage(groupId, media, { caption: savedMsg.caption || '' });
-                return true;
+                return { ok: true, closed: false };
             }
 
             if (savedMsg.video) {
@@ -455,7 +461,7 @@ module.exports = (bot) => {
                 const mime = savedMsg.video.mime_type || 'video/mp4';
                 const media = new MessageMedia(mime, base64);
                 await client.sendMessage(groupId, media, { caption: savedMsg.caption || '' });
-                return true;
+                return { ok: true, closed: false };
             }
 
             if (savedMsg.document) {
@@ -467,7 +473,7 @@ module.exports = (bot) => {
                 const filename = savedMsg.document.file_name || 'file';
                 const media = new MessageMedia(mime, base64, filename);
                 await client.sendMessage(groupId, media, { caption: savedMsg.caption || '' });
-                return true;
+                return { ok: true, closed: false };
             }
 
             if (savedMsg.audio || savedMsg.voice) {
@@ -479,20 +485,48 @@ module.exports = (bot) => {
                 const mime = aud.mime_type || 'audio/ogg';
                 const media = new MessageMedia(mime, base64);
                 await client.sendMessage(groupId, media, { caption: savedMsg.caption || '' });
-                return true;
+                return { ok: true, closed: false };
             }
 
             if (savedMsg.text || savedMsg.caption) {
                 const text = savedMsg.text || savedMsg.caption || '';
                 await client.sendMessage(groupId, text);
-                return true;
+                return { ok: true, closed: false };
             }
 
             console.log('[wa] unsupported saved message type', savedMsg);
-            return false;
+            return { ok: false, closed: false };
         } catch (e) {
-            console.error('[wa] sendMessageToWhatsAppGroup error:', e && e.message ? e.message : e);
-            return false;
+            const msg = e && e.message ? e.message : String(e);
+            console.error('[wa] sendMessageToWhatsAppGroup error:', msg);
+
+            // special handling: session/page closed
+            if (msg.includes('Session closed') || msg.includes('Most likely the page has been closed') || msg.includes('Target closed')) {
+                closed = true;
+                console.error('[wa] Detected closed browser/session while sending message. Resetting client for user', userId);
+
+                // reset client + session
+                try {
+                    await forceResetUserClient(userId);
+                } catch (resetErr) {
+                    console.error('[wa] error while forceResetUserClient after closed session', resetErr && resetErr.message ? resetErr.message : resetErr);
+                }
+
+                // notify user
+                try {
+                    const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
+                    if (notifier) {
+                        await bot.telegram.sendMessage(
+                            notifier,
+                            '⚠️ WhatsApp browser session appears to be closed/crashed.\nPlease use /login again and scan the QR to continue auto-posting.'
+                        );
+                    }
+                } catch (notifyErr) {
+                    console.error('[wa] error notifying user about closed session', notifyErr && notifyErr.message ? notifyErr.message : notifyErr);
+                }
+            }
+
+            return { ok: false, closed };
         }
     }
 
@@ -522,24 +556,40 @@ module.exports = (bot) => {
             if (!selectedGroups || selectedGroups.length === 0) return;
 
             let successes = 0, failures = 0;
-            for (const gid of selectedGroups) {
+            let closedDetected = false;
+
+            outer: for (const gid of selectedGroups) {
                 for (const post of savedPosts) {
-                    const ok = await sendMessageToWhatsAppGroup(meta.client, post, gid);
+                    const { ok, closed } = await sendMessageToWhatsAppGroup(userId, meta.client, post, gid);
                     if (ok) successes++; else failures++;
-                    // small spacing between messages
+                    if (closed) {
+                        closedDetected = true;
+                        break outer;
+                    }
                     await new Promise(r => setTimeout(r, 1200));
                 }
             }
 
             const notify = await redis.get(`${waNotifierChatKey}${userId}`);
-            if (notify) {
+            if (!notify) return;
+
+            if (closedDetected) {
+                // if session closed, don't send normal summary, just warning
                 try {
                     await bot.telegram.sendMessage(
                         notify,
-                        `Scheduled posting completed. Success: ${successes}, Failures: ${failures}`
+                        `⚠️ Scheduled posting aborted: WhatsApp session/page is closed.\nPlease run /login and scan QR again to resume auto-posts.`
                     );
                 } catch (_) { /* ignore */ }
+                return;
             }
+
+            try {
+                await bot.telegram.sendMessage(
+                    notify,
+                    `Scheduled posting completed. Success: ${successes}, Failures: ${failures}`
+                );
+            } catch (_) { /* ignore */ }
         } catch (e) {
             console.error('[wa] performPostingCycleForUser error for', userId, e && e.message ? e.message : e);
         }
@@ -571,7 +621,6 @@ module.exports = (bot) => {
                 else minutes = clampIntervalMinutes(parsed);
             }
 
-            // create interval timer (milliseconds)
             const ms = minutes * 60 * 1000;
 
             const timer = setInterval(async () => {
@@ -615,7 +664,7 @@ module.exports = (bot) => {
             await ctx.reply('Enter the password to proceed.');
         } catch (e) {
             console.error('/login error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred. Try again.'); } catch (_) { }
+            try { await ctx.reply('An error occurred. Try again.'); } catch (_) {}
         }
     });
 
@@ -647,7 +696,7 @@ module.exports = (bot) => {
             await ctx.reply('Logged out from WhatsApp for this Telegram account. To login again, use /login.');
         } catch (e) {
             console.error('/logout error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred while logging out.'); } catch (_) { }
+            try { await ctx.reply('An error occurred while logging out.'); } catch (_) {}
         }
     });
 
@@ -733,7 +782,7 @@ module.exports = (bot) => {
             await ctx.reply('Select groups (toggle):', { reply_markup: { inline_keyboard: keyboard } });
         } catch (e) {
             console.error('/setgroups handler error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred while processing /setgroups.'); } catch (_) { }
+            try { await ctx.reply('An error occurred while processing /setgroups.'); } catch (_) {}
         }
     });
 
@@ -747,7 +796,7 @@ module.exports = (bot) => {
             await ctx.reply('Please send the interval in minutes between posts (3-4320).');
         } catch (e) {
             console.error('/settime error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred.'); } catch (_) { }
+            try { await ctx.reply('An error occurred.'); } catch (_) {}
         }
     });
 
@@ -760,7 +809,7 @@ module.exports = (bot) => {
             await ctx.reply('Send the post (photo, video, document, audio, voice, sticker, or text). I will save it for scheduled posting.');
         } catch (e) {
             console.error('/save error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred.'); } catch (_) { }
+            try { await ctx.reply('An error occurred.'); } catch (_) {}
         }
     });
 
@@ -773,7 +822,7 @@ module.exports = (bot) => {
             await ctx.reply(`You have ${count} saved post(s). Use /save to add more or /clearposts to remove all.`);
         } catch (e) {
             console.error('/listposts error:', e && e.message ? e.message : e);
-            try { await ctx.reply('Error fetching posts.'); } catch (_) { }
+            try { await ctx.reply('Error fetching posts.'); } catch (_) {}
         }
     });
 
@@ -785,7 +834,7 @@ module.exports = (bot) => {
             await ctx.reply('All saved posts cleared.');
         } catch (e) {
             console.error('/clearposts error:', e && e.message ? e.message : e);
-            try { await ctx.reply('Error clearing posts.'); } catch (_) { }
+            try { await ctx.reply('Error clearing posts.'); } catch (_) {}
         }
     });
 
@@ -807,7 +856,7 @@ module.exports = (bot) => {
             );
         } catch (e) {
             console.error('/wa_status error:', e && e.message ? e.message : e);
-            try { await ctx.reply('Error fetching WA status.'); } catch (_) { }
+            try { await ctx.reply('Error fetching WA status.'); } catch (_) {}
         }
     });
 
@@ -885,7 +934,7 @@ module.exports = (bot) => {
             }
         } catch (e) {
             console.error('callback_query error:', e && e.message ? e.message : e);
-            try { await ctx.answerCbQuery('Error processing action.'); } catch (_) { }
+            try { await ctx.answerCbQuery('Error processing action.'); } catch (_) {}
         }
     });
 
@@ -922,9 +971,9 @@ module.exports = (bot) => {
                         await ctx.reply(
                             '✅ Password accepted.\nWhatsApp client ko naye se start kar raha hoon.\nAgar kuch hi der me QR na aaye, to /setgroups ya /wa_status se status check karo.'
                         );
-                    } catch (_) { }
+                    } catch (_) {}
                 } else {
-                    try { await ctx.reply('❌ Wrong password.'); } catch (_) { }
+                    try { await ctx.reply('❌ Wrong password.'); } catch (_) {}
                 }
                 return;
             }
@@ -962,7 +1011,7 @@ module.exports = (bot) => {
                 } catch (e) {
                     try {
                         await ctx.reply('Do you want to save this post? Reply with Yes/No or use the inline keyboard if available.');
-                    } catch (_) { }
+                    } catch (_) {}
                 }
                 return;
             }
