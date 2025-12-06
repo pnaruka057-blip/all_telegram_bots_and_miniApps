@@ -2,7 +2,15 @@
 
 /**
  * telegram-whatsapp-auto-post-redis.js
- * Updated — safer initialization and error handling to avoid TimeoutError on /setgroups
+ *
+ * - Limits QR sends to max 2 per login cycle (tracked in Redis)
+ * - /login -> ask password -> on correct password start WA client and reset QR attempts
+ * - /logout -> destroy WA client for this Telegram user, clear session in Redis, stop schedules
+ * - All state in Redis (no filesystem sessions)
+ *
+ * Requirements:
+ * - redis must implement promised methods: get, set, del, lrange, rpush, ltrim, llen, lpop (optional)
+ * - whatsapp-web.js, qrcode, axios, node-cron installed
  */
 
 const qrcode = require('qrcode');
@@ -10,14 +18,15 @@ const axios = require('axios');
 const { Client, MessageMedia } = require('whatsapp-web.js');
 const cron = require('node-cron');
 
-// your redis module - must return promises
+// your redis module (promises)
 const redis = require('../../../globle_helper/redisConfig');
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD_WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST || 'changeme';
 const TZ = 'Asia/Kolkata';
 const maxSavedPosts = Number(process.env.WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_MAX_POST) || 10;
+const MAX_QR_ATTEMPTS = 2; // <=2 sends allowed per login cycle
+const QR_ATTEMPT_TTL = 60 * 60; // seconds (1 hour)
 
-// basic global safety handlers
 process.on('unhandledRejection', (reason, p) => {
     console.error('Unhandled Rejection at:', p, 'reason:', reason && reason.stack ? reason.stack : reason);
 });
@@ -26,23 +35,22 @@ process.on('uncaughtException', (err) => {
 });
 
 module.exports = (bot) => {
-    // prefix keys
     const prefix = 'wa_auto_post:';
     const waitingForPasswordPrefix = `${prefix}waiting_password:`;   // + userId
-    const waSessionKey = `${prefix}wa_session:`;                     // + userId -> JSON session
-    const waSelectedGroupsKey = `${prefix}selected_groups:`;         // + userId -> JSON array
-    const waSavedPostsKey = `${prefix}saved_posts:`;                 // + userId -> list
-    const waScheduleTimeKey = `${prefix}schedule_time:`;             // + userId -> 'HH:MM'
-    const waNotifierChatKey = `${prefix}notifier_chat:`;             // + userId -> chatId
+    const waSessionKey = `${prefix}wa_session:`;                     // + userId
+    const waSelectedGroupsKey = `${prefix}selected_groups:`;         // + userId
+    const waSavedPostsKey = `${prefix}saved_posts:`;                 // + userId
+    const waScheduleTimeKey = `${prefix}schedule_time:`;             // + userId
+    const waNotifierChatKey = `${prefix}notifier_chat:`;             // + userId
     const pendingPostPrefix = `${prefix}pending_post:`;              // + userId
     const waitingForPostPrefix = `${prefix}waiting_for_post:`;       // + userId
     const waitingForTimePrefix = `${prefix}waiting_for_time:`;       // + userId
+    const qrAttemptsKeyPrefix = `${prefix}qr_attempts:`;             // + userId
 
-    // in-memory maps
-    const waClients = new Map();       // userId -> { client, ready, qr, qrTimeout, initPromise, initError }
+    const waClients = new Map();       // userId -> meta
     const scheduledJobs = new Map();   // userId -> cron job
 
-    // ---------- helpers ----------
+    // parse time input like "10:12AM", "22:12", "9:05 PM"
     function parseTimeInput(input) {
         if (!input || typeof input !== 'string') return null;
         let s = input.trim().toUpperCase().replace(/\s+/g, '');
@@ -78,30 +86,43 @@ module.exports = (bot) => {
         return `${minute} ${hour} * * *`;
     }
 
-    // poll helper: wait until meta.ready === true OR meta.qr !== null OR meta.initError === true
+    // wait for ready or qr or error
     async function waitForReadyOrQr(meta, timeoutMs = 15000, pollInterval = 500) {
         const start = Date.now();
         while (Date.now() - start < timeoutMs) {
             if (meta.initError) return { ready: false, qr: meta.qr, error: meta.initErrorMsg || 'init error' };
             if (meta.ready) return { ready: true, qr: meta.qr };
             if (meta.qr) return { ready: false, qr: meta.qr };
-            await new Promise((r) => setTimeout(r, pollInterval));
+            await new Promise(r => setTimeout(r, pollInterval));
         }
-        // timeout
         return { ready: !!meta.ready, qr: meta.qr, error: meta.initError ? meta.initErrorMsg : 'timeout' };
     }
 
-    // create or reuse whatsapp-web.js client for a user using session from Redis
+    // create/reuse WA client; no filesystem sessions — uses session JSON in Redis
     function ensureWAClientForUser(userId) {
         const key = String(userId);
         if (waClients.has(key)) return waClients.get(key);
 
-        const meta = { client: null, ready: false, qr: null, qrTimeout: null, initPromise: null, initError: false, initErrorMsg: null };
+        const meta = {
+            client: null,
+            ready: false,
+            qr: null,
+            qrTimeout: null,
+            initPromise: null,
+            initError: false,
+            initErrorMsg: null,
+            qrLimitNotified: false
+        };
         waClients.set(key, meta);
 
-        // init in background and capture promise / errors
         meta.initPromise = (async () => {
             try {
+                // reset flags
+                meta.initError = false;
+                meta.initErrorMsg = null;
+                meta.qrLimitNotified = false;
+
+                // load session from redis
                 let sessionObj = null;
                 try {
                     const raw = await redis.get(`${waSessionKey}${userId}`);
@@ -110,10 +131,17 @@ module.exports = (bot) => {
                     console.warn('[wa] failed to read session from redis', e && e.message ? e.message : e);
                 }
 
+                // Ensure QR attempts counter exists (set to 0 on new login start)
+                try {
+                    const attemptsKey = `${qrAttemptsKeyPrefix}${userId}`;
+                    // Only set to 0 if not present (so repeated ensureWAClientForUser doesn't reset attempts)
+                    const existing = await redis.get(attemptsKey);
+                    if (!existing) await redis.set(attemptsKey, '0', 'EX', QR_ATTEMPT_TTL);
+                } catch (e) { /* ignore */ }
+
                 const clientOpts = {
                     puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] },
                 };
-                // If whatsapp-web.js version supports passing 'session' directly, we try that.
                 if (sessionObj) clientOpts.session = sessionObj;
 
                 const client = new Client(clientOpts);
@@ -121,30 +149,63 @@ module.exports = (bot) => {
 
                 client.on('qr', async (qr) => {
                     try {
+                        // check attempts in redis
+                        const attemptsKey = `${qrAttemptsKeyPrefix}${userId}`;
+                        let attempts = 0;
+                        try { attempts = parseInt(await redis.get(attemptsKey), 10) || 0; } catch (e) { attempts = 0; }
+
+                        if (attempts >= MAX_QR_ATTEMPTS) {
+                            // don't send QR anymore; notify once
+                            if (!meta.qrLimitNotified) {
+                                meta.qrLimitNotified = true;
+                                try {
+                                    const notifier = await redis.get(`${waNotifierChatKey}${userId}`);
+                                    if (notifier) await bot.telegram.sendMessage(notifier, `QR send limit reached (${MAX_QR_ATTEMPTS}). Please run /login again to request a new QR.`);
+                                } catch (e) { /* ignore */ }
+                            }
+                            return;
+                        }
+
                         const png = await qrcode.toDataURL(qr);
                         meta.qr = png;
                         if (meta.qrTimeout) clearTimeout(meta.qrTimeout);
                         meta.qrTimeout = setTimeout(() => { meta.qr = null; }, 90 * 1000);
 
-                        // send to notifier chat (if set)
+                        // send QR to notifier chat and increment attempts
                         try {
                             const notifier = await redis.get(`${waNotifierChatKey}${userId}`);
                             if (notifier) {
                                 const base64 = png.split(',')[1];
                                 const buffer = Buffer.from(base64, 'base64');
-                                await bot.telegram.sendPhoto(notifier, { source: buffer }, { caption: 'Scan this QR in WhatsApp (expires ~60s)' });
+                                await bot.telegram.sendPhoto(notifier, { source: buffer }, { caption: `Scan this QR in WhatsApp to login (attempt ${attempts + 1}/${MAX_QR_ATTEMPTS})` });
                             }
                         } catch (e) {
                             console.warn('[wa] could not send QR to telegram chat:', e && e.message ? e.message : e);
                         }
+
+                        // increment attempts in redis (keep TTL)
+                        try {
+                            await redis.set(attemptsKey, String(attempts + 1), 'EX', QR_ATTEMPT_TTL);
+                            const newAttempts = attempts + 1;
+                            if (newAttempts >= MAX_QR_ATTEMPTS) {
+                                const notifier = await redis.get(`${waNotifierChatKey}${userId}`);
+                                if (notifier) {
+                                    await bot.telegram.sendMessage(notifier, `You have used ${newAttempts} QR attempts. If you didn't scan, run /login again to reset and request a new QR.`);
+                                }
+                            }
+                        } catch (e) { /* ignore */ }
                     } catch (e) {
-                        console.error('[wa] failed to convert qr to png', e && e.message ? e.message : e);
+                        console.error('[wa] qr -> error:', e && e.message ? e.message : e);
                     }
                 });
 
                 client.on('authenticated', async (session) => {
                     try {
+                        // store session JSON in redis
                         await redis.set(`${waSessionKey}${userId}`, JSON.stringify(session));
+                        // clear qr attempts (successful login)
+                        try { await redis.del(`${qrAttemptsKeyPrefix}${userId}`); } catch (e) { /* ignore */ }
+                        meta.qrLimitNotified = false;
                         console.log(`[wa] authenticated and saved session to redis for user ${userId}`);
                     } catch (e) {
                         console.error('[wa] saving session to redis failed:', e && e.message ? e.message : e);
@@ -161,22 +222,22 @@ module.exports = (bot) => {
                 });
 
                 client.on('auth_failure', (msg) => {
+                    meta.initError = true;
+                    meta.initErrorMsg = msg && msg.message ? msg.message : String(msg);
                     console.error(`[wa] auth failure for user ${userId}:`, msg);
                 });
 
                 client.on('disconnected', async (reason) => {
                     meta.ready = false;
                     console.warn(`[wa] disconnected for user ${userId}:`, reason);
-                    try { await redis.del(`${waSessionKey}${userId}`); } catch (e) { }
-                    try { await client.destroy(); } catch (e) { }
+                    try { await redis.del(`${waSessionKey}${userId}`); } catch (e) { /* ignore */ }
+                    try { await client.destroy(); } catch (e) { /* ignore */ }
                     waClients.delete(key);
                 });
 
-                // initialize and wait for initialization to settle
                 try {
                     await client.initialize();
                 } catch (e) {
-                    // initialization error: mark and keep meta for inspection
                     meta.initError = true;
                     meta.initErrorMsg = e && e.message ? e.message : String(e);
                     console.error('[wa] client.initialize error for user', userId, e && e.stack ? e.stack : e);
@@ -185,7 +246,6 @@ module.exports = (bot) => {
                 meta.initError = true;
                 meta.initErrorMsg = e && e.message ? e.message : String(e);
                 console.error('[wa] ensureWAClientForUser background error:', e && e.stack ? e.stack : e);
-                // remove from map to allow retry later
                 waClients.delete(key);
             }
         })();
@@ -312,13 +372,13 @@ module.exports = (bot) => {
                 console.log(`[wa] Running scheduled job for user ${userId} at ${parsed.str}`);
                 try {
                     const meta = ensureWAClientForUser(userId);
-                    // wait for readiness short time
                     const check = await waitForReadyOrQr(meta, 20000, 500);
                     if (!check.ready) {
                         const chat = await redis.get(`${waNotifierChatKey}${userId}`);
                         if (chat) await bot.telegram.sendMessage(chat, `Skipping scheduled post: WhatsApp client not ready (${check.error || 'not ready'}).`);
                         return;
                     }
+
                     const savedPosts = await fetchSavedPostsForUser(userId);
                     if (!savedPosts || savedPosts.length === 0) return;
                     const selectedGroups = await getUserSelectedGroups(userId);
@@ -355,12 +415,16 @@ module.exports = (bot) => {
         } catch (e) { console.error('/start error:', e && e.message ? e.message : e); }
     });
 
+    // login: ask for password
     bot.command('login', async (ctx) => {
         try {
             const userId = ctx.from && ctx.from.id;
             if (!userId) return;
+            // set waiting flag (so next text is treated as password)
             await redis.set(`${waitingForPasswordPrefix}${userId}`, 'true', 'EX', 300);
             await redis.set(`${waNotifierChatKey}${userId}`, String(ctx.chat.id), 'EX', 86400 * 30);
+            // reset QR attempts counter when user explicitly requests login
+            try { await redis.set(`${qrAttemptsKeyPrefix}${userId}`, '0', 'EX', QR_ATTEMPT_TTL); } catch (e) { }
             await ctx.reply('Enter the password to proceed.');
         } catch (e) {
             console.error('/login error:', e && e.message ? e.message : e);
@@ -368,21 +432,53 @@ module.exports = (bot) => {
         }
     });
 
+    // logout: destroy WA client for this Telegram user, remove session, stop schedules
+    bot.command('logout', async (ctx) => {
+        try {
+            const userId = ctx.from && ctx.from.id;
+            if (!userId) return;
+            const key = String(userId);
+            const meta = waClients.get(key);
+            if (meta && meta.client) {
+                try { await meta.client.destroy(); } catch (e) { }
+            }
+            waClients.delete(key);
+            // remove session and notifier and qr attempts; keep saved posts & selected groups (optional)
+            try {
+                await redis.del(`${waSessionKey}${userId}`);
+                await redis.del(`${waNotifierChatKey}${userId}`);
+                await redis.del(`${qrAttemptsKeyPrefix}${userId}`);
+            } catch (e) { /* ignore */ }
+            if (scheduledJobs.has(key)) {
+                try { scheduledJobs.get(key).stop(); } catch (e) { }
+                scheduledJobs.delete(key);
+            }
+            await ctx.reply('Logged out from WhatsApp for this Telegram account. To login again, use /login.');
+        } catch (e) {
+            console.error('/logout error:', e && e.message ? e.message : e);
+            await ctx.reply('An error occurred while logging out.');
+        }
+    });
+
     bot.command('setgroups', async (ctx) => {
         try {
             const userId = ctx.from && ctx.from.id;
             if (!userId) return ctx.reply('Use /login first and provide password.');
-
             const meta = ensureWAClientForUser(userId);
             await redis.set(`${waNotifierChatKey}${userId}`, String(ctx.chat.id), 'EX', 86400 * 30);
 
-            // wait for ready or qr for up to 15s (poll)
             const check = await waitForReadyOrQr(meta, 15000, 500);
 
             if (check.error && !check.ready && !check.qr) {
-                // initialization had error or timed out
                 const msg = `Could not start WhatsApp client: ${check.error}. Try /login again.`;
                 await ctx.reply(msg);
+                return;
+            }
+
+            // If QR exists but qr attempts exhausted -> inform to /login again
+            const attempts = parseInt(await redis.get(`${qrAttemptsKeyPrefix}${userId}`) || '0', 10) || 0;
+            if (!check.ready && check.qr && attempts >= MAX_QR_ATTEMPTS) {
+                await ctx.reply(`QR attempts exhausted (${attempts}/${MAX_QR_ATTEMPTS}). Please run /login again to request a new QR.`);
                 return;
             }
 
@@ -390,19 +486,16 @@ module.exports = (bot) => {
                 await ctx.reply('Please scan the QR I sent you in this chat to login to WhatsApp. After scanning, run /setgroups again.');
                 return;
             }
-
             if (!check.ready) {
                 await ctx.reply('WhatsApp client not ready yet. Please run /login first or wait a few seconds, then run /setgroups.');
                 return;
             }
 
-            // meta.client should be ready
             if (!meta.client) {
                 await ctx.reply('WhatsApp client object not available. Try /login again.');
                 return;
             }
 
-            // fetch chats safely
             let chats;
             try {
                 chats = await meta.client.getChats();
@@ -478,7 +571,8 @@ module.exports = (bot) => {
             const selected = await getUserSelectedGroups(userId);
             const posts = await redis.lrange(`${waSavedPostsKey}${userId}`, 0, -1).catch(() => []);
             const time = await redis.get(`${waScheduleTimeKey}${userId}`);
-            await ctx.reply(`WA status:\nconnected: ${ready}\nqr: ${qr}\nselected_groups: ${selected.length}\nsaved_posts: ${posts.length}\nschedule: ${time || 'not set'}`);
+            const attempts = await redis.get(`${qrAttemptsKeyPrefix}${userId}`).catch(() => null);
+            await ctx.reply(`WA status:\nconnected: ${ready}\nqr: ${qr}\nqr_attempts: ${attempts || 0}/${MAX_QR_ATTEMPTS}\nselected_groups: ${selected.length}\nsaved_posts: ${posts.length}\nschedule: ${time || 'not set'}`);
         } catch (e) { console.error('/wa_status error:', e && e.message ? e.message : e); }
     });
 
@@ -544,13 +638,14 @@ module.exports = (bot) => {
         const userId = ctx.from && ctx.from.id;
         if (!userId) return next();
         try {
-            // waiting password?
             const waitingPwd = await redis.get(`${waitingForPasswordPrefix}${userId}`);
             if (waitingPwd) {
                 await redis.del(`${waitingForPasswordPrefix}${userId}`);
                 const text = ctx.message && ctx.message.text ? ctx.message.text.trim() : '';
                 if (text === ADMIN_PASSWORD) {
                     await redis.set(`${waNotifierChatKey}${userId}`, String(ctx.chat.id), 'EX', 86400 * 30);
+                    // reset qr attempts when user successfully enters password
+                    try { await redis.set(`${qrAttemptsKeyPrefix}${userId}`, '0', 'EX', QR_ATTEMPT_TTL); } catch (e) { }
                     ensureWAClientForUser(userId);
                     await ctx.reply('Password accepted. I\'m starting WhatsApp client. If you do not get a QR in this chat, wait 10s and run /setgroups or /login again. When QR appears, scan it from your WhatsApp app.');
                 } else {
@@ -559,7 +654,6 @@ module.exports = (bot) => {
                 return;
             }
 
-            // waiting for post
             const waitingPost = await redis.get(`${waitingForPostPrefix}${userId}`);
             if (waitingPost) {
                 await redis.del(`${waitingForPostPrefix}${userId}`);
@@ -589,7 +683,6 @@ module.exports = (bot) => {
                 return;
             }
 
-            // waiting for time
             const waitingTime = await redis.get(`${waitingForTimePrefix}${userId}`);
             if (waitingTime) {
                 await redis.del(`${waitingForTimePrefix}${userId}`);
