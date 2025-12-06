@@ -3,20 +3,17 @@
 /**
  * telegram-whatsapp-auto-post-redis.js
  *
- * - Full production-ready module for:
- *   • Telegram bot controls to start/stop WhatsApp client (via QR + password)
- *   • Save posts from Telegram to Redis and auto-post to selected WhatsApp groups
- *   • Interval-based auto-posting (minutes): min 3, max 4320, default 3
- *   • Robust reconnect logic for "Session closed" / page crashes in hosted environments
- *   • Uses writable cache dir per user (default /tmp/wwebjs_<userId>) to avoid write-permission issues
+ * - Full production-ready module.
+ * - Interval-based auto-posting (minutes): min 3, max 4320, default 3
+ * - Robust reconnect logic; now **checks for saved session in Redis before reconnecting**
  *
  * ENV:
- *   ADMIN_PASSWORD_WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST (or fallback 'changeme')
- *   WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_MAX_POST (default 10)
+ *   ADMIN_PASSWORD_WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST
+ *   WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_MAX_POST
  *   WEBJS_CACHE_DIR (optional, default /tmp)
  *   PUPPETEER_EXECUTABLE_PATH | CHROME_BIN | CHROME_PATH (optional)
  *
- * WARNING: Unofficial WhatsApp automation may risk account ban. Use carefully.
+ * WARNING: Unofficial WhatsApp automation may risk account ban.
  */
 
 const fs = require('fs');
@@ -26,7 +23,7 @@ const qrcode = require('qrcode');
 const axios = require('axios');
 const { Client, MessageMedia } = require('whatsapp-web.js');
 
-// your redis module (promise based) - adapt import path as needed
+// your redis module (promise based) - adapt if path differs
 const redis = require('../../../globle_helper/redisConfig');
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD_WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST || 'changeme';
@@ -45,8 +42,8 @@ const DEFAULT_INTERVAL_MINUTES = 3;
 const BASE_CACHE_DIR = process.env.WEBJS_CACHE_DIR || '/tmp';
 
 // how many reconnect tries when we detect session closed
-const RECONNECT_TRIES = 2;
-const RECONNECT_WAIT_MS = 4000;
+const RECONNECT_TRIES = 3;
+const RECONNECT_WAIT_MS = 5000;
 
 process.on('unhandledRejection', (reason, p) => {
     console.error('Unhandled Rejection at:', p, 'reason:', reason && reason.stack ? reason.stack : reason);
@@ -153,9 +150,28 @@ module.exports = (bot) => {
         }
     }
 
-    // Try to re-init client using stored Redis session; used when session/page closed/crashed.
+    // NEW: reconnectClient now checks for saved session BEFORE trying to reconnect.
     async function reconnectClient(userId, tries = RECONNECT_TRIES) {
         console.log(`[wa] reconnectClient: attempting reconnect for user ${userId} (tries ${tries})`);
+
+        // if no saved session in redis -> no point trying reconnect silently
+        try {
+            const saved = await redis.get(`${waSessionKey}${userId}`).catch(() => null);
+            if (!saved) {
+                console.warn(`[wa] reconnectClient: no saved session in Redis for user ${userId}. Will not auto-reconnect. Ask user to /login and scan QR.`);
+                try {
+                    const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
+                    if (notifier) {
+                        await bot.telegram.sendMessage(notifier, '⚠️ Auto-reconnect failed: no saved WhatsApp session found. Please /login and scan QR to create a new session.');
+                    }
+                } catch (_) { /* ignore */ }
+                return false;
+            }
+        } catch (e) {
+            console.error('[wa] reconnectClient: error checking saved session in redis', e && e.message ? e.message : e);
+            // continue with reconnect attempts (best-effort)
+        }
+
         for (let attempt = 1; attempt <= tries; attempt++) {
             try {
                 // destroy old in-memory client but KEEP Redis session
@@ -179,8 +195,8 @@ module.exports = (bot) => {
                 // create a new meta/client via ensureWAClientForUser
                 const meta = ensureWAClientForUser(userId);
 
-                // wait longer for ready
-                const check = await waitForReadyOrQr(meta, 30000, 700);
+                // wait longer for ready (some env need more time)
+                const check = await waitForReadyOrQr(meta, 40000, 700);
                 if (check.ready) {
                     console.log('[wa] reconnectClient succeeded for user', userId);
                     return true;
@@ -230,7 +246,7 @@ module.exports = (bot) => {
         }
     }
 
-    // ---------- ensureWAClientForUser ----------
+    // ---------- ensureWAClientForUser ---------- (same robust code; logs on authenticated saved)
 
     function ensureWAClientForUser(userId) {
         const key = String(userId);
@@ -379,9 +395,7 @@ module.exports = (bot) => {
                                 console.log('[wa] QR sent to Telegram for user', userId);
                             } catch (sendErr) {
                                 console.error('[wa] sendPhoto error for user', userId, sendErr && sendErr.message ? sendErr.message : sendErr);
-                                try {
-                                    await bot.telegram.sendMessage(notifier, `Failed to send QR image. Please run /login again or check server logs.`);
-                                } catch (_) { /* ignore */ }
+                                try { await bot.telegram.sendMessage(notifier, `Failed to send QR image. Please run /login again or check server logs.`); } catch (_) { }
                             }
                         } else {
                             console.warn('[wa] no notifier chat set for user', userId);
@@ -396,7 +410,7 @@ module.exports = (bot) => {
                     }
                 });
 
-                // authenticated -> session save
+                // authenticated -> session save (with robust logging)
                 client.on('authenticated', async (session) => {
                     try {
                         await redis.set(`${waSessionKey}${userId}`, JSON.stringify(session));
@@ -406,11 +420,19 @@ module.exports = (bot) => {
                         try {
                             const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                             if (notifier) {
-                                await bot.telegram.sendMessage(notifier, `WhatsApp authenticated and session saved.`);
+                                await bot.telegram.sendMessage(notifier, `✅ WhatsApp authenticated and session saved.`);
                             }
                         } catch (_) { /* ignore */ }
                     } catch (e) {
+                        meta.initError = true;
+                        meta.initErrorMsg = 'Failed to save WhatsApp session to Redis: ' + (e && e.message ? e.message : e);
                         console.error('[wa] saving session to redis failed:', e && e.message ? e.message : e);
+                        try {
+                            const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
+                            if (notifier) {
+                                await bot.telegram.sendMessage(notifier, `⚠️ Failed to save session to Redis. Auto-reconnect may not work. Error: ${meta.initErrorMsg}`);
+                            }
+                        } catch (_) { /* ignore */ }
                     }
                 });
 
@@ -447,7 +469,7 @@ module.exports = (bot) => {
                     meta.ready = false;
                     console.warn(`[wa] disconnected for user ${userId}:`, reason);
                     try { await redis.del(`${waSessionKey}${userId}`).catch(() => null); } catch (_) { }
-                    try { await client.destroy(); } catch (e) { /* ignore */ }
+                    try { await client.destroy(); } catch (_) { /* ignore */ }
                     if (meta.qrTimeout) {
                         try { clearTimeout(meta.qrTimeout); } catch (_) { }
                         meta.qrTimeout = null;
@@ -650,9 +672,24 @@ module.exports = (bot) => {
             let meta = ensureWAClientForUser(userId);
 
             // Health-check: ensure ready; if not, try reconnect attempts
-            let check = await waitForReadyOrQr(meta, 8000, 500);
+            let check = await waitForReadyOrQr(meta, 10000, 500);
             if (!check.ready) {
                 console.warn('[wa] posting cycle: client not ready, attempting reconnect for user', userId);
+
+                // If no saved session in Redis -> notify and skip reconnect attempts
+                try {
+                    const saved = await redis.get(`${waSessionKey}${userId}`).catch(() => null);
+                    if (!saved) {
+                        const notify = await redis.get(`${waNotifierChatKey}${userId}`);
+                        if (notify) {
+                            try { await bot.telegram.sendMessage(notify, '⚠️ Scheduled post skipped: no saved WhatsApp session (please /login and scan QR).'); } catch (_) { }
+                        }
+                        return;
+                    }
+                } catch (e) {
+                    console.error('[wa] error checking saved session before reconnect', e && e.message ? e.message : e);
+                }
+
                 const re = await reconnectClient(userId, RECONNECT_TRIES);
                 if (!re) {
                     const notify = await redis.get(`${waNotifierChatKey}${userId}`);
@@ -662,7 +699,7 @@ module.exports = (bot) => {
                     return;
                 }
                 meta = waClients.get(String(userId));
-                check = await waitForReadyOrQr(meta, 10000, 500);
+                check = await waitForReadyOrQr(meta, 15000, 500);
                 if (!check.ready) {
                     const notify = await redis.get(`${waNotifierChatKey}${userId}`);
                     if (notify) {
@@ -680,7 +717,7 @@ module.exports = (bot) => {
 
             // Quick getChats health-check
             try {
-                await getChatsSafe(meta.client, 8000, 1, 500);
+                await getChatsSafe(meta.client, 10000, 1, 500);
             } catch (e) {
                 console.warn('[wa] getChats quick check failed before posting, attempting reconnect for user', userId, e && e.message ? e.message : e);
                 const re2 = await reconnectClient(userId, 1);
@@ -824,8 +861,14 @@ module.exports = (bot) => {
             // try quick reconnect if not ready
             let readyCheck = meta && meta.ready;
             if (!readyCheck) {
-                const re = await reconnectClient(userId, 1);
-                if (re) readyCheck = true;
+                // but only attempt reconnect if Redis has saved session
+                const saved = await redis.get(`${waSessionKey}${userId}`).catch(() => null);
+                if (saved) {
+                    const re = await reconnectClient(userId, 1);
+                    if (re) readyCheck = true;
+                } else {
+                    readyCheck = false;
+                }
             }
 
             let attempts = 0;
