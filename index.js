@@ -10,11 +10,13 @@ const cookieParser = require('cookie-parser');
 const promoX_routes = require('./clients/PromoX/routes/all_routes')
 const movies_hub_routes = require('./own_projects/movies_hub/routes/all_routes')
 const promoX_all_actions = require('./clients/PromoX/bot_handler/promoX_bot')
-const message_auto_save_and_post = require('./clients/rv_saini_1000rs/Message_auto_save_and_post/message_auto_save_and_post')
+const message_auto_save_and_post = require('./clients/rv_saini/Message_auto_save_and_post/message_auto_save_and_post')
 const crypto_news_all_actions = require('./clients/mr_akash/Crypto_news/crypto_news_bot')
 const movies_hub_all_actions = require('./own_projects/movies_hub/bot_index')
 const group_help_advance_all_actions = require('./own_projects/Group_help_advance/bot_index')
 const Checker_Gái_Đẹp_all_actions = require('./clients/co_tat_ca_20usdt_10usdt_per_month/co_tat_ca_20usdt_10usdt_per_month')
+const Whatsapp_group_message_auto_save_and_post = require('./clients/rv_saini/Whatsapp_group_message_auto_save_and_post/Whatsapp_group_message_auto_save_and_post')
+
 const globle_domain = process.env.GLOBLE_DOMAIN
 
 // all system middleware
@@ -97,6 +99,18 @@ if (process.env.CHECKER_GAI_DEP_NODE_ENV && process.env.CHECKER_GAI_DEP_NODE_ENV
     app.post('/telegram-webhook-for-checker-gai-dep', checker_gai_dep_bot.webhookCallback('/telegram-webhook-for-checker-gai-dep'));
     checker_gai_dep_bot.telegram.setWebhook(
         `${globle_domain}/telegram-webhook-for-checker-gai-dep`
+    );
+}
+
+// Initialize and launch Checker Gái Đẹp if WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV is not 'development'
+if (process.env.WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.env.WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV !== 'development') {
+    const Whatsapp_group_message_auto_save_and_post_bot = new Telegraf(process.env.BOT_TOKEN_WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST);
+    Whatsapp_group_message_auto_save_and_post(Whatsapp_group_message_auto_save_and_post_bot)
+
+    // Webhook binding (specific route)
+    app.post('/telegram-webhook-for-Whatsapp-group-message-auto-save-and-post', Whatsapp_group_message_auto_save_and_post_bot.webhookCallback('/telegram-webhook-for-Whatsapp-group-message-auto-save-and-post'));
+    Whatsapp_group_message_auto_save_and_post_bot.telegram.setWebhook(
+        `${globle_domain}/telegram-webhook-for-Whatsapp-group-message-auto-save-and-post`
     );
 }
 
