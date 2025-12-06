@@ -113,12 +113,13 @@ module.exports = (bot) => {
 
     // ---------- utility: force reset client & cleanup ----------
 
-    async function forceResetUserClient(userId) {
+    async function forceResetUserClient(userId, opts = {}) {
+        const { keepSession = false } = opts; // default: session bhi delete hogi
+
         const key = String(userId);
         const meta = waClients.get(key);
         if (meta) {
             try {
-                // clear qr timeout if exists
                 if (meta.qrTimeout) {
                     try { clearTimeout(meta.qrTimeout); } catch (_) { }
                     meta.qrTimeout = null;
@@ -137,12 +138,14 @@ module.exports = (bot) => {
             waClients.delete(key);
         }
 
-        // remove redis session & qr attempts to ensure a fresh start
-        try { await redis.del(`${waSessionKey}${userId}`).catch(() => null); } catch (e) { /* ignore */ }
+        // QR attempts ko reset karna safe hai har case me
         try { await redis.del(`${qrAttemptsKeyPrefix}${userId}`).catch(() => null); } catch (e) { /* ignore */ }
 
-        // try remove cache dir too
-        try { removeCacheDir(userId); } catch (_) { /* ignore */ }
+        // Agar hum "full fresh login" chahte hain (keepSession = false) tabhi session + cache delete karo
+        if (!keepSession) {
+            try { await redis.del(`${waSessionKey}${userId}`).catch(() => null); } catch (e) { /* ignore */ }
+            try { removeCacheDir(userId); } catch (_) { /* ignore */ }
+        }
     }
 
     // background me WA ready/QR ka wait — sirf scheduled job ke liye, Telegram update ke andar nahi
@@ -390,12 +393,28 @@ module.exports = (bot) => {
                     meta.initError = true;
                     meta.initErrorMsg = msg && msg.message ? msg.message : String(msg);
                     console.error(`[wa] auth failure for user ${userId}:`, msg);
+
+                    // Yaha ka matlab: WhatsApp ne session ko invalid kar diya
+                    // → Redis waali session hata do, taki next /login par naya QR aaye
+                    try {
+                        await redis.del(`${waSessionKey}${userId}`).catch(() => null);
+                        await redis.del(`${qrAttemptsKeyPrefix}${userId}`).catch(() => null);
+                        try { removeCacheDir(userId); } catch (_) { /* ignore */ }
+                    } catch (e) {
+                        console.error('[wa] error clearing session on auth_failure', e && e.message ? e.message : e);
+                    }
+
                     try {
                         const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                         if (notifier) {
-                            await bot.telegram.sendMessage(notifier, `WhatsApp auth_failure: ${meta.initErrorMsg}`);
+                            await bot.telegram.sendMessage(
+                                notifier,
+                                '❌ WhatsApp auth failure.\nAapko dubara /login karke QR scan karna padega (session invalid ho chuka hai).'
+                            );
                         }
-                    } catch (e) { console.error('[wa] error sending auth_failure notification', e && e.message ? e.message : e); }
+                    } catch (e) {
+                        console.error('[wa] error sending auth_failure notification', e && e.message ? e.message : e);
+                    }
                 });
 
                 client.on('disconnected', async (reason) => {
@@ -578,28 +597,41 @@ module.exports = (bot) => {
             console.error('[wa] sendMessageToWhatsAppGroup error:', msg);
 
             // special handling: session/page closed
-            if (msg.includes('Session closed') || msg.includes('Most likely the page has been closed') || msg.includes('Target closed')) {
+            if (
+                msg.includes('Session closed') ||
+                msg.includes('Most likely the page has been closed') ||
+                msg.includes('Target closed')
+            ) {
                 closed = true;
-                console.error('[wa] Detected closed browser/session while sending message. Resetting client for user', userId);
+                console.error(
+                    '[wa] Detected closed browser/session while sending message. Resetting client (but keeping WA session) for user',
+                    userId
+                );
 
-                // reset client + session + cache dir
+                // ❗ Yaha hum client ko reset karenge lekin Redis session ko preserve karenge
                 try {
-                    await forceResetUserClient(userId);
+                    await forceResetUserClient(userId, { keepSession: true });
                 } catch (resetErr) {
-                    console.error('[wa] error while forceResetUserClient after closed session', resetErr && resetErr.message ? resetErr.message : resetErr);
+                    console.error(
+                        '[wa] error while forceResetUserClient after closed session',
+                        resetErr && resetErr.message ? resetErr.message : resetErr
+                    );
                 }
 
-                // notify user
+                // User ko info de: auto reconnect try hoga; baar-baar ho to /login karein
                 try {
                     const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                     if (notifier) {
                         await bot.telegram.sendMessage(
                             notifier,
-                            '⚠️ WhatsApp browser session appears to be closed/crashed.\nPlease use /login again and scan the QR to continue auto-posting.'
+                            '⚠️ WhatsApp browser session closed/crashed.\nMain automatically reconnect karne ki koshish karunga.\nAgar ye message baar-baar aaye, to /login karke QR dubara scan karein.'
                         );
                     }
                 } catch (notifyErr) {
-                    console.error('[wa] error notifying user about closed session', notifyErr && notifyErr.message ? notifyErr.message : notifyErr);
+                    console.error(
+                        '[wa] error notifying user about closed session',
+                        notifyErr && notifyErr.message ? notifyErr.message : notifyErr
+                    );
                 }
             }
 
