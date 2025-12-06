@@ -3,30 +3,24 @@
 /**
  * telegram-whatsapp-auto-post-redis.js
  *
- * - Full production-ready module.
- * - Interval-based auto-posting (minutes): min 3, max 4320, default 3
- * - Robust reconnect logic; now **checks for saved session in Redis before reconnecting**
+ * - Saara state Redis me (WhatsApp session, selected groups, saved posts, interval minutes, notifier chat, QR attempts)
+ * - /login + password se WhatsApp login (QR max 2 attempts per login cycle)
+ * - /logout se current Telegram user ka WhatsApp session destroy
+ * - /setgroups fast hai (no long wait) → hosting ka 90s timeout safe
+ * - Interval-based auto-post using minutes (min 3, max 4320, default 3)
  *
- * ENV:
- *   ADMIN_PASSWORD_WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST
- *   WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_MAX_POST
- *   WEBJS_CACHE_DIR (optional, default /tmp)
- *   PUPPETEER_EXECUTABLE_PATH | CHROME_BIN | CHROME_PATH (optional)
- *
- * WARNING: Unofficial WhatsApp automation may risk account ban.
+ * WARNING: Unofficial WhatsApp automation se account ban ka risk hota hai.
  */
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
 const qrcode = require('qrcode');
 const axios = require('axios');
 const { Client, MessageMedia } = require('whatsapp-web.js');
 
-// your redis module (promise based) - adapt if path differs
+// your redis module (promise based)
 const redis = require('../../../globle_helper/redisConfig');
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD_WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST || 'changeme';
+const TZ = 'Asia/Kolkata'; // kept for reference; interval job isn't timezone-dependent
 const maxSavedPosts = Number(process.env.WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_MAX_POST) || 10;
 
 // QR limit per login cycle
@@ -38,13 +32,7 @@ const MIN_INTERVAL_MINUTES = 3;
 const MAX_INTERVAL_MINUTES = 4320;
 const DEFAULT_INTERVAL_MINUTES = 3;
 
-// default base cache dir (can override with env)
-const BASE_CACHE_DIR = process.env.WEBJS_CACHE_DIR || '/tmp';
-
-// how many reconnect tries when we detect session closed
-const RECONNECT_TRIES = 3;
-const RECONNECT_WAIT_MS = 5000;
-
+// global error safety
 process.on('unhandledRejection', (reason, p) => {
     console.error('Unhandled Rejection at:', p, 'reason:', reason && reason.stack ? reason.stack : reason);
 });
@@ -57,8 +45,8 @@ module.exports = (bot) => {
     const waitingForPasswordPrefix = `${prefix}waiting_password:`;   // + userId
     const waSessionKey = `${prefix}wa_session:`;                     // + userId
     const waSelectedGroupsKey = `${prefix}selected_groups:`;         // + userId
-    const waSavedPostsKey = `${prefix}saved_posts:`;                 // + userId (list)
-    const waIntervalMinutesKey = `${prefix}interval_minutes:`;       // + userId (string minutes)
+    const waSavedPostsKey = `${prefix}saved_posts:`;                 // + userId
+    const waIntervalMinutesKey = `${prefix}interval_minutes:`;       // + userId (stores integer minutes as string)
     const waNotifierChatKey = `${prefix}notifier_chat:`;             // + userId
     const pendingPostPrefix = `${prefix}pending_post:`;              // + userId
     const waitingForPostPrefix = `${prefix}waiting_for_post:`;       // + userId
@@ -66,46 +54,9 @@ module.exports = (bot) => {
     const qrAttemptsKeyPrefix = `${prefix}qr_attempts:`;             // + userId
 
     const waClients = new Map();       // userId -> meta
-    const scheduledJobs = new Map();   // userId -> { timer, minutes }
+    const scheduledJobs = new Map();   // userId -> { timer: Timeout, minutes: Number }
 
-    // ---------- helpers: cache dir ----------
-
-    function getCacheDirForUser(userId) {
-        const safeBase = BASE_CACHE_DIR || os.tmpdir();
-        return path.join(safeBase, `wwebjs_${String(userId)}`);
-    }
-
-    function ensureCacheDirWritable(userId) {
-        const cacheDir = getCacheDirForUser(userId);
-        try {
-            fs.mkdirSync(cacheDir, { recursive: true });
-        } catch (e) {
-            throw new Error(`Could not create cache dir ${cacheDir}: ${e && e.message ? e.message : e}`);
-        }
-        // write test
-        try {
-            const testFile = path.join(cacheDir, '.write_test');
-            fs.writeFileSync(testFile, String(Date.now()));
-            try { fs.unlinkSync(testFile); } catch (_) { /* ignore */ }
-        } catch (e) {
-            throw new Error(`Cache dir ${cacheDir} not writable: ${e && e.message ? e.message : e}`);
-        }
-        return cacheDir;
-    }
-
-    function removeCacheDir(userId) {
-        const cacheDir = getCacheDirForUser(userId);
-        try {
-            if (fs.existsSync(cacheDir)) {
-                fs.rmSync(cacheDir, { recursive: true, force: true });
-                console.log('[wa] removed cache dir for user', userId, cacheDir);
-            }
-        } catch (e) {
-            console.warn('[wa] failed to remove cache dir', cacheDir, e && e.message ? e.message : e);
-        }
-    }
-
-    // ---------- interval helpers ----------
+    // ---------- helpers: time parsing & interval scheduling ----------
 
     function clampIntervalMinutes(n) {
         if (typeof n !== 'number' || !isFinite(n)) return DEFAULT_INTERVAL_MINUTES;
@@ -114,14 +65,14 @@ module.exports = (bot) => {
         return Math.floor(n);
     }
 
-    // ---------- client lifecycle helpers ----------
+    // ---------- utility: force reset client & cleanup ----------
 
-    async function forceResetUserClient(userId, opts = {}) {
-        const { keepSession = false } = opts;
+    async function forceResetUserClient(userId) {
         const key = String(userId);
         const meta = waClients.get(key);
         if (meta) {
             try {
+                // clear qr timeout if exists
                 if (meta.qrTimeout) {
                     try { clearTimeout(meta.qrTimeout); } catch (_) { }
                     meta.qrTimeout = null;
@@ -140,80 +91,12 @@ module.exports = (bot) => {
             waClients.delete(key);
         }
 
-        // reset QR attempts
-        try { await redis.del(`${qrAttemptsKeyPrefix}${userId}`).catch(() => null); } catch (_) { }
-
-        // Remove redis session + cache only if not keeping session
-        if (!keepSession) {
-            try { await redis.del(`${waSessionKey}${userId}`).catch(() => null); } catch (_) { }
-            try { removeCacheDir(userId); } catch (_) { /* ignore */ }
-        }
+        // remove redis session & qr attempts to ensure a fresh start
+        try { await redis.del(`${waSessionKey}${userId}`).catch(() => null); } catch (e) { /* ignore */ }
+        try { await redis.del(`${qrAttemptsKeyPrefix}${userId}`).catch(() => null); } catch (e) { /* ignore */ }
     }
 
-    // NEW: reconnectClient now checks for saved session BEFORE trying to reconnect.
-    async function reconnectClient(userId, tries = RECONNECT_TRIES) {
-        console.log(`[wa] reconnectClient: attempting reconnect for user ${userId} (tries ${tries})`);
-
-        // if no saved session in redis -> no point trying reconnect silently
-        try {
-            const saved = await redis.get(`${waSessionKey}${userId}`).catch(() => null);
-            if (!saved) {
-                console.warn(`[wa] reconnectClient: no saved session in Redis for user ${userId}. Will not auto-reconnect. Ask user to /login and scan QR.`);
-                try {
-                    const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
-                    if (notifier) {
-                        await bot.telegram.sendMessage(notifier, '⚠️ Auto-reconnect failed: no saved WhatsApp session found. Please /login and scan QR to create a new session.');
-                    }
-                } catch (_) { /* ignore */ }
-                return false;
-            }
-        } catch (e) {
-            console.error('[wa] reconnectClient: error checking saved session in redis', e && e.message ? e.message : e);
-            // continue with reconnect attempts (best-effort)
-        }
-
-        for (let attempt = 1; attempt <= tries; attempt++) {
-            try {
-                // destroy old in-memory client but KEEP Redis session
-                await forceResetUserClient(userId, { keepSession: true });
-
-                // ensure cache dir writable
-                try {
-                    ensureCacheDirWritable(userId);
-                } catch (e) {
-                    console.error('[wa] reconnectClient cacheDir writable failed:', e && e.message ? e.message : e);
-                    // notify user
-                    try {
-                        const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
-                        if (notifier) {
-                            await bot.telegram.sendMessage(notifier, `⚠️ Server can't write WA cache files: ${e && e.message ? e.message : e}`);
-                        }
-                    } catch (_) { /* ignore */ }
-                    return false;
-                }
-
-                // create a new meta/client via ensureWAClientForUser
-                const meta = ensureWAClientForUser(userId);
-
-                // wait longer for ready (some env need more time)
-                const check = await waitForReadyOrQr(meta, 40000, 700);
-                if (check.ready) {
-                    console.log('[wa] reconnectClient succeeded for user', userId);
-                    return true;
-                } else {
-                    console.warn('[wa] reconnectClient attempt', attempt, 'not ready:', check.error || 'no-ready');
-                    await new Promise(r => setTimeout(r, RECONNECT_WAIT_MS));
-                }
-            } catch (e) {
-                console.error('[wa] reconnectClient attempt error:', e && e.message ? e.message : e);
-                await new Promise(r => setTimeout(r, RECONNECT_WAIT_MS));
-            }
-        }
-        console.error('[wa] reconnectClient: all attempts failed for user', userId);
-        return false;
-    }
-
-    // background wait for ready or QR
+    // background me WA ready/QR ka wait — sirf scheduled job ke liye, Telegram update ke andar nahi
     async function waitForReadyOrQr(meta, timeoutMs = 20000, pollInterval = 500) {
         const start = Date.now();
         while (Date.now() - start < timeoutMs) {
@@ -225,8 +108,9 @@ module.exports = (bot) => {
         return { ready: !!meta.ready, qr: meta.qr, error: meta.initError ? meta.initErrorMsg : 'timeout' };
     }
 
-    // ---------- getChatsSafe ----------
-
+    /**
+     * getChatsSafe: few retries + timeout per try
+     */
     async function getChatsSafe(client, timeoutMs = 20000, retries = 2, delayMs = 1000) {
         for (let attempt = 1; attempt <= retries; attempt++) {
             try {
@@ -239,15 +123,19 @@ module.exports = (bot) => {
                 ]);
                 return res;
             } catch (err) {
-                console.warn(`[wa] getChats attempt ${attempt} failed:`, err && err.message ? err.message : err);
+                console.warn(
+                    `[wa] getChats attempt ${attempt} failed:`,
+                    err && err.message ? err.message : err
+                );
                 if (attempt < retries) await new Promise(r => setTimeout(r, delayMs));
                 else throw err;
             }
         }
     }
 
-    // ---------- ensureWAClientForUser ---------- (same robust code; logs on authenticated saved)
-
+    /**
+     * ensureWAClientForUser: WhatsApp client create/reuse with Redis session
+     */
     function ensureWAClientForUser(userId) {
         const key = String(userId);
         if (waClients.has(key)) return waClients.get(key);
@@ -261,7 +149,6 @@ module.exports = (bot) => {
             initError: false,
             initErrorMsg: null,
             qrLimitNotified: false,
-            cacheDir: null,
         };
         waClients.set(key, meta);
 
@@ -287,27 +174,6 @@ module.exports = (bot) => {
                     if (!existing) await redis.set(attemptsKey, '0', 'EX', QR_ATTEMPT_TTL);
                 } catch (e) { /* ignore */ }
 
-                // ensure cache dir writable and set userDataDir for puppeteer
-                let cacheDir = null;
-                try {
-                    cacheDir = ensureCacheDirWritable(userId); // may throw
-                    meta.cacheDir = cacheDir;
-                    console.log('[wa] using cacheDir for user', userId, cacheDir);
-                } catch (e) {
-                    meta.initError = true;
-                    meta.initErrorMsg = `Cache dir setup failed: ${e && e.message ? e.message : e}`;
-                    console.error('[wa] cache dir writable check failed for user', userId, meta.initErrorMsg);
-                    // notify user if notifier set
-                    try {
-                        const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
-                        if (notifier) {
-                            await bot.telegram.sendMessage(notifier, `⚠️ Server can't write WhatsApp cache files. Please contact admin (cache dir issue). Error: ${meta.initErrorMsg}`);
-                        }
-                    } catch (_) { /* ignore */ }
-                    waClients.delete(key);
-                    return;
-                }
-
                 // puppeteer options: container friendly
                 const puppeteerArgs = [
                     '--no-sandbox',
@@ -328,7 +194,6 @@ module.exports = (bot) => {
                     puppeteer: {
                         headless: true,
                         args: puppeteerArgs,
-                        userDataDir: cacheDir,
                     },
                 };
 
@@ -355,6 +220,7 @@ module.exports = (bot) => {
 
                 // QR handler
                 client.on('qr', async (qr) => {
+                    console.log('[wa] QR event fired for user', userId);
                     try {
                         const attemptsKey = `${qrAttemptsKeyPrefix}${userId}`;
                         let attempts = 0;
@@ -370,7 +236,11 @@ module.exports = (bot) => {
                                 try {
                                     const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                                     if (notifier) {
-                                        await bot.telegram.sendMessage(notifier, `QR send limit reached (${MAX_QR_ATTEMPTS}). Please run /login again.`);
+                                        try {
+                                            await bot.telegram.sendMessage(notifier, `QR send limit reached (${MAX_QR_ATTEMPTS}). Please run /login again.`);
+                                        } catch (sendErr) {
+                                            console.error('[wa] sendMessage error when notifying qr limit:', sendErr && sendErr.message ? sendErr.message : sendErr);
+                                        }
                                     }
                                 } catch (_) { /* ignore */ }
                             }
@@ -395,7 +265,9 @@ module.exports = (bot) => {
                                 console.log('[wa] QR sent to Telegram for user', userId);
                             } catch (sendErr) {
                                 console.error('[wa] sendPhoto error for user', userId, sendErr && sendErr.message ? sendErr.message : sendErr);
-                                try { await bot.telegram.sendMessage(notifier, `Failed to send QR image. Please run /login again or check server logs.`); } catch (_) { }
+                                try {
+                                    await bot.telegram.sendMessage(notifier, `Failed to send QR image. Please run /login again or check server logs.`);
+                                } catch (_) { /* ignore */ }
                             }
                         } else {
                             console.warn('[wa] no notifier chat set for user', userId);
@@ -410,7 +282,7 @@ module.exports = (bot) => {
                     }
                 });
 
-                // authenticated -> session save (with robust logging)
+                // authenticated -> session save
                 client.on('authenticated', async (session) => {
                     try {
                         await redis.set(`${waSessionKey}${userId}`, JSON.stringify(session));
@@ -420,19 +292,11 @@ module.exports = (bot) => {
                         try {
                             const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                             if (notifier) {
-                                await bot.telegram.sendMessage(notifier, `✅ WhatsApp authenticated and session saved.`);
+                                await bot.telegram.sendMessage(notifier, `WhatsApp authenticated and session saved.`);
                             }
                         } catch (_) { /* ignore */ }
                     } catch (e) {
-                        meta.initError = true;
-                        meta.initErrorMsg = 'Failed to save WhatsApp session to Redis: ' + (e && e.message ? e.message : e);
                         console.error('[wa] saving session to redis failed:', e && e.message ? e.message : e);
-                        try {
-                            const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
-                            if (notifier) {
-                                await bot.telegram.sendMessage(notifier, `⚠️ Failed to save session to Redis. Auto-reconnect may not work. Error: ${meta.initErrorMsg}`);
-                            }
-                        } catch (_) { /* ignore */ }
                     }
                 });
 
@@ -448,34 +312,31 @@ module.exports = (bot) => {
                     } catch (e) { /* ignore */ }
                 });
 
-                // auth_failure -> session invalidated by WhatsApp
                 client.on('auth_failure', async (msg) => {
                     meta.initError = true;
                     meta.initErrorMsg = msg && msg.message ? msg.message : String(msg);
                     console.error(`[wa] auth failure for user ${userId}:`, msg);
-                    // remove Redis session + cache; notify user
-                    try { await redis.del(`${waSessionKey}${userId}`).catch(() => null); } catch (_) { }
-                    try { await redis.del(`${qrAttemptsKeyPrefix}${userId}`).catch(() => null); } catch (_) { }
-                    try { removeCacheDir(userId); } catch (_) { /* ignore */ }
                     try {
                         const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                         if (notifier) {
-                            await bot.telegram.sendMessage(notifier, '❌ WhatsApp auth failure. Please /login and scan QR again (session invalidated).');
+                            await bot.telegram.sendMessage(notifier, `WhatsApp auth_failure: ${meta.initErrorMsg}`);
                         }
-                    } catch (_) { /* ignore */ }
+                    } catch (e) { console.error('[wa] error sending auth_failure notification', e && e.message ? e.message : e); }
                 });
 
                 client.on('disconnected', async (reason) => {
                     meta.ready = false;
                     console.warn(`[wa] disconnected for user ${userId}:`, reason);
-                    try { await redis.del(`${waSessionKey}${userId}`).catch(() => null); } catch (_) { }
-                    try { await client.destroy(); } catch (_) { /* ignore */ }
+                    try {
+                        await redis.del(`${waSessionKey}${userId}`).catch(() => null);
+                    } catch (_) { }
+                    try { await client.destroy(); } catch (e) { /* ignore */ }
+                    // clear any timers
                     if (meta.qrTimeout) {
                         try { clearTimeout(meta.qrTimeout); } catch (_) { }
                         meta.qrTimeout = null;
                     }
                     waClients.delete(key);
-                    try { removeCacheDir(userId); } catch (_) { /* ignore */ }
                     try {
                         const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                         if (notifier) {
@@ -491,7 +352,11 @@ module.exports = (bot) => {
                 } catch (initErr) {
                     meta.initError = true;
                     meta.initErrorMsg = initErr && initErr.message ? initErr.message : String(initErr);
-                    console.error('[wa] client.initialize error for user', userId, initErr && initErr.stack ? initErr.stack : initErr);
+                    console.error(
+                        '[wa] client.initialize error for user',
+                        userId,
+                        initErr && initErr.stack ? initErr.stack : initErr
+                    );
                     try {
                         const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                         if (notifier) {
@@ -503,6 +368,7 @@ module.exports = (bot) => {
                 meta.initError = true;
                 meta.initErrorMsg = e && e.message ? e.message : String(e);
                 console.error('[wa] ensureWAClientForUser background error:', e && e.stack ? e.stack : e);
+                // cleanup if weird failure
                 waClients.delete(key);
             }
         })();
@@ -510,7 +376,7 @@ module.exports = (bot) => {
         return meta;
     }
 
-    // ---------- Redis helpers ----------
+    // ---------- Redis helpers for user data ----------
 
     async function getUserSelectedGroups(userId) {
         try {
@@ -563,8 +429,11 @@ module.exports = (bot) => {
         }
     }
 
-    // ---------- sendMessageToWhatsAppGroup with closed detection ----------
-
+    /**
+     * sendMessageToWhatsAppGroup:
+     *  - returns { ok: boolean, closed: boolean }
+     *  - closed = true jab "Session closed" / "Target closed" type error aaye
+     */
     async function sendMessageToWhatsAppGroup(userId, client, savedMsg, groupId) {
         let closed = false;
         try {
@@ -632,28 +501,24 @@ module.exports = (bot) => {
             console.error('[wa] sendMessageToWhatsAppGroup error:', msg);
 
             // special handling: session/page closed
-            if (
-                msg.includes('Session closed') ||
-                msg.includes('Most likely the page has been closed') ||
-                msg.includes('Target closed')
-            ) {
+            if (msg.includes('Session closed') || msg.includes('Most likely the page has been closed') || msg.includes('Target closed')) {
                 closed = true;
-                console.error('[wa] Detected closed browser/session while sending message. Resetting client (keeping session) for user', userId);
+                console.error('[wa] Detected closed browser/session while sending message. Resetting client for user', userId);
 
-                // reset client but keep Redis session so reconnect can reuse credentials
+                // reset client + session
                 try {
-                    await forceResetUserClient(userId, { keepSession: true });
+                    await forceResetUserClient(userId);
                 } catch (resetErr) {
                     console.error('[wa] error while forceResetUserClient after closed session', resetErr && resetErr.message ? resetErr.message : resetErr);
                 }
 
-                // notify user but say we'll try to auto reconnect
+                // notify user
                 try {
                     const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                     if (notifier) {
                         await bot.telegram.sendMessage(
                             notifier,
-                            '⚠️ WhatsApp browser session appears to be closed/crashed.\nAttempting automatic reconnect (no QR). If this repeats, please /login and scan QR.'
+                            '⚠️ WhatsApp browser session appears to be closed/crashed.\nPlease use /login again and scan the QR to continue auto-posting.'
                         );
                     }
                 } catch (notifyErr) {
@@ -665,93 +530,66 @@ module.exports = (bot) => {
         }
     }
 
-    // ---------- posting job with health-check + reconnect attempts ----------
+    // ---------- interval scheduling: setInterval based (minutes) ----------
 
     async function performPostingCycleForUser(userId) {
         try {
-            let meta = ensureWAClientForUser(userId);
-
-            // Health-check: ensure ready; if not, try reconnect attempts
-            let check = await waitForReadyOrQr(meta, 10000, 500);
+            const meta = ensureWAClientForUser(userId);
+            const check = await waitForReadyOrQr(meta, 20000, 500);
             if (!check.ready) {
-                console.warn('[wa] posting cycle: client not ready, attempting reconnect for user', userId);
-
-                // If no saved session in Redis -> notify and skip reconnect attempts
-                try {
-                    const saved = await redis.get(`${waSessionKey}${userId}`).catch(() => null);
-                    if (!saved) {
-                        const notify = await redis.get(`${waNotifierChatKey}${userId}`);
-                        if (notify) {
-                            try { await bot.telegram.sendMessage(notify, '⚠️ Scheduled post skipped: no saved WhatsApp session (please /login and scan QR).'); } catch (_) { }
-                        }
-                        return;
-                    }
-                } catch (e) {
-                    console.error('[wa] error checking saved session before reconnect', e && e.message ? e.message : e);
+                const chat = await redis.get(`${waNotifierChatKey}${userId}`);
+                if (chat) {
+                    try {
+                        await bot.telegram.sendMessage(
+                            chat,
+                            `Skipping scheduled post: WhatsApp client not ready (${check.error || 'not ready'}).`
+                        );
+                    } catch (_) { /* ignore */ }
                 }
-
-                const re = await reconnectClient(userId, RECONNECT_TRIES);
-                if (!re) {
-                    const notify = await redis.get(`${waNotifierChatKey}${userId}`);
-                    if (notify) {
-                        try { await bot.telegram.sendMessage(notify, '⚠️ Skipping scheduled post: could not reconnect WhatsApp client. Please check server or run /login.'); } catch (_) { }
-                    }
-                    return;
-                }
-                meta = waClients.get(String(userId));
-                check = await waitForReadyOrQr(meta, 15000, 500);
-                if (!check.ready) {
-                    const notify = await redis.get(`${waNotifierChatKey}${userId}`);
-                    if (notify) {
-                        try { await bot.telegram.sendMessage(notify, '⚠️ Skipping scheduled post: WhatsApp client still not ready after reconnect.'); } catch (_) { }
-                    }
-                    return;
-                }
+                return;
             }
 
-            // fetch posts/groups
             const savedPosts = await fetchSavedPostsForUser(userId);
             if (!savedPosts || savedPosts.length === 0) return;
+
             const selectedGroups = await getUserSelectedGroups(userId);
             if (!selectedGroups || selectedGroups.length === 0) return;
-
-            // Quick getChats health-check
-            try {
-                await getChatsSafe(meta.client, 10000, 1, 500);
-            } catch (e) {
-                console.warn('[wa] getChats quick check failed before posting, attempting reconnect for user', userId, e && e.message ? e.message : e);
-                const re2 = await reconnectClient(userId, 1);
-                if (!re2) {
-                    const notify = await redis.get(`${waNotifierChatKey}${userId}`);
-                    if (notify) {
-                        try { await bot.telegram.sendMessage(notify, '⚠️ Skipping scheduled post: WhatsApp client not responding (getChats failed).'); } catch (_) { }
-                    }
-                    return;
-                }
-                meta = waClients.get(String(userId));
-            }
 
             let successes = 0, failures = 0;
             let closedDetected = false;
 
             outer: for (const gid of selectedGroups) {
                 for (const post of savedPosts) {
-                    const clientNow = waClients.get(String(userId)) && waClients.get(String(userId)).client;
-                    const { ok, closed } = await sendMessageToWhatsAppGroup(userId, clientNow, post, gid);
+                    const { ok, closed } = await sendMessageToWhatsAppGroup(userId, meta.client, post, gid);
                     if (ok) successes++; else failures++;
-                    if (closed) { closedDetected = true; break outer; }
+                    if (closed) {
+                        closedDetected = true;
+                        break outer;
+                    }
                     await new Promise(r => setTimeout(r, 1200));
                 }
             }
 
             const notify = await redis.get(`${waNotifierChatKey}${userId}`);
             if (!notify) return;
+
             if (closedDetected) {
-                try { await bot.telegram.sendMessage(notify, `⚠️ Scheduled posting aborted: WhatsApp session/page is closed. Attempted reconnect. If posting doesn't resume, please /login and scan QR.`); } catch (_) { }
+                // if session closed, don't send normal summary, just warning
+                try {
+                    await bot.telegram.sendMessage(
+                        notify,
+                        `⚠️ Scheduled posting aborted: WhatsApp session/page is closed.\nPlease run /login and scan QR again to resume auto-posts.`
+                    );
+                } catch (_) { /* ignore */ }
                 return;
             }
-            try { await bot.telegram.sendMessage(notify, `Scheduled posting completed. Success: ${successes}, Failures: ${failures}`); } catch (_) { }
 
+            try {
+                await bot.telegram.sendMessage(
+                    notify,
+                    `Scheduled posting completed. Success: ${successes}, Failures: ${failures}`
+                );
+            } catch (_) { /* ignore */ }
         } catch (e) {
             console.error('[wa] performPostingCycleForUser error for', userId, e && e.message ? e.message : e);
         }
@@ -760,6 +598,8 @@ module.exports = (bot) => {
     async function scheduleIntervalJobForUser(userId) {
         try {
             const key = String(userId);
+
+            // clear old job if present
             if (scheduledJobs.has(key)) {
                 try {
                     const obj = scheduledJobs.get(key);
@@ -768,10 +608,12 @@ module.exports = (bot) => {
                 scheduledJobs.delete(key);
             }
 
+            // read interval minutes from redis; fallback to default
             let raw = await redis.get(`${waIntervalMinutesKey}${userId}`);
             let minutes;
             if (!raw) {
                 minutes = DEFAULT_INTERVAL_MINUTES;
+                // store default so status shows something
                 try { await redis.set(`${waIntervalMinutesKey}${userId}`, String(minutes)); } catch (e) { /* ignore */ }
             } else {
                 const parsed = parseInt(raw, 10);
@@ -806,18 +648,23 @@ module.exports = (bot) => {
         }
     });
 
-    // /login: ask for password and reset in-memory client (fresh start)
+    // When user types /login we set waiting_password and also ensure a forced reset for a fresh start.
     bot.command('login', async (ctx) => {
         try {
             const userId = ctx.from && ctx.from.id;
             if (!userId) return;
+            // set waiting password flag
             await redis.set(`${waitingForPasswordPrefix}${userId}`, 'true', 'EX', 300);
+            // set notifier chat
             await redis.set(`${waNotifierChatKey}${userId}`, String(ctx.chat.id), 'EX', 86400 * 30);
-            try { await forceResetUserClient(userId); } catch (e) { console.error('[wa] forceResetUserClient on /login err', e && e.message ? e.message : e); }
+
+            // force-clear any in-memory client + redis session/qr attempts to ensure fresh login flow
+            try { await forceResetUserClient(userId); } catch (e) { console.error('[wa] error during forceResetUserClient on /login', e && e.message ? e.message : e); }
+
             await ctx.reply('Enter the password to proceed.');
         } catch (e) {
             console.error('/login error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred. Try again.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('An error occurred. Try again.'); } catch (_) {}
         }
     });
 
@@ -831,56 +678,54 @@ module.exports = (bot) => {
                 try { await meta.client.destroy(); } catch (e) { console.error('[wa] error destroying client on /logout', e && e.message ? e.message : e); }
             }
             waClients.delete(key);
+
             try {
                 await redis.del(`${waSessionKey}${userId}`);
                 await redis.del(`${waNotifierChatKey}${userId}`);
                 await redis.del(`${qrAttemptsKeyPrefix}${userId}`);
             } catch (e) { /* ignore */ }
+
             if (scheduledJobs.has(key)) {
-                try { const obj = scheduledJobs.get(key); if (obj && obj.timer) clearInterval(obj.timer); } catch (e) { /* ignore */ }
+                try {
+                    const obj = scheduledJobs.get(key);
+                    if (obj && obj.timer) clearInterval(obj.timer);
+                } catch (e) { console.error('[wa] error clearing scheduled job on /logout', e && e.message ? e.message : e); }
                 scheduledJobs.delete(key);
             }
-            try { removeCacheDir(userId); } catch (_) { /* ignore */ }
+
             await ctx.reply('Logged out from WhatsApp for this Telegram account. To login again, use /login.');
         } catch (e) {
             console.error('/logout error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred while logging out.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('An error occurred while logging out.'); } catch (_) {}
         }
     });
 
-    // /setgroups: list groups for selection (fast)
+    // IMPORTANT: /setgroups fast (no long waiting)
     bot.command('setgroups', async (ctx) => {
         try {
             const userId = ctx.from && ctx.from.id;
             if (!userId) return ctx.reply('Use /login first and provide password.');
 
-            // ensure client exists
             const meta = ensureWAClientForUser(userId);
             await redis.set(`${waNotifierChatKey}${userId}`, String(ctx.chat.id), 'EX', 86400 * 30);
-
-            // try quick reconnect if not ready
-            let readyCheck = meta && meta.ready;
-            if (!readyCheck) {
-                // but only attempt reconnect if Redis has saved session
-                const saved = await redis.get(`${waSessionKey}${userId}`).catch(() => null);
-                if (saved) {
-                    const re = await reconnectClient(userId, 1);
-                    if (re) readyCheck = true;
-                } else {
-                    readyCheck = false;
-                }
-            }
 
             let attempts = 0;
             try {
                 attempts = parseInt(await redis.get(`${qrAttemptsKeyPrefix}${userId}`) || '0', 10) || 0;
-            } catch (e) { attempts = 0; }
+            } catch (e) {
+                attempts = 0;
+            }
 
-            if (!readyCheck) {
+            // If WA not ready yet
+            if (!meta.ready) {
                 if (attempts >= MAX_QR_ATTEMPTS) {
-                    await ctx.reply(`QR attempts exhausted (${attempts}/${MAX_QR_ATTEMPTS}). Please run /login again to request a new QR and then /setgroups.`);
+                    await ctx.reply(
+                        `QR attempts exhausted (${attempts}/${MAX_QR_ATTEMPTS}). Please run /login again to request a new QR and then /setgroups.`
+                    );
                 } else {
-                    await ctx.reply('WhatsApp client not ready yet. Please use /login and scan the QR sent in this chat, then run /setgroups.');
+                    await ctx.reply(
+                        'WhatsApp client not ready yet. Please use /login and scan the QR sent in this chat, then run /setgroups.'
+                    );
                 }
                 return;
             }
@@ -890,7 +735,7 @@ module.exports = (bot) => {
                 return;
             }
 
-            // WA ready -> fetch chats
+            // WA ready → fetch chats with our own timeout+retries
             let chats;
             try {
                 chats = await getChatsSafe(meta.client, 20000, 2, 1000);
@@ -898,21 +743,23 @@ module.exports = (bot) => {
                 const msg = e && e.message ? e.message : String(e);
                 console.error('/setgroups getChatsSafe error:', msg);
 
-                // Try reconnect once before failing
-                const re = await reconnectClient(userId, 1);
-                if (re) {
-                    const newMeta = waClients.get(String(userId));
-                    try {
-                        chats = await getChatsSafe(newMeta.client, 20000, 2, 1000);
-                    } catch (e2) {
-                        console.error('/setgroups retry getChats failed', e2 && e2.message ? e2.message : e2);
-                        await ctx.reply('Failed to fetch WhatsApp chats after reconnect. Try /login again if problem persists.');
-                        return;
+                // if session closed, destroy client + delete session
+                if (msg.includes('Session closed') || msg.includes('Target closed')) {
+                    const key = String(userId);
+                    const m = waClients.get(key);
+                    if (m && m.client) {
+                        try { await m.client.destroy(); } catch (_) { }
                     }
+                    waClients.delete(key);
+                    try { await redis.del(`${waSessionKey}${userId}`); } catch (_) { }
+
+                    await ctx.reply(
+                        'WhatsApp session seems closed / crashed. Please use /login again, scan QR and then run /setgroups.'
+                    );
                 } else {
                     await ctx.reply('Failed to fetch WhatsApp chats (timeout or error). Try again later.');
-                    return;
                 }
+                return;
             }
 
             const groups = chats
@@ -935,11 +782,11 @@ module.exports = (bot) => {
             await ctx.reply('Select groups (toggle):', { reply_markup: { inline_keyboard: keyboard } });
         } catch (e) {
             console.error('/setgroups handler error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred while processing /setgroups.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('An error occurred while processing /setgroups.'); } catch (_) {}
         }
     });
 
-    // /settime: ask for interval (minutes)
+    // /settime now asks for interval in minutes (3-4320)
     bot.command('settime', async (ctx) => {
         try {
             const userId = ctx.from && ctx.from.id;
@@ -949,7 +796,7 @@ module.exports = (bot) => {
             await ctx.reply('Please send the interval in minutes between posts (3-4320).');
         } catch (e) {
             console.error('/settime error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('An error occurred.'); } catch (_) {}
         }
     });
 
@@ -962,7 +809,7 @@ module.exports = (bot) => {
             await ctx.reply('Send the post (photo, video, document, audio, voice, sticker, or text). I will save it for scheduled posting.');
         } catch (e) {
             console.error('/save error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('An error occurred.'); } catch (_) {}
         }
     });
 
@@ -975,7 +822,7 @@ module.exports = (bot) => {
             await ctx.reply(`You have ${count} saved post(s). Use /save to add more or /clearposts to remove all.`);
         } catch (e) {
             console.error('/listposts error:', e && e.message ? e.message : e);
-            try { await ctx.reply('Error fetching posts.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('Error fetching posts.'); } catch (_) {}
         }
     });
 
@@ -987,7 +834,7 @@ module.exports = (bot) => {
             await ctx.reply('All saved posts cleared.');
         } catch (e) {
             console.error('/clearposts error:', e && e.message ? e.message : e);
-            try { await ctx.reply('Error clearing posts.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('Error clearing posts.'); } catch (_) {}
         }
     });
 
@@ -1004,13 +851,12 @@ module.exports = (bot) => {
             const attempts = await redis.get(`${qrAttemptsKeyPrefix}${userId}`).catch(() => null);
             const jobObj = scheduledJobs.get(String(userId));
             const scheduled = jobObj ? `every ${jobObj.minutes} minute(s)` : 'not scheduled';
-            const cacheDir = meta && meta.cacheDir ? meta.cacheDir : getCacheDirForUser(userId);
             await ctx.reply(
-                `WA status:\nconnected: ${ready}\nqr: ${qr}\nqr_attempts: ${attempts || 0}/${MAX_QR_ATTEMPTS}\nselected_groups: ${selected.length}\nsaved_posts: ${posts.length}\ninterval_minutes: ${interval || DEFAULT_INTERVAL_MINUTES}\nscheduled: ${scheduled}\ncache_dir: ${cacheDir}`
+                `WA status:\nconnected: ${ready}\nqr: ${qr}\nqr_attempts: ${attempts || 0}/${MAX_QR_ATTEMPTS}\nselected_groups: ${selected.length}\nsaved_posts: ${posts.length}\ninterval_minutes: ${interval || DEFAULT_INTERVAL_MINUTES}\nscheduled: ${scheduled}`
             );
         } catch (e) {
             console.error('/wa_status error:', e && e.message ? e.message : e);
-            try { await ctx.reply('Error fetching WA status.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('Error fetching WA status.'); } catch (_) {}
         }
     });
 
@@ -1035,7 +881,7 @@ module.exports = (bot) => {
                 else selected.splice(idx, 1);
                 await setUserSelectedGroups(userId, selected);
                 await ctx.answerCbQuery('Toggled.');
-                try { await ctx.editMessageReplyMarkup({ inline_keyboard: [] }); } catch (_) { /* ignore */ }
+                try { await ctx.editMessageReplyMarkup({ inline_keyboard: [] }); } catch (_) { }
                 await ctx.reply('Selection updated. (Tip: run /setgroups to view again)');
                 return;
             }
@@ -1049,9 +895,12 @@ module.exports = (bot) => {
                 }
                 const selected = await getUserSelectedGroups(userId);
                 await ctx.answerCbQuery(`Saved ${selected.length} group(s).`);
-                try { await ctx.editMessageReplyMarkup({ inline_keyboard: [] }); } catch (_) { /* ignore */ }
+                try { await ctx.editMessageReplyMarkup({ inline_keyboard: [] }); } catch (_) { }
                 await ctx.reply('Group selection saved.');
+
+                // schedule interval job (will use stored minutes or default if missing)
                 try { await scheduleIntervalJobForUser(userId); } catch (e) { console.error('[wa] scheduleIntervalJobForUser error after wa_done', e && e.message ? e.message : e); }
+
                 return;
             }
 
@@ -1068,24 +917,24 @@ module.exports = (bot) => {
                     const pending = await redis.get(`${pendingPostPrefix}${userId}`);
                     if (!pending) {
                         await ctx.answerCbQuery('No pending post found.');
-                        try { await ctx.editMessageText('No post found to save.'); } catch (_) { /* ignore */ }
+                        try { await ctx.editMessageText('No post found to save.'); } catch (_) { }
                         return;
                     }
                     await addSavedPostForUser(userId, JSON.parse(pending));
                     await redis.del(`${pendingPostPrefix}${userId}`);
                     await ctx.answerCbQuery('Saved.');
-                    try { await ctx.editMessageText('Post saved!'); } catch (_) { /* ignore */ }
+                    try { await ctx.editMessageText('Post saved!'); } catch (_) { }
                     return;
                 } else {
                     await redis.del(`${pendingPostPrefix}${userId}`);
                     await ctx.answerCbQuery('Not saved.');
-                    try { await ctx.editMessageText('Post not saved.'); } catch (_) { /* ignore */ }
+                    try { await ctx.editMessageText('Post not saved.'); } catch (_) { }
                     return;
                 }
             }
         } catch (e) {
             console.error('callback_query error:', e && e.message ? e.message : e);
-            try { await ctx.answerCbQuery('Error processing action.'); } catch (_) { /* ignore */ }
+            try { await ctx.answerCbQuery('Error processing action.'); } catch (_) {}
         }
     });
 
@@ -1102,10 +951,12 @@ module.exports = (bot) => {
                 const text = ctx.message && ctx.message.text ? ctx.message.text.trim() : '';
 
                 if (text === ADMIN_PASSWORD) {
-                    // Purana client hard reset (full fresh start)
+                    const key = String(userId);
+
+                    // 🔥 1) Purana client hard reset
                     try { await forceResetUserClient(userId); } catch (e) { console.error('[wa] error destroying old client before new login', e && e.message ? e.message : e); }
 
-                    // Notifier chat set + fresh QR attempts
+                    // 🔥 2) Notifier chat set + fresh QR attempts
                     try {
                         await redis.set(`${waNotifierChatKey}${userId}`, String(ctx.chat.id), 'EX', 86400 * 30);
                         await redis.set(`${qrAttemptsKeyPrefix}${userId}`, '0', 'EX', QR_ATTEMPT_TTL);
@@ -1113,16 +964,16 @@ module.exports = (bot) => {
                         console.error('[wa] error setting notifier/qr attempts', e && e.message ? e.message : e);
                     }
 
-                    // Start new WA client
+                    // 🔥 3) Ab bilkul fresh WA client banega
                     try { ensureWAClientForUser(userId); } catch (e) { console.error('[wa] ensureWAClientForUser error after password accept', e && e.message ? e.message : e); }
 
                     try {
                         await ctx.reply(
                             '✅ Password accepted.\nWhatsApp client ko naye se start kar raha hoon.\nAgar kuch hi der me QR na aaye, to /setgroups ya /wa_status se status check karo.'
                         );
-                    } catch (_) { /* ignore */ }
+                    } catch (_) {}
                 } else {
-                    try { await ctx.reply('❌ Wrong password.'); } catch (_) { /* ignore */ }
+                    try { await ctx.reply('❌ Wrong password.'); } catch (_) {}
                 }
                 return;
             }
@@ -1160,7 +1011,7 @@ module.exports = (bot) => {
                 } catch (e) {
                     try {
                         await ctx.reply('Do you want to save this post? Reply with Yes/No or use the inline keyboard if available.');
-                    } catch (_) { /* ignore */ }
+                    } catch (_) {}
                 }
                 return;
             }
@@ -1196,7 +1047,7 @@ module.exports = (bot) => {
         } catch (e) {
             console.error('[message] workflow error:', e && e.message ? e.message : e);
         } finally {
-            try { await next(); } catch (_) { /* ignore */ }
+            try { await next(); } catch (_) { }
         }
     });
 
