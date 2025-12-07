@@ -181,26 +181,3 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
     console.error('⚠ Unhandled Rejection:', reason);
 });
-
-// test-puppeteer.js
-const { execSync } = require('child_process');
-const os = require('os');
-
-console.log('Node version:', process.version);
-console.log('OS:', os.platform(), os.release());
-
-(async () => {
-  const puppeteer = require('puppeteer');
-
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
-
-  const page = await browser.newPage();
-  await page.goto('https://www.google.com', { waitUntil: 'networkidle2' });
-  console.log('Page loaded, now waiting 60s to see if browser survives...');
-  await new Promise(r => setTimeout(r, 60000));
-  await browser.close();
-  console.log('Browser still alive after 60s 👍');
-})();
