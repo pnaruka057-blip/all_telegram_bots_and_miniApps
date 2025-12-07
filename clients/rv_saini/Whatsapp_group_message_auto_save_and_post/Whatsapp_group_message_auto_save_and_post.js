@@ -3,15 +3,13 @@
 /**
  * Whatsapp_group_message_auto_save_and_post.js
  *
- * - Full production-ready module.
- * - Interval-based auto-posting (minutes): min 3, max 4320, default 3
- * - Robust reconnect logic; checks for saved session in Redis before reconnecting
+ * Interval-based auto-posting (minutes): min 3, max 4320, default 3
+ * Robust reconnect logic with Redis + filesystem cache.
  *
  * ENV:
  *   ADMIN_PASSWORD_WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST
  *   WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_MAX_POST
  *   WEBJS_CACHE_DIR (optional, default /tmp)
- *   PUPPETEER_EXECUTABLE_PATH | CHROME_BIN | CHROME_PATH (optional)
  *
  * WARNING: Unofficial WhatsApp automation may risk account ban.
  */
@@ -22,26 +20,21 @@ const path = require('path');
 const qrcode = require('qrcode');
 const axios = require('axios');
 const { Client, MessageMedia } = require('whatsapp-web.js');
-
-// your redis module (promise based) - adapt if path differs
 const redis = require('../../../globle_helper/redisConfig');
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD_WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST || 'changeme';
-const maxSavedPosts = Number(process.env.WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_MAX_POST) || 10;
+const ADMIN_PASSWORD =
+    process.env.ADMIN_PASSWORD_WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST || 'changeme';
+const maxSavedPosts =
+    Number(process.env.WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_MAX_POST) || 10;
 
-// QR limit per login cycle
 const MAX_QR_ATTEMPTS = 2;
-const QR_ATTEMPT_TTL = 60 * 60; // 1 hour (seconds)
+const QR_ATTEMPT_TTL = 60 * 60; // seconds
 
-// interval limits (minutes)
 const MIN_INTERVAL_MINUTES = 3;
 const MAX_INTERVAL_MINUTES = 4320;
 const DEFAULT_INTERVAL_MINUTES = 3;
 
-// default base cache dir (can override with env)
 const BASE_CACHE_DIR = process.env.WEBJS_CACHE_DIR || '/tmp';
-
-// how many reconnect tries when we detect session closed
 const RECONNECT_TRIES = 3;
 const RECONNECT_WAIT_MS = 5000;
 
@@ -57,8 +50,8 @@ module.exports = (bot) => {
     const waitingForPasswordPrefix = `${prefix}waiting_password:`;   // + userId
     const waSessionKey = `${prefix}wa_session:`;                     // + userId
     const waSelectedGroupsKey = `${prefix}selected_groups:`;         // + userId
-    const waSavedPostsKey = `${prefix}saved_posts:`;                 // + userId (list)
-    const waIntervalMinutesKey = `${prefix}interval_minutes:`;       // + userId (string minutes)
+    const waSavedPostsKey = `${prefix}saved_posts:`;                 // + userId
+    const waIntervalMinutesKey = `${prefix}interval_minutes:`;       // + userId
     const waNotifierChatKey = `${prefix}notifier_chat:`;             // + userId
     const pendingPostPrefix = `${prefix}pending_post:`;              // + userId
     const waitingForPostPrefix = `${prefix}waiting_for_post:`;       // + userId
@@ -68,7 +61,7 @@ module.exports = (bot) => {
     const waClients = new Map();       // userId -> meta
     const scheduledJobs = new Map();   // userId -> { timer, minutes }
 
-    // ---------- helpers: cache dir ----------
+    // ---------- cache dir helpers ----------
 
     function getCacheDirForUser(userId) {
         const safeBase = BASE_CACHE_DIR || os.tmpdir();
@@ -82,11 +75,10 @@ module.exports = (bot) => {
         } catch (e) {
             throw new Error(`Could not create cache dir ${cacheDir}: ${e && e.message ? e.message : e}`);
         }
-        // write test
         try {
             const testFile = path.join(cacheDir, '.write_test');
             fs.writeFileSync(testFile, String(Date.now()));
-            try { fs.unlinkSync(testFile); } catch (_) { /* ignore */ }
+            try { fs.unlinkSync(testFile); } catch (_) { }
         } catch (e) {
             throw new Error(`Cache dir ${cacheDir} not writable: ${e && e.message ? e.message : e}`);
         }
@@ -114,7 +106,7 @@ module.exports = (bot) => {
         return Math.floor(n);
     }
 
-    // ---------- client lifecycle helpers ----------
+    // ---------- client lifecycle ----------
 
     async function forceResetUserClient(userId, opts = {}) {
         const { keepSession = false } = opts;
@@ -140,24 +132,23 @@ module.exports = (bot) => {
             waClients.delete(key);
         }
 
-        // reset QR attempts
         try { await redis.del(`${qrAttemptsKeyPrefix}${userId}`).catch(() => null); } catch (_) { }
 
-        // Remove redis session + cache only if not keeping session
         if (!keepSession) {
             try { await redis.del(`${waSessionKey}${userId}`).catch(() => null); } catch (_) { }
-            try { removeCacheDir(userId); } catch (_) { /* ignore */ }
+            try { removeCacheDir(userId); } catch (_) { }
         }
     }
 
-    // reconnectClient: checks saved session before reconnect
     async function reconnectClient(userId, tries = RECONNECT_TRIES) {
         console.log(`[wa] reconnectClient: attempting reconnect for user ${userId} (tries ${tries})`);
 
         try {
             const saved = await redis.get(`${waSessionKey}${userId}`).catch(() => null);
             if (!saved) {
-                console.warn(`[wa] reconnectClient: no saved session in Redis for user ${userId}. Will not auto-reconnect. Ask user to /login and scan QR.`);
+                console.warn(
+                    `[wa] reconnectClient: no saved session in Redis for user ${userId}. Will not auto-reconnect. Ask user to /login and scan QR.`
+                );
                 try {
                     const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                     if (notifier) {
@@ -166,7 +157,7 @@ module.exports = (bot) => {
                             '⚠️ Auto-reconnect failed: no saved WhatsApp session found. Please /login and scan QR to create a new session.'
                         );
                     }
-                } catch (_) { /* ignore */ }
+                } catch (_) { }
                 return false;
             }
         } catch (e) {
@@ -189,12 +180,11 @@ module.exports = (bot) => {
                                 `⚠️ Server can't write WA cache files: ${e && e.message ? e.message : e}`
                             );
                         }
-                    } catch (_) { /* ignore */ }
+                    } catch (_) { }
                     return false;
                 }
 
                 const meta = ensureWAClientForUser(userId);
-
                 const check = await waitForReadyOrQr(meta, 40000, 700);
                 if (check.ready) {
                     console.log('[wa] reconnectClient succeeded for user', userId);
@@ -212,7 +202,6 @@ module.exports = (bot) => {
         return false;
     }
 
-    // background wait for ready or QR
     async function waitForReadyOrQr(meta, timeoutMs = 20000, pollInterval = 500) {
         const start = Date.now();
         while (Date.now() - start < timeoutMs) {
@@ -223,8 +212,6 @@ module.exports = (bot) => {
         }
         return { ready: !!meta.ready, qr: meta.qr, error: meta.initError ? meta.initErrorMsg : 'timeout' };
     }
-
-    // ---------- getChatsSafe ----------
 
     async function getChatsSafe(client, timeoutMs = 20000, retries = 2, delayMs = 1000) {
         for (let attempt = 1; attempt <= retries; attempt++) {
@@ -245,7 +232,7 @@ module.exports = (bot) => {
         }
     }
 
-    // ---------- ensureWAClientForUser ----------
+    // ---------- ensure client ----------
 
     function ensureWAClientForUser(userId) {
         const key = String(userId);
@@ -270,7 +257,6 @@ module.exports = (bot) => {
                 meta.initErrorMsg = null;
                 meta.qrLimitNotified = false;
 
-                // session from redis
                 let sessionObj = null;
                 try {
                     const raw = await redis.get(`${waSessionKey}${userId}`);
@@ -279,14 +265,12 @@ module.exports = (bot) => {
                     console.warn('[wa] failed to read session from redis', e && e.message ? e.message : e);
                 }
 
-                // ensure QR attempts key
                 try {
                     const attemptsKey = `${qrAttemptsKeyPrefix}${userId}`;
                     const existing = await redis.get(attemptsKey);
                     if (!existing) await redis.set(attemptsKey, '0', 'EX', QR_ATTEMPT_TTL);
-                } catch (e) { /* ignore */ }
+                } catch (e) { }
 
-                // ensure cache dir writable and set userDataDir for puppeteer
                 let cacheDir = null;
                 try {
                     cacheDir = ensureCacheDirWritable(userId);
@@ -304,7 +288,7 @@ module.exports = (bot) => {
                                 `⚠️ Server can't write WhatsApp cache files. Error: ${meta.initErrorMsg}`
                             );
                         }
-                    } catch (_) { /* ignore */ }
+                    } catch (_) { }
                     waClients.delete(key);
                     return;
                 }
@@ -353,7 +337,8 @@ module.exports = (bot) => {
                 const client = new Client(clientOpts);
                 meta.client = client;
 
-                // QR handler
+                // ---------- events ----------
+
                 client.on('qr', async (qr) => {
                     try {
                         const attemptsKey = `${qrAttemptsKeyPrefix}${userId}`;
@@ -375,7 +360,7 @@ module.exports = (bot) => {
                                             `QR send limit reached (${MAX_QR_ATTEMPTS}). Please run /login again.`
                                         );
                                     }
-                                } catch (_) { /* ignore */ }
+                                } catch (_) { }
                             }
                             return;
                         }
@@ -415,13 +400,12 @@ module.exports = (bot) => {
 
                         try {
                             await redis.set(`${qrAttemptsKeyPrefix}${userId}`, String(attempts + 1), 'EX', QR_ATTEMPT_TTL);
-                        } catch (e) { /* ignore */ }
+                        } catch (e) { }
                     } catch (e) {
                         console.error('[wa] qr handler error', e && e.message ? e.message : e);
                     }
                 });
 
-                // authenticated -> session save
                 client.on('authenticated', async (session) => {
                     try {
                         await redis.set(`${waSessionKey}${userId}`, JSON.stringify(session));
@@ -433,10 +417,10 @@ module.exports = (bot) => {
                             if (notifier) {
                                 await bot.telegram.sendMessage(
                                     notifier,
-                                    `✅ WhatsApp authenticated and session saved.`
+                                    '✅ WhatsApp authenticated and session saved.'
                                 );
                             }
-                        } catch (_) { /* ignore */ }
+                        } catch (_) { }
                     } catch (e) {
                         meta.initError = true;
                         meta.initErrorMsg =
@@ -450,7 +434,7 @@ module.exports = (bot) => {
                                     `⚠️ Failed to save session to Redis. Auto-reconnect may not work. Error: ${meta.initErrorMsg}`
                                 );
                             }
-                        } catch (_) { /* ignore */ }
+                        } catch (_) { }
                     }
                 });
 
@@ -460,11 +444,9 @@ module.exports = (bot) => {
                     try {
                         const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                         if (notifier) {
-                            try {
-                                await bot.telegram.sendMessage(notifier, 'WhatsApp connected and ready.');
-                            } catch (_) { }
+                            await bot.telegram.sendMessage(notifier, 'WhatsApp connected and ready.');
                         }
-                    } catch (e) { /* ignore */ }
+                    } catch (_) { }
                 });
 
                 client.on('auth_failure', async (msg) => {
@@ -473,7 +455,7 @@ module.exports = (bot) => {
                     console.error(`[wa] auth failure for user ${userId}:`, msg);
                     try { await redis.del(`${waSessionKey}${userId}`).catch(() => null); } catch (_) { }
                     try { await redis.del(`${qrAttemptsKeyPrefix}${userId}`).catch(() => null); } catch (_) { }
-                    try { removeCacheDir(userId); } catch (_) { /* ignore */ }
+                    try { removeCacheDir(userId); } catch (_) { }
                     try {
                         const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                         if (notifier) {
@@ -482,29 +464,29 @@ module.exports = (bot) => {
                                 '❌ WhatsApp auth failure. Please /login and scan QR again (session invalidated).'
                             );
                         }
-                    } catch (_) { /* ignore */ }
+                    } catch (_) { }
                 });
 
+                // IMPORTANT: yaha ab session delete nahi kar rahe
                 client.on('disconnected', async (reason) => {
                     meta.ready = false;
                     console.warn(`[wa] disconnected for user ${userId}:`, reason);
-                    try { await redis.del(`${waSessionKey}${userId}`).catch(() => null); } catch (_) { }
-                    try { await client.destroy(); } catch (_) { /* ignore */ }
+                    try { await client.destroy(); } catch (_) { }
                     if (meta.qrTimeout) {
                         try { clearTimeout(meta.qrTimeout); } catch (_) { }
                         meta.qrTimeout = null;
                     }
                     waClients.delete(key);
-                    try { removeCacheDir(userId); } catch (_) { /* ignore */ }
+                    // session + cache ko chhod dete hain, taki reconnectClient unko use kar sake
                     try {
                         const notifier = await redis.get(`${waNotifierChatKey}${userId}`).catch(() => null);
                         if (notifier) {
                             await bot.telegram.sendMessage(
                                 notifier,
-                                `WhatsApp disconnected: ${reason || 'unknown'}`
+                                `WhatsApp disconnected: ${reason || 'unknown'}. Auto-reconnect try ho sakta hai. Agar QR phir se aaye to /login se dobara scan karo.`
                             );
                         }
-                    } catch (_) { /* ignore */ }
+                    } catch (_) { }
                 });
 
                 try {
@@ -526,7 +508,7 @@ module.exports = (bot) => {
                                 `WhatsApp client.initialize error:\n${meta.initErrorMsg}`
                             );
                         }
-                    } catch (_) { /* ignore */ }
+                    } catch (_) { }
                 }
             } catch (e) {
                 meta.initError = true;
@@ -584,7 +566,7 @@ module.exports = (bot) => {
             const arr = await redis.lrange(`${waSavedPostsKey}${userId}`, 0, -1);
             if (!arr || arr.length === 0) return [];
             return arr
-                .map(x => { try { return JSON.parse(x); } catch (e) { return null; } })
+                .map(x => { try { return JSON.parse(x); } catch { return null; } })
                 .filter(Boolean);
         } catch (e) {
             console.error('[wa] fetchSavedPostsForUser error:', e && e.message ? e.message : e);
@@ -592,7 +574,7 @@ module.exports = (bot) => {
         }
     }
 
-    // ---------- sendMessageToWhatsAppGroup ----------
+    // ---------- send message helper ----------
 
     async function sendMessageToWhatsAppGroup(userId, client, savedMsg, groupId) {
         let closed = false;
@@ -701,7 +683,7 @@ module.exports = (bot) => {
         }
     }
 
-    // ---------- posting job ----------
+    // ---------- posting cycle ----------
 
     async function performPostingCycleForUser(userId) {
         try {
@@ -831,7 +813,6 @@ module.exports = (bot) => {
                     `Scheduled posting completed. Success: ${successes}, Failures: ${failures}`
                 );
             } catch (_) { }
-
         } catch (e) {
             console.error('[wa] performPostingCycleForUser error for', userId, e && e.message ? e.message : e);
         }
@@ -844,7 +825,7 @@ module.exports = (bot) => {
                 try {
                     const obj = scheduledJobs.get(key);
                     if (obj && obj.timer) clearInterval(obj.timer);
-                } catch (e) { /* ignore */ }
+                } catch (e) { }
                 scheduledJobs.delete(key);
             }
 
@@ -854,7 +835,7 @@ module.exports = (bot) => {
                 minutes = DEFAULT_INTERVAL_MINUTES;
                 try {
                     await redis.set(`${waIntervalMinutesKey}${userId}`, String(minutes));
-                } catch (e) { /* ignore */ }
+                } catch (e) { }
             } else {
                 const parsed = parseInt(raw, 10);
                 if (isNaN(parsed)) minutes = DEFAULT_INTERVAL_MINUTES;
@@ -870,7 +851,6 @@ module.exports = (bot) => {
 
             scheduledJobs.set(key, { timer, minutes });
             console.log(`[wa] scheduled interval job for ${userId} every ${minutes} minute(s)`);
-
             return true;
         } catch (e) {
             console.error('[wa] scheduleIntervalJobForUser error:', e && e.message ? e.message : e);
@@ -878,7 +858,7 @@ module.exports = (bot) => {
         }
     }
 
-    // ---------- Telegram bot commands ----------
+    // ---------- Telegram commands ----------
 
     bot.start(async (ctx) => {
         try {
@@ -900,7 +880,7 @@ module.exports = (bot) => {
             await ctx.reply('Enter the password to proceed.');
         } catch (e) {
             console.error('/login error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred. Try again.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('An error occurred. Try again.'); } catch (_) { }
         }
     });
 
@@ -920,19 +900,19 @@ module.exports = (bot) => {
                 await redis.del(`${waSessionKey}${userId}`);
                 await redis.del(`${waNotifierChatKey}${userId}`);
                 await redis.del(`${qrAttemptsKeyPrefix}${userId}`);
-            } catch (e) { /* ignore */ }
+            } catch (e) { }
             if (scheduledJobs.has(key)) {
                 try {
                     const obj = scheduledJobs.get(key);
                     if (obj && obj.timer) clearInterval(obj.timer);
-                } catch (e) { /* ignore */ }
+                } catch (e) { }
                 scheduledJobs.delete(key);
             }
-            try { removeCacheDir(userId); } catch (_) { /* ignore */ }
+            try { removeCacheDir(userId); } catch (_) { }
             await ctx.reply('Logged out from WhatsApp for this Telegram account. To login again, use /login.');
         } catch (e) {
             console.error('/logout error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred while logging out.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('An error occurred while logging out.'); } catch (_) { }
         }
     });
 
@@ -1026,7 +1006,7 @@ module.exports = (bot) => {
             await ctx.reply('Select groups (toggle):', { reply_markup: { inline_keyboard: keyboard } });
         } catch (e) {
             console.error('/setgroups handler error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred while processing /setgroups.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('An error occurred while processing /setgroups.'); } catch (_) { }
         }
     });
 
@@ -1039,7 +1019,7 @@ module.exports = (bot) => {
             await ctx.reply('Please send the interval in minutes between posts (3-4320).');
         } catch (e) {
             console.error('/settime error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('An error occurred.'); } catch (_) { }
         }
     });
 
@@ -1054,7 +1034,7 @@ module.exports = (bot) => {
             );
         } catch (e) {
             console.error('/save error:', e && e.message ? e.message : e);
-            try { await ctx.reply('An error occurred.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('An error occurred.'); } catch (_) { }
         }
     });
 
@@ -1067,7 +1047,7 @@ module.exports = (bot) => {
             await ctx.reply(`You have ${count} saved post(s). Use /save to add more or /clearposts to remove all.`);
         } catch (e) {
             console.error('/listposts error:', e && e.message ? e.message : e);
-            try { await ctx.reply('Error fetching posts.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('Error fetching posts.'); } catch (_) { }
         }
     });
 
@@ -1079,7 +1059,7 @@ module.exports = (bot) => {
             await ctx.reply('All saved posts cleared.');
         } catch (e) {
             console.error('/clearposts error:', e && e.message ? e.message : e);
-            try { await ctx.reply('Error clearing posts.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('Error clearing posts.'); } catch (_) { }
         }
     });
 
@@ -1105,7 +1085,7 @@ module.exports = (bot) => {
             );
         } catch (e) {
             console.error('/wa_status error:', e && e.message ? e.message : e);
-            try { await ctx.reply('Error fetching WA status.'); } catch (_) { /* ignore */ }
+            try { await ctx.reply('Error fetching WA status.'); } catch (_) { }
         }
     });
 
@@ -1130,7 +1110,7 @@ module.exports = (bot) => {
                 else selected.splice(idx, 1);
                 await setUserSelectedGroups(userId, selected);
                 await ctx.answerCbQuery('Toggled.');
-                try { await ctx.editMessageReplyMarkup({ inline_keyboard: [] }); } catch (_) { /* ignore */ }
+                try { await ctx.editMessageReplyMarkup({ inline_keyboard: [] }); } catch (_) { }
                 await ctx.reply('Selection updated. (Tip: run /setgroups to view again)');
                 return;
             }
@@ -1144,7 +1124,7 @@ module.exports = (bot) => {
                 }
                 const selected = await getUserSelectedGroups(userId);
                 await ctx.answerCbQuery(`Saved ${selected.length} group(s).`);
-                try { await ctx.editMessageReplyMarkup({ inline_keyboard: [] }); } catch (_) { /* ignore */ }
+                try { await ctx.editMessageReplyMarkup({ inline_keyboard: [] }); } catch (_) { }
                 await ctx.reply('Group selection saved.');
                 try {
                     await scheduleIntervalJobForUser(userId);
@@ -1170,28 +1150,28 @@ module.exports = (bot) => {
                     const pending = await redis.get(`${pendingPostPrefix}${userId}`);
                     if (!pending) {
                         await ctx.answerCbQuery('No pending post found.');
-                        try { await ctx.editMessageText('No post found to save.'); } catch (_) { /* ignore */ }
+                        try { await ctx.editMessageText('No post found to save.'); } catch (_) { }
                         return;
                     }
                     await addSavedPostForUser(userId, JSON.parse(pending));
                     await redis.del(`${pendingPostPrefix}${userId}`);
                     await ctx.answerCbQuery('Saved.');
-                    try { await ctx.editMessageText('Post saved!'); } catch (_) { /* ignore */ }
+                    try { await ctx.editMessageText('Post saved!'); } catch (_) { }
                     return;
                 } else {
                     await redis.del(`${pendingPostPrefix}${userId}`);
                     await ctx.answerCbQuery('Not saved.');
-                    try { await ctx.editMessageText('Post not saved.'); } catch (_) { /* ignore */ }
+                    try { await ctx.editMessageText('Post not saved.'); } catch (_) { }
                     return;
                 }
             }
         } catch (e) {
             console.error('callback_query error:', e && e.message ? e.message : e);
-            try { await ctx.answerCbQuery('Error processing action.'); } catch (_) { /* ignore */ }
+            try { await ctx.answerCbQuery('Error processing action.'); } catch (_) { }
         }
     });
 
-    // ---------- message handler (password, post, time) ----------
+    // ---------- message handler ----------
 
     bot.on('message', async (ctx, next) => {
         const userId = ctx.from && ctx.from.id;
@@ -1230,9 +1210,9 @@ module.exports = (bot) => {
                             'WhatsApp client ko naye se start kar raha hoon.\n' +
                             'Agar kuch hi der me QR na aaye, to /setgroups ya /wa_status se status check karo.'
                         );
-                    } catch (_) { /* ignore */ }
+                    } catch (_) { }
                 } else {
-                    try { await ctx.reply('❌ Wrong password.'); } catch (_) { /* ignore */ }
+                    try { await ctx.reply('❌ Wrong password.'); } catch (_) { }
                 }
                 return;
             }
@@ -1280,7 +1260,7 @@ module.exports = (bot) => {
                         await ctx.reply(
                             'Do you want to save this post? Reply with Yes/No or use the inline keyboard if available.'
                         );
-                    } catch (_) { /* ignore */ }
+                    } catch (_) { }
                 }
                 return;
             }
@@ -1317,7 +1297,7 @@ module.exports = (bot) => {
         } catch (e) {
             console.error('[message] workflow error:', e && e.message ? e.message : e);
         } finally {
-            try { await next(); } catch (_) { /* ignore */ }
+            try { await next(); } catch (_) { }
         }
     });
 
