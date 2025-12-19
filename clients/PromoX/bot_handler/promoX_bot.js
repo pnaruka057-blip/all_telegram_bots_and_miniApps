@@ -86,7 +86,7 @@ module.exports = (bot, promoX_token) => {
             await sendMiniAppIntro(ctx, promoX_token);
         } else {
             const firstName = ctx.from.first_name;
-            const res = await axios.get("https://static.vecteezy.com/system/resources/thumbnails/011/976/274/small/stick-figures-welcome-free-vector.jpg", {
+            const res = await axios.get("https://media.istockphoto.com/id/1501791585/vector/group-of-diverse-young-men-wave-their-hands-in-welcoming-gesture-happy-persons-hold-greeting.jpg?s=612x612&w=0&k=20&c=AHiu86YNoZsjmDd7wRTHoJnBFl1yxX7lAbnm58r5eHk=", {
                 responseType: "arraybuffer"
             });
             await ctx.replyWithPhoto(
