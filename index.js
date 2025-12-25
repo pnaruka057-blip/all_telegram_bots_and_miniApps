@@ -129,43 +129,147 @@ if (process.env.TECHBOOST_IT_SERVICES_NODE_ENV && process.env.TECHBOOST_IT_SERVI
     );
 }
 
+app.get('/', (req, res) => {
+    try {
+        const param = req.query?.tgWebAppStartParam;
+        if (!param) {
+            return res.send('✅ Bot is alive!');
+        }
+
+        // Decode and split the parameter
+        const decodedParam = atob(param);
+        const parts = decodedParam.split(':');
+        const [miniAppOrBotType, type, query, fromId, userId] = parts;
+
+        if (miniAppOrBotType !== 'movies-hub') {
+            return res.send('✅ Bot is alive!');
+        }
+
+        // Define the base path using a secure token (ensure this variable exists)
+        const basePath = `/${movies_hub_token}/movies-hub`;
+
+        // Handle redirection based on `type`
+        switch (type) {
+            case 'movies':
+                return res.redirect(`${basePath}/find-movies/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
+            case 'shows':
+                return res.redirect(`${basePath}/find-shows/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
+            case 'request':
+                return res.redirect(`${basePath}/send-request/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
+            default:
+                return res.send('✅ Bot is alive!');
+        }
+    } catch (error) {
+        console.error('Error processing request:', error);
+        return res.status(400).send('❌ Invalid or corrupted parameters.');
+    }
+});
+
 // app.get('/', (req, res) => {
 //     try {
 //         const param = req.query?.tgWebAppStartParam;
+
+//         console.log(param);
+
+//         // 🔹 No start param → health check
 //         if (!param) {
-//             return res.send('✅ Bot is alive!');
+//             return res.send('param not found!');
 //         }
 
-//         // Decode and split the parameter
-//         const decodedParam = atob(param);
+//         // 🔹 Base64 safety check
+//         if (!/^[A-Za-z0-9+/=]+$/.test(param)) {
+//             return res.send('param not match!');
+//         }
+
+//         let decodedParam;
+//         try {
+//             decodedParam = Buffer.from(param, 'base64').toString('utf-8');
+//         } catch {
+//             return res.send('not able to decode!');
+//         }
+
 //         const parts = decodedParam.split(':');
-//         const [miniAppOrBotType, type, query, fromId, userId] = parts;
 
-//         if (miniAppOrBotType !== 'movies-hub') {
+//         /**
+//          * Expected generic format:
+//          * <bot-name>:<type>:<query>:<fromId>:<userId>
+//          */
+//         if (parts.length < 5) {
 //             return res.send('✅ Bot is alive!');
 //         }
 
-//         // Define the base path using a secure token (ensure this variable exists)
-//         const basePath = `/${movies_hub_token}/movies-hub`;
+//         const [botName, type, query, fromId, userId] = parts;
 
-//         // Handle redirection based on `type`
-//         switch (type) {
-//             case 'movies':
-//                 return res.redirect(`${basePath}/find-movies/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
-//             case 'shows':
-//                 return res.redirect(`${basePath}/find-shows/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
-//             case 'request':
-//                 return res.redirect(`${basePath}/send-request/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
+//         /* --------------------------------------------------
+//            BOT ROUTER (ADD NEW BOTS HERE)
+//         -------------------------------------------------- */
+
+//         switch (botName) {
+
+//             /* ================= MOVIES HUB ================= */
+//             case 'movies-hub': {
+//                 const basePath = `/${movies_hub_token}/movies-hub`;
+
+//                 switch (type) {
+//                     case 'movies':
+//                         return res.redirect(
+//                             `${basePath}/find-movies/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`
+//                         );
+
+//                     case 'shows':
+//                         return res.redirect(
+//                             `${basePath}/find-shows/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`
+//                         );
+
+//                     case 'request':
+//                         return res.redirect(
+//                             `${basePath}/send-request/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`
+//                         );
+
+//                     default:
+//                         return res.send('✅ Bot is alive!');
+//                 }
+//             }
+
+//             /* ================= PROMOX ================= */
+//             case 'promox': {
+//                 const basePath = `/${promoX_token}/promox`;
+
+//                 // Example (future ready)
+//                 if (type === 'campaign') {
+//                     return res.redirect(
+//                         `${basePath}/campaign/${encodeURIComponent(query)}`
+//                     );
+//                 }
+
+//                 return res.send('✅ Bot is alive!');
+//             }
+
+//             /* ================= GROUP HELP ADVANCE ================= */
+//             case 'group-help-advance': {
+//                 const basePath = `/${group_help_advance_token}/group-help-advance`;
+
+//                 if (type === 'text-design') {
+//                     return res.redirect(`${basePath}/text-message-design`);
+//                 }
+
+//                 if (type === 'buttons-design') {
+//                     return res.redirect(`${basePath}/buttons-design`);
+//                 }
+
+//                 return res.send('✅ Bot is alive!');
+//             }
+
+//             /* ================= UNKNOWN BOT ================= */
 //             default:
 //                 return res.send('✅ Bot is alive!');
 //         }
+
 //     } catch (error) {
-//         console.error('Error processing request:', error);
-//         return res.status(400).send('❌ Invalid or corrupted parameters.');
+//         console.error('Root handler error:', error);
+//         return res.send('✅ Bot is alive!');
 //     }
 // });
-
-
 
 app.post("/group-help-advance/init", async (req, res) => {
     try {
