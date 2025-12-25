@@ -1,6 +1,7 @@
 require('dotenv').config()
 let promoX_token = process.env.PROMOX_TOKEN
 let movies_hub_token = process.env.MOVIES_HUB_TOKEN
+let group_help_advance_token = process.env.GROUP_HELP_ADVANCE_TOKEN
 const express = require('express')
 const app = express()
 const { Telegraf, Markup, Scenes, session } = require('telegraf');
@@ -9,6 +10,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const promoX_routes = require('./clients/PromoX/routes/all_routes')
 const movies_hub_routes = require('./own_projects/movies_hub/routes/all_routes')
+const group_help_advance_routes = require('./own_projects/Group_help_advance/routes/all_routes')
 const promoX_all_actions = require('./clients/PromoX/bot_handler/promoX_bot')
 const message_auto_save_and_post = require('./clients/rv_saini/Message_auto_save_and_post/message_auto_save_and_post')
 const crypto_news_all_actions = require('./clients/mr_akash/Crypto_news/crypto_news_bot')
@@ -16,8 +18,9 @@ const movies_hub_all_actions = require('./own_projects/movies_hub/bot_index')
 const group_help_advance_all_actions = require('./own_projects/Group_help_advance/bot_index')
 const Checker_Gái_Đẹp_all_actions = require('./clients/co_tat_ca_20usdt_10usdt_per_month/co_tat_ca_20usdt_10usdt_per_month')
 const Whatsapp_group_message_auto_save_and_post = require('./clients/rv_saini/Whatsapp_group_message_auto_save_and_post/Whatsapp_group_message_auto_save_and_post')
-
+const techboost_it_services = require('./own_projects/Techboost_it_services/Reciept_genrator')
 const globle_domain = process.env.GLOBLE_DOMAIN
+const crypto = require("crypto");
 
 // all system middleware
 app.use(cors())
@@ -114,39 +117,128 @@ if (process.env.WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.en
     );
 }
 
-app.get('/', (req, res) => {
+// Initialize and launch TechBoost IT Services recipts if TECHBOOST_IT_SERVICES_NODE_ENV is not 'development'
+if (process.env.TECHBOOST_IT_SERVICES_NODE_ENV && process.env.TECHBOOST_IT_SERVICES_NODE_ENV !== 'development') {
+    const techboost_it_services_bot = new Telegraf(process.env.BOT_TOKEN_TECHBOOST_IT_SERVICES);
+    techboost_it_services(techboost_it_services_bot)
+
+    // Webhook binding (specific route)
+    app.post('/telegram-webhook-for-techboost-it-services', techboost_it_services_bot.webhookCallback('/telegram-webhook-for-techboost-it-services'));
+    techboost_it_services_bot.telegram.setWebhook(
+        `${globle_domain}/telegram-webhook-for-techboost-it-services`
+    );
+}
+
+// app.get('/', (req, res) => {
+//     try {
+//         const param = req.query?.tgWebAppStartParam;
+//         if (!param) {
+//             return res.send('✅ Bot is alive!');
+//         }
+
+//         // Decode and split the parameter
+//         const decodedParam = atob(param);
+//         const parts = decodedParam.split(':');
+//         const [miniAppOrBotType, type, query, fromId, userId] = parts;
+
+//         if (miniAppOrBotType !== 'movies-hub') {
+//             return res.send('✅ Bot is alive!');
+//         }
+
+//         // Define the base path using a secure token (ensure this variable exists)
+//         const basePath = `/${movies_hub_token}/movies-hub`;
+
+//         // Handle redirection based on `type`
+//         switch (type) {
+//             case 'movies':
+//                 return res.redirect(`${basePath}/find-movies/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
+//             case 'shows':
+//                 return res.redirect(`${basePath}/find-shows/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
+//             case 'request':
+//                 return res.redirect(`${basePath}/send-request/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
+//             default:
+//                 return res.send('✅ Bot is alive!');
+//         }
+//     } catch (error) {
+//         console.error('Error processing request:', error);
+//         return res.status(400).send('❌ Invalid or corrupted parameters.');
+//     }
+// });
+
+
+
+app.post("/group-help-advance/init", async (req, res) => {
     try {
-        const param = req.query?.tgWebAppStartParam;
-        if (!param) {
-            return res.send('✅ Bot is alive!');
+        const { initData, startParam } = req.body;
+
+        // 🔴 initData mandatory
+        if (!initData) {
+            return res.status(400).json({
+                error: "Missing initData"
+            });
         }
 
-        // Decode and split the parameter
-        const decodedParam = atob(param);
-        const parts = decodedParam.split(':');
-        const [miniAppOrBotType, type, query, fromId, userId] = parts;
+        // 🔐 Telegram initData verification (INLINE)
+        const BOT_TOKEN = process.env.BOT_TOKEN_GROUP_HELP_ADVANCE;
 
-        if (miniAppOrBotType !== 'movies-hub') {
-            return res.send('✅ Bot is alive!');
+        const urlParams = new URLSearchParams(initData);
+        const hash = urlParams.get("hash");
+
+        if (!hash) {
+            return res.status(403).json({
+                error: "Invalid Telegram data"
+            });
         }
 
-        // Define the base path using a secure token (ensure this variable exists)
-        const basePath = `/${movies_hub_token}/movies-hub`;
+        urlParams.delete("hash");
 
-        // Handle redirection based on `type`
-        switch (type) {
-            case 'movies':
-                return res.redirect(`${basePath}/find-movies/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
-            case 'shows':
-                return res.redirect(`${basePath}/find-shows/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
-            case 'request':
-                return res.redirect(`${basePath}/send-request/${encodeURIComponent(query)}?userId=${encodeURIComponent(userId)}&fromId=${encodeURIComponent(fromId)}`);
-            default:
-                return res.send('✅ Bot is alive!');
+        const dataCheckString = [...urlParams.entries()]
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, value]) => `${key}=${value}`)
+            .join("\n");
+
+        const secretKey = crypto
+            .createHmac("sha256", "WebAppData")
+            .update(BOT_TOKEN)
+            .digest();
+
+        const calculatedHash = crypto
+            .createHmac("sha256", secretKey)
+            .update(dataCheckString)
+            .digest("hex");
+
+        if (calculatedHash !== hash) {
+            return res.status(403).json({
+                error: "Telegram verification failed"
+            });
         }
+
+        // ✅ Telegram user extract
+        const tgUser = JSON.parse(urlParams.get("user"));
+
+        // 🔑 Token (ENV based – your existing architecture)
+        const group_help_advance_token =
+            process.env.GROUP_HELP_ADVANCE_TOKEN;
+
+        if (!group_help_advance_token) {
+            return res.status(500).json({
+                error: "Server token not configured"
+            });
+        }
+
+        // (Optional) log / save session here if needed
+        // console.log("MiniApp access:", tgUser.id, startParam);
+
+        // ✅ ONLY token response
+        return res.json({
+            group_help_advance_token
+        });
+
     } catch (error) {
-        console.error('Error processing request:', error);
-        return res.status(400).send('❌ Invalid or corrupted parameters.');
+        console.error("Group Help Advance init error:", error);
+        return res.status(500).json({
+            error: "Internal server error"
+        });
     }
 });
 
@@ -155,7 +247,8 @@ app.use('/:token', (req, res, next) => {
     const tokenName = req.params.token;
     let token_array = [
         promoX_token,
-        movies_hub_token
+        movies_hub_token,
+        group_help_advance_token
     ]
     if (!token_array.includes(tokenName)) {
         res.render('404', { error_message: 'You are not allowed' });
@@ -166,6 +259,7 @@ app.use('/:token', (req, res, next) => {
 
 app.use(`/${promoX_token}`, promoX_routes)
 app.use(`/${movies_hub_token}`, movies_hub_routes)
+app.use(`/${group_help_advance_token}`, group_help_advance_routes)
 
 // Express app to keep server alive
 const PORT = process.env.PORT || 3000;

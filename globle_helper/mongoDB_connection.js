@@ -60,4 +60,19 @@ if (process.env.CHECKER_GAI_DEP_NODE_ENV && process.env.CHECKER_GAI_DEP_NODE_ENV
   });
 }
 
-module.exports = { promoX_connection, Movies_hub_connection, group_help_advance_connection, checker_gai_dep_connection }
+let TechBoost_it_services_connection;
+// TechBoost IT Services Recipts
+if (process.env.TECHBOOST_IT_SERVICES_NODE_ENV && process.env.TECHBOOST_IT_SERVICES_NODE_ENV !== 'development') {
+  TechBoost_it_services_connection = mongoose.createConnection(process.env.MONGO_URL_TECHBOOST_IT_SERVICES, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+  TechBoost_it_services_connection.on("connected", () => {
+    console.log(`📦 TechBoost IT Services Connected to MongoDB: ${process.env.MONGO_URL_TECHBOOST_IT_SERVICES}`);
+  });
+  TechBoost_it_services_connection.on("error", (err) => {
+    console.error(`❌ TechBoost IT Services MongoDB connection error: ${err}`);
+  });
+}
+
+module.exports = { promoX_connection, Movies_hub_connection, group_help_advance_connection, checker_gai_dep_connection, TechBoost_it_services_connection }

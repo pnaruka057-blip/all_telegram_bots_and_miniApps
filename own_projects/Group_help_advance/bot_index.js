@@ -8,7 +8,10 @@ const groupSettings_action = require('./actions/groupSettings');
 const check_then_transfer_group_or_channel = require('./helpers/check_then_transfer_group_or_channel');
 const set_regulation_action = require('./actions/set_regulation');
 const button_actions = require('./actions/buttons');
+
 const anti_spam_action = require('./actions/anti_spam');
+const anti_spam_Group = require('./actions/anti_spam_Group');
+
 const set_welcome_action = require('./actions/setWelcome');
 const anti_flood_action = require('./actions/anti_flood');
 const good_bye_action = require('./actions/good_bye');
@@ -37,6 +40,8 @@ module.exports = (bot) => {
     bot.use(session());
     // const stage = new Scenes.Stage([]);
     // bot.use(stage.middleware());
+    
+    anti_spam_Group(bot)
 
     // Start command handler
     bot.start(async (ctx) => {
@@ -60,7 +65,7 @@ module.exports = (bot) => {
     go_back_to_start_action(bot)
     groupSettings_action(bot)
     set_regulation_action(bot)
-    // button_actions(bot)
+    button_actions(bot)
     anti_spam_action(bot)
     set_welcome_action(bot)
     anti_flood_action(bot)

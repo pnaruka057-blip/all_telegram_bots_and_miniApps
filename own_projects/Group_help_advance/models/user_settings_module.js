@@ -47,7 +47,23 @@ const anti_spamSchema = new mongoose.Schema({
             type: [String],
             default: []
         },
-
+        // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+        warned_users: {
+            type: [{
+                user_id: { type: Number, required: true },
+                count: { type: Number, default: 1, min: 1, max: 3 },
+            }],
+            default: []
+        },
+        // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+        punished_users: {
+            type: [{
+                user_id: { type: Number, required: true },
+                type: { type: String, enum: ["mute", "ban"], required: true },
+                until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+            }],
+            default: []
+        },
         penalty_duration_str: {
             type: String,
             default: "10 minutes"
@@ -70,6 +86,23 @@ const anti_spamSchema = new mongoose.Schema({
                 min: 30 * 1000,
                 max: 365 * 24 * 3600 * 1000
             },
+            // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+            warned_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    count: { type: Number, default: 1, min: 1, max: 3 },
+                }],
+                default: []
+            },
+            // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+            punished_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    type: { type: String, enum: ["mute", "ban"], required: true },
+                    until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+                }],
+                default: []
+            },
             delete_messages: { type: Boolean, default: false }
         },
         groups: {
@@ -80,6 +113,23 @@ const anti_spamSchema = new mongoose.Schema({
                 default: 10 * 60 * 1000,
                 min: 30 * 1000,
                 max: 365 * 24 * 3600 * 1000
+            },
+            // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+            warned_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    count: { type: Number, default: 1, min: 1, max: 3 },
+                }],
+                default: []
+            },
+            // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+            punished_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    type: { type: String, enum: ["mute", "ban"], required: true },
+                    until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+                }],
+                default: []
             },
             delete_messages: { type: Boolean, default: false }
         },
@@ -92,6 +142,23 @@ const anti_spamSchema = new mongoose.Schema({
                 min: 30 * 1000,
                 max: 365 * 24 * 3600 * 1000
             },
+            // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+            warned_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    count: { type: Number, default: 1, min: 1, max: 3 },
+                }],
+                default: []
+            },
+            // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+            punished_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    type: { type: String, enum: ["mute", "ban"], required: true },
+                    until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+                }],
+                default: []
+            },
             delete_messages: { type: Boolean, default: false }
         },
         bots: {
@@ -102,6 +169,23 @@ const anti_spamSchema = new mongoose.Schema({
                 default: 10 * 60 * 1000,
                 min: 30 * 1000,
                 max: 365 * 24 * 3600 * 1000
+            },
+            // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+            warned_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    count: { type: Number, default: 1, min: 1, max: 3 },
+                }],
+                default: []
+            },
+            // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+            punished_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    type: { type: String, enum: ["mute", "ban"], required: true },
+                    until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+                }],
+                default: []
             },
             delete_messages: { type: Boolean, default: false }
         },
@@ -116,24 +200,92 @@ const anti_spamSchema = new mongoose.Schema({
             penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
             penalty_duration_str: { type: String, default: "10 minutes" },
             penalty_duration: { type: Number, default: 10 * 60 * 1000, min: 30 * 1000, max: 365 * 24 * 3600 * 1000 },
+            // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+            warned_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    count: { type: Number, default: 1, min: 1, max: 3 },
+                }],
+                default: []
+            },
+            // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+            punished_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    type: { type: String, enum: ["mute", "ban"], required: true },
+                    until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+                }],
+                default: []
+            },
             delete_messages: { type: Boolean, default: false }
         },
         groups: {
             penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
             penalty_duration_str: { type: String, default: "10 minutes" },
             penalty_duration: { type: Number, default: 10 * 60 * 1000, min: 30 * 1000, max: 365 * 24 * 3600 * 1000 },
+            // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+            warned_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    count: { type: Number, default: 1, min: 1, max: 3 },
+                }],
+                default: []
+            },
+            // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+            punished_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    type: { type: String, enum: ["mute", "ban"], required: true },
+                    until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+                }],
+                default: []
+            },
             delete_messages: { type: Boolean, default: false }
         },
         users: {
             penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
             penalty_duration_str: { type: String, default: "10 minutes" },
             penalty_duration: { type: Number, default: 10 * 60 * 1000, min: 30 * 1000, max: 365 * 24 * 3600 * 1000 },
+            // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+            warned_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    count: { type: Number, default: 1, min: 1, max: 3 },
+                }],
+                default: []
+            },
+            // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+            punished_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    type: { type: String, enum: ["mute", "ban"], required: true },
+                    until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+                }],
+                default: []
+            },
             delete_messages: { type: Boolean, default: false }
         },
         bots: {
             penalty: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "off" },
             penalty_duration_str: { type: String, default: "10 minutes" },
             penalty_duration: { type: Number, default: 10 * 60 * 1000, min: 30 * 1000, max: 365 * 24 * 3600 * 1000 },
+            // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+            warned_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    count: { type: Number, default: 1, min: 1, max: 3 },
+                }],
+                default: []
+            },
+            // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+            punished_users: {
+                type: [{
+                    user_id: { type: Number, required: true },
+                    type: { type: String, enum: ["mute", "ban"], required: true },
+                    until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+                }],
+                default: []
+            },
             delete_messages: { type: Boolean, default: false }
         },
         whitelist: { type: [String], default: [] }
@@ -159,6 +311,22 @@ const anti_spamSchema = new mongoose.Schema({
             default: 10 * 60 * 1000,         // 10 minutes in ms
             min: 30 * 1000,                  // minimum 30 seconds in ms
             max: 365 * 24 * 3600 * 1000      // maximum 365 days in ms
+        }, // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+        warned_users: {
+            type: [{
+                user_id: { type: Number, required: true },
+                count: { type: Number, default: 1, min: 1, max: 3 },
+            }],
+            default: []
+        },
+        // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+        punished_users: {
+            type: [{
+                user_id: { type: Number, required: true },
+                type: { type: String, enum: ["mute", "ban"], required: true },
+                until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+            }],
+            default: []
         },
         whitelist: {
             type: [String],
@@ -230,7 +398,24 @@ const anti_floodSchema = new mongoose.Schema({
         default: 10 * 60 * 1000, // 10 minutes in ms
         min: 30 * 1000,          // minimum 30 seconds in ms
         max: 365 * 24 * 3600 * 1000 // maximum 365 days in ms
-    }
+    },
+    // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+    warned_users: {
+        type: [{
+            user_id: { type: Number, required: true },
+            count: { type: Number, default: 1, min: 1, max: 3 },
+        }],
+        default: []
+    },
+    // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+    punished_users: {
+        type: [{
+            user_id: { type: Number, required: true },
+            type: { type: String, enum: ["mute", "ban"], required: true },
+            until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+        }],
+        default: []
+    },
 });
 
 // for alphabets settings
@@ -250,6 +435,22 @@ const singleLangSchema = new mongoose.Schema({
     penalty_duration_str: {
         type: String,
         default: "10 minutes"
+    }, // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+    warned_users: {
+        type: [{
+            user_id: { type: Number, required: true },
+            count: { type: Number, default: 1, min: 1, max: 3 },
+        }],
+        default: []
+    },
+    // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+    punished_users: {
+        type: [{
+            user_id: { type: Number, required: true },
+            type: { type: String, enum: ["mute", "ban"], required: true },
+            until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+        }],
+        default: []
     },
     delete_messages: {
         type: Boolean,
@@ -281,7 +482,7 @@ const captchaSchema = new mongoose.Schema({
     },
     penalty: {
         type: String,
-        enum: ["off", "warn", "kick", "mute", "ban"],
+        enum: ["kick", "mute", "ban"],
         default: "mute"
     },
     mode: {
@@ -416,7 +617,7 @@ const blocksSchema = new mongoose.Schema(
             type: new mongoose.Schema(
                 {
                     enabled: { type: Boolean, default: false },
-                    punishment: { type: String, enum: ["off", "warn", "kick", "mute", "ban"], default: "ban" },
+                    punishment: { type: String, enum: ["off", "mute", "ban"], default: "ban" },
                     // stores user IDs or @usernames
                     users: { type: [String], default: [] }
                 },
@@ -526,7 +727,24 @@ const singleMediaRuleSchema = new mongoose.Schema(
             default: 10 * 60 * 1000,                  // 10 minutes in ms
             min: 30 * 1000,                           // minimum 30s
             max: 365 * 24 * 3600 * 1000               // maximum 365 days
-        }
+        },
+        // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+        warned_users: {
+            type: [{
+                user_id: { type: Number, required: true },
+                count: { type: Number, default: 1, min: 1, max: 3 },
+            }],
+            default: []
+        },
+        // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+        punished_users: {
+            type: [{
+                user_id: { type: Number, required: true },
+                type: { type: String, enum: ["mute", "ban"], required: true },
+                until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+            }],
+            default: []
+        },
     },
     { _id: false }
 );
@@ -571,6 +789,22 @@ const pornSchema = new mongoose.Schema(
             default: 10 * 60 * 1000,                 // 10 minutes in ms
             min: 30 * 1000,                          // minimum 30 seconds
             max: 365 * 24 * 3600 * 1000              // maximum 365 days
+        }, // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+        warned_users: {
+            type: [{
+                user_id: { type: Number, required: true },
+                count: { type: Number, default: 1, min: 1, max: 3 },
+            }],
+            default: []
+        },
+        // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+        punished_users: {
+            type: [{
+                user_id: { type: Number, required: true },
+                type: { type: String, enum: ["mute", "ban"], required: true },
+                until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+            }],
+            default: []
         },
         delete_messages: {
             type: Boolean,
@@ -600,6 +834,22 @@ const warnsSchema = new mongoose.Schema(
             default: 10 * 60 * 1000,                 // 10 minutes in ms
             min: 30 * 1000,                          // minimum 30 seconds
             max: 365 * 24 * 3600 * 1000              // maximum 365 days
+        }, // NEW: Track warn counts (1st warn=1, 2nd=2, 3rd=>kick & reset)
+        warned_users: {
+            type: [{
+                user_id: { type: Number, required: true },
+                count: { type: Number, default: 1, min: 1, max: 3 },
+            }],
+            default: []
+        },
+        // NEW: Track active mutes/bans (cleanup optional, since Telegram auto-unbans)
+        punished_users: {
+            type: [{
+                user_id: { type: Number, required: true },
+                type: { type: String, enum: ["mute", "ban"], required: true },
+                until_ms: { type: Number, required: true }  // Telegram until_date * 1000
+            }],
+            default: []
         },
 
         // Max warns allowed before applying the penalty

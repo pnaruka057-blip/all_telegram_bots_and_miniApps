@@ -157,33 +157,32 @@ module.exports = (bot) => {
         const isOwner = await validateOwner(ctx, chatId, chatIdStr, userId);
         if (!isOwner) return;
 
-        const userSettings = await user_setting_module.findOne({ user_id: userId });
-
-        // If penalty_duration_str is not set, set default to 10 minutes (string) and 600000 (ms)
-        if (!userSettings || !userSettings.settings || !userSettings.settings[chatIdStr] ||
-            !userSettings.settings[chatIdStr].anti_spam ||
-            !userSettings.settings[chatIdStr].anti_spam.telegram_links ||
-            !userSettings.settings[chatIdStr].anti_spam.telegram_links.penalty_duration_str) {
-
-            await user_setting_module.findOneAndUpdate(
-                { user_id: userId },
-                {
-                    $set: {
-                        [`settings.${chatIdStr}.anti_spam.telegram_links.penalty_duration_str`]: '10 minutes',
-                        [`settings.${chatIdStr}.anti_spam.telegram_links.penalty_duration`]: 600000
-                    }
+        // ✅ Set default duration ONLY if it doesn't exist (no overwrite on every penalty change)
+        await user_setting_module.updateOne(
+            {
+                user_id: userId,
+                $or: [
+                    { [`settings.${chatIdStr}.anti_spam.telegram_links.penalty_duration_str`]: { $exists: false } },
+                    { [`settings.${chatIdStr}.anti_spam.telegram_links.penalty_duration_str`]: null },
+                    { [`settings.${chatIdStr}.anti_spam.telegram_links.penalty_duration_str`]: "" },
+                ],
+            },
+            {
+                $set: {
+                    [`settings.${chatIdStr}.anti_spam.telegram_links.penalty_duration_str`]: "10 minutes",
+                    [`settings.${chatIdStr}.anti_spam.telegram_links.penalty_duration`]: 600000,
                 },
-                { upsert: true, setDefaultsOnInsert: true }
-            );
-        }
+            },
+            { upsert: true }
+        );
 
         // Now set the penalty action as usual
         await user_setting_module.findOneAndUpdate(
             { user_id: userId },
             {
                 $set: {
-                    [`settings.${chatIdStr}.anti_spam.telegram_links.penalty`]: action.toLowerCase()
-                }
+                    [`settings.${chatIdStr}.anti_spam.telegram_links.penalty`]: action.toLowerCase(),
+                },
             },
             { upsert: true, setDefaultsOnInsert: true }
         );
@@ -202,7 +201,7 @@ module.exports = (bot) => {
         if (!isOwner) return;
 
         const userSettings = await user_setting_module.findOne({ user_id: userId });
-        const currentValue = userSettings?.settings?.[chatIdStr]?.anti_spam?.telegram_links?.delete_messages || false;
+        const currentValue = userSettings?.settings?.get(chatIdStr)?.anti_spam?.telegram_links?.delete_messages || false;
         const newValue = !currentValue;
 
         await user_setting_module.findOneAndUpdate(
@@ -803,36 +802,32 @@ module.exports = (bot) => {
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
             if (!chat) return;
 
-            // Ensure default penalty duration if not set yet for this target
-            const userSettings = await user_setting_module.findOne({ user_id: userId });
-            const hasDuration = !!(userSettings &&
-                userSettings.settings &&
-                userSettings.settings[chatIdStr] &&
-                userSettings.settings[chatIdStr].anti_spam &&
-                userSettings.settings[chatIdStr].anti_spam.forwarding &&
-                userSettings.settings[chatIdStr].anti_spam.forwarding[target] &&
-                userSettings.settings[chatIdStr].anti_spam.forwarding[target].penalty_duration_str);
-
-            if (!hasDuration) {
-                await user_setting_module.findOneAndUpdate(
-                    { user_id: userId },
-                    {
-                        $set: {
-                            [`settings.${chatIdStr}.anti_spam.forwarding.${target}.penalty_duration_str`]: '10 minutes',
-                            [`settings.${chatIdStr}.anti_spam.forwarding.${target}.penalty_duration`]: 600000
-                        }
+            // ✅ Set default duration ONLY if missing/empty (no overwrite on every penalty change)
+            await user_setting_module.updateOne(
+                {
+                    user_id: userId,
+                    $or: [
+                        { [`settings.${chatIdStr}.anti_spam.forwarding.${target}.penalty_duration_str`]: { $exists: false } },
+                        { [`settings.${chatIdStr}.anti_spam.forwarding.${target}.penalty_duration_str`]: null },
+                        { [`settings.${chatIdStr}.anti_spam.forwarding.${target}.penalty_duration_str`]: "" },
+                    ],
+                },
+                {
+                    $set: {
+                        [`settings.${chatIdStr}.anti_spam.forwarding.${target}.penalty_duration_str`]: "10 minutes",
+                        [`settings.${chatIdStr}.anti_spam.forwarding.${target}.penalty_duration`]: 600000,
                     },
-                    { upsert: true, setDefaultsOnInsert: true }
-                );
-            }
+                },
+                { upsert: true }
+            );
 
             // Set the penalty
             await user_setting_module.findOneAndUpdate(
                 { user_id: userId },
                 {
                     $set: {
-                        [`settings.${chatIdStr}.anti_spam.forwarding.${target}.penalty`]: action
-                    }
+                        [`settings.${chatIdStr}.anti_spam.forwarding.${target}.penalty`]: action,
+                    },
                 },
                 { upsert: true }
             );
@@ -1323,7 +1318,7 @@ module.exports = (bot) => {
             ]
         ]);
 
-        const imagePath = path.resolve(__dirname, '..', 'public', 'quote_image.jpg');
+        const imagePath = path.resolve(__dirname, '..', 'public', 'images', 'quote_image.jpg');
 
         await safeEditOrSend(ctx, text, {
             parse_mode: 'HTML',
@@ -1436,28 +1431,24 @@ module.exports = (bot) => {
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
             if (!chat) return;
 
-            // Ensure default penalty duration if not set yet for this quote target
-            const userSettings = await user_setting_module.findOne({ user_id: userId });
-            const hasDuration = !!(userSettings &&
-                userSettings.settings &&
-                userSettings.settings[chatIdStr] &&
-                userSettings.settings[chatIdStr].anti_spam &&
-                userSettings.settings[chatIdStr].anti_spam.quote &&
-                userSettings.settings[chatIdStr].anti_spam.quote[target] &&
-                userSettings.settings[chatIdStr].anti_spam.quote[target].penalty_duration_str);
-
-            if (!hasDuration) {
-                await user_setting_module.findOneAndUpdate(
-                    { user_id: userId },
-                    {
-                        $set: {
-                            [`settings.${chatIdStr}.anti_spam.quote.${target}.penalty_duration_str`]: '10 minutes',
-                            [`settings.${chatIdStr}.anti_spam.quote.${target}.penalty_duration`]: 600000
-                        }
+            // ✅ Set default duration ONLY if missing/empty (no overwrite on every penalty change)
+            await user_setting_module.updateOne(
+                {
+                    user_id: userId,
+                    $or: [
+                        { [`settings.${chatIdStr}.anti_spam.quote.${target}.penalty_duration_str`]: { $exists: false } },
+                        { [`settings.${chatIdStr}.anti_spam.quote.${target}.penalty_duration_str`]: null },
+                        { [`settings.${chatIdStr}.anti_spam.quote.${target}.penalty_duration_str`]: "" },
+                    ],
+                },
+                {
+                    $set: {
+                        [`settings.${chatIdStr}.anti_spam.quote.${target}.penalty_duration_str`]: "10 minutes",
+                        [`settings.${chatIdStr}.anti_spam.quote.${target}.penalty_duration`]: 600000,
                     },
-                    { upsert: true, setDefaultsOnInsert: true }
-                );
-            }
+                },
+                { upsert: true }
+            );
 
             // Set the penalty for quote target
             await user_setting_module.findOneAndUpdate(
@@ -1466,7 +1457,9 @@ module.exports = (bot) => {
                 { upsert: true }
             );
 
-            await ctx.answerCbQuery(`✅ Penalty for ${target.charAt(0).toUpperCase() + target.slice(1)} set to ${action.charAt(0).toUpperCase() + action.slice(1)}`);
+            await ctx.answerCbQuery(
+                `✅ Penalty for ${target.charAt(0).toUpperCase() + target.slice(1)} set to ${action.charAt(0).toUpperCase() + action.slice(1)}`
+            );
             await renderQuoteTargetMenu(ctx, chatIdStr, target);
         } catch (err) {
             console.error("Error in QUOTE_PUNISH_* handler:", err);
@@ -1979,33 +1972,32 @@ module.exports = (bot) => {
             const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
             if (!chat) return;
 
-            // Load current settings to see if duration defaults are missing
-            const doc = await user_setting_module.findOne({ user_id: userId }).lean();
-
-            const hasDuration =
-                !!doc?.settings?.[chatIdStr]?.anti_spam?.links_block?.penalty_duration_str;
-
-            // If missing → set defaults once
-            if (!hasDuration) {
-                await user_setting_module.findOneAndUpdate(
-                    { user_id: userId },
-                    {
-                        $set: {
-                            [`settings.${chatIdStr}.anti_spam.links_block.penalty_duration_str`]: '10 minutes',
-                            [`settings.${chatIdStr}.anti_spam.links_block.penalty_duration`]: 600000
-                        }
+            // ✅ Default duration ONLY if missing/empty (no overwrite on penalty change)
+            await user_setting_module.updateOne(
+                {
+                    user_id: userId,
+                    $or: [
+                        { [`settings.${chatIdStr}.anti_spam.links_block.penalty_duration_str`]: { $exists: false } },
+                        { [`settings.${chatIdStr}.anti_spam.links_block.penalty_duration_str`]: null },
+                        { [`settings.${chatIdStr}.anti_spam.links_block.penalty_duration_str`]: "" },
+                    ],
+                },
+                {
+                    $set: {
+                        [`settings.${chatIdStr}.anti_spam.links_block.penalty_duration_str`]: "10 minutes",
+                        [`settings.${chatIdStr}.anti_spam.links_block.penalty_duration`]: 600000,
                     },
-                    { upsert: true, setDefaultsOnInsert: true }
-                );
-            }
+                },
+                { upsert: true }
+            );
 
             // Always set the chosen penalty
             await user_setting_module.findOneAndUpdate(
                 { user_id: userId },
                 {
                     $set: {
-                        [`settings.${chatIdStr}.anti_spam.links_block.penalty`]: action
-                    }
+                        [`settings.${chatIdStr}.anti_spam.links_block.penalty`]: action,
+                    },
                 },
                 { upsert: true }
             );
@@ -2457,8 +2449,9 @@ module.exports = (bot) => {
                 await safeEditOrSend(
                     ctx,
                     "❌ No valid usernames/links found. Please send usernames (e.g., <code>@example</code>) or <code>t.me</code> links, one per line. Try again",
-                    { parse_mode: "HTML"
-                     }
+                    {
+                        parse_mode: "HTML"
+                    }
                 );
                 // Keep session for correction
                 return;
@@ -2472,11 +2465,6 @@ module.exports = (bot) => {
                     { user_id: userId },
                     {
                         $setOnInsert: { user_id: userId },
-                        $set: {
-                            [`settings.${chatIdStr}.anti_spam.telegram_links.penalty`]: "off",
-                            [`settings.${chatIdStr}.anti_spam.telegram_links.delete_messages`]: false,
-                            [`settings.${chatIdStr}.anti_spam.telegram_links.username_antispam`]: false
-                        },
                         $addToSet: {
                             [`settings.${chatIdStr}.anti_spam.telegram_links.whitelist`]: { $each: entries }
                         }
@@ -2611,9 +2599,6 @@ module.exports = (bot) => {
                     { user_id: userId },
                     {
                         $setOnInsert: { user_id: userId },
-                        $set: {
-                            [`settings.${chatIdStr}.anti_spam.telegram_links.delete_messages`]: false
-                        },
                         $pull: {
                             [`settings.${chatIdStr}.anti_spam.telegram_links.whitelist`]: { $in: toRemove }
                         }
@@ -2651,7 +2636,7 @@ module.exports = (bot) => {
                     try { await bot.telegram.deleteMessage(promptMessage.chatId, promptMessage.messageId); } catch (_) { /* ignore */ }
                 }
 
-                await ctx.reply(replyText, { parse_mode: "HTML",...keyboard });
+                await ctx.reply(replyText, { parse_mode: "HTML", ...keyboard });
 
                 saved = true;
             } catch (err) {
@@ -2794,8 +2779,9 @@ module.exports = (bot) => {
                     { user_id: userId },
                     {
                         $setOnInsert: { user_id: userId },
-                        $set: { [`settings.${chatIdStr}.anti_spam.forwarding.delete_messages`]: false },
-                        $addToSet: { [`settings.${chatIdStr}.anti_spam.forwarding.whitelist`]: { $each: entries } }
+                        $addToSet: {
+                            [`settings.${chatIdStr}.anti_spam.forwarding.whitelist`]: { $each: entries }
+                        }
                     },
                     { upsert: true, new: true }
                 );
