@@ -15,6 +15,7 @@ const ACCESS_TTL_MS = ACCESS_TTL_SECONDS * 1000;
 module.exports = (bot) => {
   const botAdminCache = new Map();
   const memberRoleCache = new Map();
+  const accessPromptCache = new Map(); // chatId:userId -> last prompt message_id
 
   let botInfoPromise = null;
 
@@ -312,16 +313,26 @@ module.exports = (bot) => {
       text += `\n\nIf the bot was blocked, unblock it and press Start again.`;
     }
 
+    // Delete previous prompt for this user in this chat (to avoid multiple verify posts)
+    const promptKey = `${msg.chat.id}:${msg.from.id}`;
+    const prevPromptId = accessPromptCache.get(promptKey);
+    if (prevPromptId) {
+      try {
+        await bot.telegram.deleteMessage(msg.chat.id, prevPromptId).catch(() => { });
+      } catch (e) { }
+    }
+
     let keyboard = buildAccessKeyboard({ needsChannel, needsStart, userId: msg.from.id });
     keyboard = await patchStartButtonUrl(keyboard);
 
     const sent = await ctx.reply(text, {
       parse_mode: "HTML",
-      reply_to_message_id: msg.message_id,
+      ...(msg && msg.message_id ? { reply_to_message_id: msg.message_id } : {}),
       reply_markup: keyboard.reply_markup
     });
 
     await saveMessageToRedis(msg.chat.id, sent.message_id, { from: (await getBotInfo()).id, isBot: true, type: "access_prompt" });
+    accessPromptCache.set(`${msg.chat.id}:${msg.from.id}`, sent.message_id);
     scheduleDeleteMessage(msg.chat.id, sent.message_id, ACCESS_TTL_MS);
   }
 
@@ -361,6 +372,21 @@ module.exports = (bot) => {
 
       if (inChannel && hasDb) {
         await ctx.answerCbQuery("Verified!", { show_alert: false }).catch(() => { });
+
+        // Instantly delete the verify prompt message (post) for this user
+        try {
+          const promptMsgId = ctx.callbackQuery?.message?.message_id;
+          if (promptMsgId) await bot.telegram.deleteMessage(chatId, promptMsgId).catch(() => { });
+        } catch (e) { }
+
+        // Also delete cached prompt for this user in this chat
+        try {
+          const key = `${chatId}:${clickerId}`;
+          const cachedId = accessPromptCache.get(key);
+          if (cachedId) await bot.telegram.deleteMessage(chatId, cachedId).catch(() => { });
+          accessPromptCache.delete(key);
+        } catch (e) { }
+
 
         const hi = mentionUserHtml(ctx.from);
         const text = `Hii ${hi},\n\n✅ Access verified. Now send the movie/show name again in this group.`;
@@ -427,25 +453,29 @@ module.exports = (bot) => {
         } catch (e) { }
         return;
       }
-
-      // Auto-delete every message in 10 minutes (from anyone)
-      try {
-        await saveMessageToRedis(chat.id, msg.message_id, {
-          from: msg.from?.id,
-          isBot: false,
-          hasText: Boolean(msg.text),
-          type: msg.text ? "text" : "non_text"
-        });
-      } catch (e) { }
-      scheduleDeleteMessage(chat.id, msg.message_id);
+      // NOTE: 10-min auto-delete will be scheduled only after user/admin checks below.
 
       // If sender is owner/admin => no response
       const senderId = msg.from?.id;
-      if (senderId && (await isUserAdminOrOwner(chat.id, senderId))) return;
+      if (senderId && (await isUserAdminOrOwner(chat.id, senderId))) {
+        // Admin/owner messages also auto-delete in 10 minutes
+        try {
+          await saveMessageToRedis(chat.id, msg.message_id, { from: senderId, isBot: false, hasText: Boolean(msg.text), type: msg.text ? "text" : "non_text" });
+        } catch (e) { }
+        scheduleDeleteMessage(chat.id, msg.message_id);
+        return;
+      }
 
       // If user is replying to owner/admin => no response
       const repliedUserId = msg.reply_to_message?.from?.id;
-      if (repliedUserId && (await isUserAdminOrOwner(chat.id, repliedUserId))) return;
+      if (repliedUserId && (await isUserAdminOrOwner(chat.id, repliedUserId))) {
+        // Still auto-delete in 10 minutes
+        try {
+          await saveMessageToRedis(chat.id, msg.message_id, { from: senderId, isBot: false, hasText: Boolean(msg.text), type: msg.text ? "text" : "non_text" });
+        } catch (e) { }
+        scheduleDeleteMessage(chat.id, msg.message_id);
+        return;
+      }
 
       // Only normal single-line text is allowed for users (no media, no links, no usernames/mentions)
       const entities = msg.entities || [];
@@ -501,13 +531,25 @@ module.exports = (bot) => {
       }
 
       if (!inChannel || blocked) {
+        // User not verified -> delete user message instantly
+        try {
+          await ctx.deleteMessage(msg.message_id);
+        } catch (e) { }
+
         const needsChannel = !inChannel;
         const needsStart = blocked; // missing db OR blocked both map to start required
         const reason = blocked && userRecord ? "blocked" : "missing";
 
-        await sendAccessPrompt({ ctx, msg, needsChannel, needsStart, reason });
+        const promptMsg = { ...msg, message_id: null };
+        await sendAccessPrompt({ ctx, msg: promptMsg, needsChannel, needsStart, reason });
         return;
       }
+
+      // Auto-delete this user message in 10 minutes (verified users only)
+      try {
+        await saveMessageToRedis(chat.id, msg.message_id, { from: msg.from?.id, isBot: false, text: msg.text, type: "user_query" });
+      } catch (e) { }
+      scheduleDeleteMessage(chat.id, msg.message_id);
 
       // ---- FINDING PROCESS ----
       const query = msg.text.trim();
@@ -566,7 +608,7 @@ module.exports = (bot) => {
       // keyboard may be either a Telegraf Markup (has .reply_markup) or plain object
       const replyOptions = {
         parse_mode: "Markdown",
-        reply_to_message_id: msg.message_id,
+        ...(msg && msg.message_id ? { reply_to_message_id: msg.message_id } : {}),
         reply_markup: keyboard.reply_markup ? keyboard.reply_markup : keyboard // handle both shapes
       };
 
