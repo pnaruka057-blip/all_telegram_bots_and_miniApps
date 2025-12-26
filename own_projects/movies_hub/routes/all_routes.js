@@ -560,7 +560,7 @@ app.get('/movies-hub/profile', async (req, res) => {
         const rawUserId = req.query.userId // support both
         const userIdNum = Number(rawUserId);
 
-        console.log("-----------------------" + rawUserId);
+        console.log(rawUserId);
 
         // ✅ guard: NaN / missing / invalid
         if (!rawUserId || Number.isNaN(userIdNum)) {
