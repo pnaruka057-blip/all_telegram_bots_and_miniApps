@@ -1,5 +1,6 @@
 <!-- Developed By Section -->
-<footer class="mt-2 text-center text-gray-500 text-sm flex items-center justify-center space-x-2 pb-12 mb-[40px] select-none">
+<footer
+    class="mt-2 text-center text-gray-500 text-sm flex items-center justify-center space-x-2 pb-12 mb-[40px] select-none">
     <svg fill="#000000" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg"
         xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" xml:space="preserve" width="24px" height="24px">
         <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
@@ -23,12 +24,14 @@
         </a>
     </span>
 </footer>
+
 <!-- Bottom Navigation -->
 <footer class="bg-[#1f1f1f] shadow-inner border-t border-gray-700 fixed bottom-0 left-0 right-0">
     <div class="flex justify-between items-center text-white relative">
 
         <!-- Send Request (Left) -->
-        <a href="/<%= token %>/movies-hub/send-request?userId=<%= user_id %>&fromId=<%= typeof fromId !== 'undefined' ? fromId : '' %>"
+        <a data-ad="interstitial"
+            href="/<%= token %>/movies-hub/send-request?userId=<%= user_id %>&fromId=<%= typeof fromId !== 'undefined' ? fromId : '' %>"
             class="flex-1 text-center py-3 <%= currentPath === '/movies-hub/send-request' ? 'text-blue-300 bg-gray-600' : '' %>">
             <svg class="mx-auto w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -47,7 +50,8 @@
         </a>
 
         <!-- Profile (Right) -->
-        <a href="/<%= token %>/movies-hub/profile?userId=<%= user_id %>&fromId=<%= typeof fromId !== 'undefined' ? fromId : '' %>"
+        <a data-ad="interstitial"
+            href="/<%= token %>/movies-hub/profile?userId=<%= user_id %>&fromId=<%= typeof fromId !== 'undefined' ? fromId : '' %>"
             class="flex-1 text-center py-3 <%= currentPath === '/movies-hub/profile' ? 'text-blue-300 bg-gray-600' : '' %>">
             <svg class="mx-auto w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -58,3 +62,98 @@
 
     </div>
 </footer>
+
+<!-- AdsGram Client-only Integration -->
+<script>
+    (function () {
+
+        const ADS_BLOCK_ID = 'int-20013'; // <-- CHANGE THIS
+
+        const SAFETY_TIMEOUT_MS = 8000;
+        const SDK_LOAD_DELAY_MS = 300;
+
+        let AdController = null;
+        let sdkLoaded = false;
+        let sdkRequested = false;
+
+        function loadAdsgram() {
+            if (sdkRequested) return;
+            sdkRequested = true;
+
+            if (window.Adsgram?.init) {
+                try {
+                    AdController = window.Adsgram.init({ blockId: ADS_BLOCK_ID });
+                    sdkLoaded = true;
+                    return;
+                } catch (e) { console.error(e); }
+            }
+
+            const s = document.createElement('script');
+            s.src = 'https://sad.adsgram.ai/js/sad.min.js';
+            s.async = true;
+            s.onload = function () {
+                try {
+                    if (window.Adsgram?.init) {
+                        AdController = window.Adsgram.init({ blockId: ADS_BLOCK_ID });
+                        sdkLoaded = true;
+                    }
+                } catch (e) {
+                    console.error('Adsgram init failed:', e);
+                }
+            };
+            s.onerror = () => console.error('Adsgram SDK load failed.');
+            document.head.appendChild(s);
+        }
+
+        function attachAdNav() {
+            const links = document.querySelectorAll('footer a[data-ad]');
+            links.forEach(a => {
+                a.addEventListener('click', async function (ev) {
+                    ev.preventDefault();
+                    const href = this.href;
+
+                    if (!sdkLoaded && !sdkRequested) {
+                        loadAdsgram();
+                        await new Promise(r => setTimeout(r, SDK_LOAD_DELAY_MS));
+                    }
+
+                    let navigated = false;
+                    const go = () => {
+                        if (navigated) return;
+                        navigated = true;
+                        window.location.href = href;
+                    };
+
+                    const timer = setTimeout(go, SAFETY_TIMEOUT_MS);
+
+                    try {
+                        if (sdkLoaded && AdController?.show) {
+                            const res = await AdController.show();
+                            clearTimeout(timer);
+                            // client-only behaviour: navigate regardless of done/skip
+                            go();
+                        } else {
+                            clearTimeout(timer);
+                            go();
+                        }
+                    } catch (err) {
+                        console.error('Ad show error:', err);
+                        clearTimeout(timer);
+                        go();
+                    }
+                }, { passive: false });
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                loadAdsgram();
+                attachAdNav();
+            });
+        } else {
+            loadAdsgram();
+            attachAdNav();
+        }
+
+    })();
+</script>

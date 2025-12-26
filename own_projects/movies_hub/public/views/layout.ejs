@@ -10,17 +10,45 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
         window.addEventListener("DOMContentLoaded", async () => {
+            /**
+             * Wait briefly for the Telegram WebApp script to become available.
+             * Some browsers may load the async script slightly after DOMContentLoaded on first open.
+             */
+            const waitForTelegram = async (timeoutMs = 500) => {
+                const start = Date.now();
+                while (!(window.Telegram && window.Telegram.WebApp) && (Date.now() - start) < timeoutMs) {
+                    await new Promise(r => setTimeout(r, 50));
+                }
+                return !!(window.Telegram && window.Telegram.WebApp);
+            };
+
+            const tgAvailable = await waitForTelegram(500); // wait up to 500ms
+            if (!tgAvailable) {
+                // Telegram WebApp not present — show message and stop further execution
+                document.body.innerHTML = '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
+                return;
+            }
+
             const tg = window.Telegram.WebApp;
 
-            tg.ready();
-            tg.expand();
-            const initDataUnsafe = tg.initDataUnsafe;
+            // Safe calls to ready() / expand()
+            try {
+                if (typeof tg.ready === 'function') tg.ready();
+            } catch (e) { /* ignore */ }
+            try {
+                if (typeof tg.expand === 'function') tg.expand();
+            } catch (e) { /* ignore */ }
+
+            const initDataUnsafe = tg.initDataUnsafe || {};
             const user = initDataUnsafe.user;
 
+            // If Telegram did not provide a user object, show same message and stop
             if (!user) {
                 document.body.innerHTML = '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
                 return;
             }
+
+            // Verify user on server (if your endpoint exists)
             try {
                 await axios.post("/<%= token %>/movie-hub/verify-telegram-user", user);
             } catch (error) {

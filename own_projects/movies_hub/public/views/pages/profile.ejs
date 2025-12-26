@@ -1,12 +1,14 @@
 <!-- Main Wrapper -->
-<section class="w-full max-w-sm bg-white rounded-xl shadow-xl overflow-hidden flex flex-col min-h-[100svh]">
+<section class="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col min-h-[100svh]">
 
     <!-- Main Content -->
     <main class="flex-1 overflow-y-auto px-6 py-6 space-y-6 animate-background">
 
         <!-- Profile Section -->
         <div class="flex flex-col items-center text-center space-y-2">
-            <img src="<%= user.user_logo %>" alt="Profile Picture" class="w-24 h-24 rounded-full shadow-lg border">
+            <!-- Give the img an id so we can update src client-side if server didn't provide user_logo -->
+            <img id="profileImg" src="<%= user && user.user_logo ? user.user_logo : '' %>" alt="Profile Picture"
+                class="w-24 h-24 rounded-full shadow-lg border">
             <h2 class="text-lg font-bold">
                 <%= user.name %>
             </h2>
@@ -53,6 +55,52 @@
     <%- include('../partials/footer') %>
 </section>
 
+<script>
+    /**
+     * Client-side logic to set profile image:
+     * - If server passed user.user_logo (non-empty), keep it.
+     * - Else, try Telegram WebApp initDataUnsafe.user.photo_url.
+     * - If not available, use Cloudinary fallback image.
+     *
+     * This file expects Telegram WebApp script to be available (layout includes it).
+     */
+
+    (function () {
+        const FALLBACK = 'https://res.cloudinary.com/dm8miilli/image/upload/v1755791642/profile_hbb9k4.png';
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                const img = document.getElementById('profileImg');
+                if (!img) return;
+
+                // If server already provided a non-empty src, do nothing.
+                const initialSrc = (img.getAttribute('src') || '').trim();
+                if (initialSrc) return;
+
+                // Access Telegram WebApp user photo if available.
+                const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+                // Attempt to call ready() if available (safe)
+                try { tg && typeof tg.ready === 'function' && tg.ready(); } catch (e) { /* ignore */ }
+
+                const tgUser = tg && tg.initDataUnsafe ? tg.initDataUnsafe.user : null;
+                if (tgUser && tgUser.photo_url) {
+                    img.src = tgUser.photo_url;
+                } else {
+                    img.src = FALLBACK;
+                }
+            } catch (err) {
+                // On any error, ensure fallback is set so UI doesn't break.
+                try {
+                    const img = document.getElementById('profileImg');
+                    if (img) img.src = FALLBACK;
+                } catch (e) { /* ignore */ }
+                console.error('Profile image init error:', err);
+            }
+        });
+    })();
+</script>
+
+<!-- Existing form submission logic unchanged -->
 <script>
     const form = document.getElementById("profileForm");
     form.addEventListener("submit", async (e) => {

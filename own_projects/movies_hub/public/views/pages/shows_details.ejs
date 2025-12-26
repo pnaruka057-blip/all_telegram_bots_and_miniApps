@@ -53,9 +53,9 @@
                         <button class="download-btn block w-full text-center py-2 mb-2 bg-purple-600 text-white rounded-lg
                                 shadow hover:bg-purple-700 transition" data-url="<%= season.download_link[i] %>"
                             data-show-id="<%= updatedShowDetails._id %>">
-                        ⬇️ Download <%= q %>
-                            </button>
-                            <% }) %>
+                            ⬇️ Download <%= q %>
+                        </button>
+                        <% }) %>
                 </div>
                 <% }) %>
         </div>
@@ -90,4 +90,132 @@
             }
         });
     });
+</script>
+
+<!-- Ads-on-render (client-only) -->
+<script>
+    (function () {
+        /**
+         * Client-only AdsGram ad-on-render.
+         *
+         * Replace ADS_BLOCK_ID with your AdsGram block id.
+         * This script attempts to show an ad once per session/tab for this movie page.
+         * It will not block page functionality if SDK/ad does not load or fails.
+         */
+
+        const ADS_BLOCK_ID = 'int-20013'; // <-- CHANGE THIS
+        const SESSION_KEY = 'ads_shown_movie_<%= updatedMovieDetails._id %>_v1';
+        const SDK_LOAD_TIMEOUT = 1500;        // ms to wait for SDK to initialize
+        const SHOW_SAFETY_TIMEOUT = 8000;     // ms to fallback if ad hangs
+
+        let AdController = null;
+        let sdkRequested = false;
+        let sdkInitialized = false;
+
+        function loadAdsgramSDK() {
+            return new Promise((resolve) => {
+                if (sdkRequested) {
+                    // poll until initialized or short timeout
+                    const start = Date.now();
+                    const poll = setInterval(() => {
+                        if (sdkInitialized || (Date.now() - start) > SDK_LOAD_TIMEOUT) {
+                            clearInterval(poll);
+                            resolve(sdkInitialized);
+                        }
+                    }, 80);
+                    return;
+                }
+                sdkRequested = true;
+
+                // If already available on window, try init
+                if (window.Adsgram && typeof window.Adsgram.init === 'function') {
+                    try {
+                        AdController = window.Adsgram.init({ blockId: ADS_BLOCK_ID });
+                        sdkInitialized = true;
+                        resolve(true);
+                        return;
+                    } catch (e) {
+                        console.error('Adsgram init error (existing):', e);
+                    }
+                }
+
+                // Dynamically insert SDK script
+                const s = document.createElement('script');
+                s.src = 'https://sad.adsgram.ai/js/sad.min.js';
+                s.async = true;
+                s.onload = function () {
+                    try {
+                        if (window.Adsgram && typeof window.Adsgram.init === 'function') {
+                            AdController = window.Adsgram.init({ blockId: ADS_BLOCK_ID });
+                            sdkInitialized = true;
+                            resolve(true);
+                            return;
+                        }
+                    } catch (e) {
+                        console.error('Adsgram init failed after load:', e);
+                    }
+                    resolve(false);
+                };
+                s.onerror = function () {
+                    console.error('Failed to load Adsgram SDK.');
+                    resolve(false);
+                };
+                document.head.appendChild(s);
+
+                // safety resolve after short timeout
+                setTimeout(() => { if (!sdkInitialized) resolve(sdkInitialized); }, SDK_LOAD_TIMEOUT);
+            });
+        }
+
+        async function showAdOnce() {
+            try {
+                // Only show once per session/tab for this movie
+                if (sessionStorage.getItem(SESSION_KEY)) return;
+
+                // Attempt to load/initialize SDK
+                const ready = await loadAdsgramSDK();
+                if (!ready || !AdController || typeof AdController.show !== 'function') {
+                    // mark as shown so we don't retry repeatedly in same session
+                    try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
+                    return;
+                }
+
+                // Safety fallback ensures page won't hang if ad never resolves
+                let navigatedOrMarked = false;
+                const markShown = () => {
+                    if (navigatedOrMarked) return;
+                    navigatedOrMarked = true;
+                    try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
+                };
+                const safetyTimer = setTimeout(() => {
+                    console.warn('Ads show did not resolve within safety timeout.');
+                    markShown();
+                }, SHOW_SAFETY_TIMEOUT);
+
+                try {
+                    const res = await AdController.show();
+                    clearTimeout(safetyTimer);
+                    // Mark as shown regardless of completion/skipped
+                    markShown();
+                    // You may inspect res.done if you want to award client-only coins, etc.
+                } catch (err) {
+                    clearTimeout(safetyTimer);
+                    console.error('Error while showing Adsgram ad:', err);
+                    markShown();
+                }
+            } catch (e) {
+                console.error('Ads-on-render unexpected error:', e);
+                try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (err) { }
+            }
+        }
+
+        // Run when DOM is ready (non-blocking)
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', showAdOnce);
+        } else {
+            // Already ready
+            showAdOnce();
+        }
+
+    })();
 </script>

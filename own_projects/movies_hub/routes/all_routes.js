@@ -583,7 +583,6 @@ app.get('/movies-hub/profile', async (req, res) => {
 
         // Backward compatible fields for old views
         user.name = user.first_name;
-        user.user_logo = user.user_logo || user.profile_logo || null;
 
 
         res.render("pages/profile", {
