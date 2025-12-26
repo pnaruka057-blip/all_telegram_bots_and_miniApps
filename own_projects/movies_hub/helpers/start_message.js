@@ -1,98 +1,106 @@
+// startHandler.js
 const { Markup } = require("telegraf");
 const menu_btn_admin = require("../buttons/menu_btn_admin");
 const menu_btn_users = require("../buttons/menu_btn_users");
 const users_module = require("../models/users_module");
 const checkUserInChannel = require("./checkUserInChannel");
-const escapeMarkdownV2 = require('./escapeMarkdownV2');
+
+// HTML-escape helper (safe for parse_mode: "HTML")
+function escapeHtml(text = "") {
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 
 module.exports = async (bot, ctx) => {
-    if (ctx.scene?.current) {
-        await ctx.scene.leave();
-    }
+    try {
+        // leave scene if active
+        if (ctx.scene?.current) {
+            await ctx.scene.leave();
+        }
 
-    // Random positive reactions
-    const reactions = [
-        "😊 Welcome!",
-        "🚀 Glad to have you here!",
-        "🎉 You're awesome!",
-        "🔥 Let's get started!",
-        "🤗 Great to see you!",
-        "🙌 Welcome aboard!"
-    ];
+        // brief loading notice
+        const sent = await ctx.reply("Preparing your session...");
+        await new Promise(res => setTimeout(res, 800));
+        await ctx.deleteMessage(sent.message_id).catch(() => { });
 
-    const sent = await ctx.reply('👋 Welcome! Please Wait ....', {
-        reply_markup: {
-            remove_keyboard: true
-        },
-    });
+        // clear session
+        ctx.session = null;
 
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-    await sleep(1000); // 1 second wait
-    await ctx.deleteMessage(sent.message_id).catch(console.error);
-    // ab next code yaha chalega
+        // admin shortcut
+        if (ctx?.from?.id === parseInt(process.env.ADMIN_ID_MOVIEHUB, 10)) {
+            return menu_btn_admin(ctx);
+        }
 
-    // Clear session
-    ctx.session = null;
-
-    if (ctx?.from?.id === parseInt(process.env.ADMIN_ID_MOVIEHUB)) {
-        return menu_btn_admin(ctx)
-    } else {
-
-        let profileUrl = "https://res.cloudinary.com/dm8miilli/image/upload/v1755791642/profile_hbb9k4.png"; // default profile image URL
-
+        // fetch profile photo (fallback to default)
+        let profileUrl = "https://res.cloudinary.com/dm8miilli/image/upload/v1755791642/profile_hbb9k4.png";
         try {
             const photos = await ctx.telegram.getUserProfilePhotos(ctx.from.id, 0, 1);
-            if (photos.total_count > 0) {
-                const fileId = photos.photos[0][0].file_id; // sabse chhoti size wali photo
+            if (photos?.total_count > 0) {
+                const fileId = photos.photos[0][0].file_id;
                 const file = await ctx.telegram.getFile(fileId);
                 profileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN_MOVIEHUB}/${file.file_path}`;
             }
         } catch (err) {
-            console.error("Profile fetch error:", err);
+            console.warn("Profile fetch error:", err?.message || err);
         }
 
-        const user = await users_module.findOneAndUpdate({ user_id: ctx?.from?.id }, { user_logo: profileUrl }, { new: true });
+        // determine language: prefer Telegram language_code; otherwise default to 'en'
+        const langFromTelegram = ctx.from.language_code
+            ? String(ctx.from.language_code).split(/[-_]/)[0]
+            : null;
+        const languageToStore = langFromTelegram || "en";
 
-        // Agar user nahi mila to DB me insert karo
-        if (!user) {
-            await users_module.create({
-                user_id: ctx.from.id,
-                name: ctx.from.first_name,
-                username: ctx.from.username,
-                language: null,
-                user_logo: profileUrl
-            });
+        // upsert user and set flags
+        const updateObj = {
+            name: ctx.from.first_name || null,
+            username: ctx.from.username || null,
+            user_logo: profileUrl,
+            language: languageToStore,
+            is_started: true,
+            is_blocked: false,
+            last_seen: new Date()
+        };
+
+        const user = await users_module.findOneAndUpdate(
+            { user_id: ctx.from.id },
+            { $set: updateObj },
+            { new: true, upsert: true }
+        );
+
+        // check channel membership (helper may throw, handle gracefully)
+        let is_channel_member = false;
+        try {
+            is_channel_member = await checkUserInChannel(ctx.from.id, bot);
+        } catch (err) {
+            console.warn("checkUserInChannel error:", err?.message || err);
+            is_channel_member = false;
         }
 
-        const userFirstName = ctx.from.first_name || "there";
-        const randomMessage = reactions[Math.floor(Math.random() * reactions.length)];
-        let is_channel_member = await checkUserInChannel(ctx.from.id, bot);
-
-        // ✅ Language already selected hai
-        if (user && user.language) {
-            if (is_channel_member) {
-                return menu_btn_users(ctx);
-            } else {
-                await ctx.reply("🔒 Please join our *Backup Channel* to continue using the bot:", {
-                    parse_mode: "Markdown",
-                    ...Markup.inlineKeyboard([
-                        [Markup.button.url("📢 Join Backup Channel", `https://t.me/${process.env.CHANNEL_ID_MOVIEHUB}`)],
-                        [Markup.button.callback("✅ I've Joined", "CHECK_JOIN_BACKUP")]
-                    ])
-                });
-                return;
-            }
+        // route user: if joined -> show user menu, otherwise prompt to join
+        if (is_channel_member) {
+            return menu_btn_users(ctx);
         }
 
-        // ❌ Language not set
-        const welcomeText = `${randomMessage.replace(/!/g, '\\!')} *Hi ${escapeMarkdownV2(userFirstName)}* 👋\n\nPlease select your preferred language to continue with accessing your favorite *Movies & Shows*\\.`
+        // ask user to join backup channel (no language selection)
+        const firstNameSafe = escapeHtml(ctx.from.first_name || "User");
+        const promptText = `Hello <b>${firstNameSafe}</b>\n\nPlease join our Backup Channel to continue using the bot.`;
 
-        ctx.replyWithMarkdownV2(welcomeText, Markup.inlineKeyboard([
-            [Markup.button.callback("🇬🇧 English", "LANG_EN"), Markup.button.callback("🇮🇳 Hindi", "LANG_HI")],
-            [Markup.button.callback("🇮🇳 Tamil", "LANG_TM"), Markup.button.callback("🇮🇳 Telugu", "LANG_TE")],
-            // [Markup.button.callback("Request", "LANG_REQUEST")]
-        ]));
+        return ctx.reply(promptText, {
+            parse_mode: "HTML",
+            ...Markup.inlineKeyboard([
+                [Markup.button.url("Join Official Channel", `https://t.me/${process.env.CHANNEL_ID_MOVIEHUB}`)],
+                [Markup.button.callback("I've Joined", "CHECK_JOIN_BACKUP")]
+            ])
+        });
+
+    } catch (err) {
+        console.error("Start handler fatal error:", err?.message || err);
+        try {
+            await ctx.reply("An unexpected error occurred. Please try again later.");
+        } catch (_) { }
     }
 };

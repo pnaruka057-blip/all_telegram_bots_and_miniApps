@@ -1,13 +1,14 @@
 <!-- Main Wrapper -->
-<section class="w-full absolute bottom-0 top-0 max-w-7xl mx-auto bg-white rounded-xl shadow-2xl flex flex-col pb-10 ">
+<section class="w-full max-w-sm mx-auto bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col min-h-[100svh]">
     <!-- Main Content: Grid -->
     <main id="contentGrid"
-        class="overflow-y-auto px-6 py-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 animate-background h-full content-start">
+        class="flex-1 overflow-y-auto px-6 py-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 bg-gray-50 animate-background content-start">
+
         <% const shimmerCount=shows && shows.length> 0 ? shows.length : 8; %>
             <% for (let i=0; i < shimmerCount; i++) { %>
                 <div class="bg-white shadow-md rounded-lg overflow-hidden animate-pulse p-1">
                     <!-- Image placeholder -->
-                    <div class="w-[143px] h-[281px] bg-gray-300 rounded-lg mb-3"></div>
+                    <div class="w-full h-[200px] bg-gray-300 rounded-lg mb-3"></div>
                     <!-- Title placeholder -->
                     <div class="h-4 bg-gray-300 rounded w-3/4 mx-auto mb-2"></div>
                     <!-- Language/genre placeholder -->
@@ -19,10 +20,12 @@
     </main>
 
     <!-- Pagination -->
-    <footer id="pagination" class="px-6 mt-3 pb-3 flex justify-center space-x-2"></footer>
+    <footer id="pagination" class="px-6 py-3 flex justify-center space-x-2 bg-white"></footer>
 
     <!-- Navigation / Footer -->
-    <%- include('../partials/footer') %>
+    <div class="mt-auto">
+        <%- include('../partials/footer') %>
+    </div>
 </section>
 
 <script>
@@ -53,33 +56,34 @@
                 return;
             }
 
-            // Render shows (schema ke hisaab se)
+            // Render shows
             contentGrid.innerHTML = shows.map(show => {
                 // collect languages from all seasons
                 let langs = [];
-                show.series.forEach(season => {
+                (show.series || []).forEach(season => {
                     if (season.language) langs.push(season.language);
                 });
                 langs = [...new Set(langs.join(",").split(",").map(l => l.trim()).filter(Boolean))];
 
                 return `
-                <a href="/<%= token %>/movies-hub/show_details?userId=<%= user_id %>&show_id=${show._id}&fromId=<%= fromId %>"
-                     class="content-item bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition p-1"
-                     data-type="show">
-                    <div class="w-full h-[200px] bg-gray-200 overflow-hidden rounded-lg">
-                        <img src="${show.thumbnail}" alt="${show.title}" class="w-full h-full object-fill">
-                    </div>
-                    <div class="p-3 text-center">
-                        <h2 class="text-sm font-bold text-gray-800 truncate-3-lines">${show.title}</h2>
-                        <div class="flex flex-wrap justify-center gap-2 mt-2">
-                            ${langs.map(lang => `
-                                <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-600 rounded-full">${lang}</span>
-                            `).join("")}
-                        </div>
-                        <p class="text-xs text-gray-600 mt-2">${show.genre}</p>
-                        <p class="text-xs text-purple-500 mt-1 font-semibold">${show.category}</p>
-                    </div>
-                </a>`;
+          <a href="/<%= token %>/movies-hub/show_details?userId=<%= user_id %>&show_id=${show._id}&fromId=<%= fromId %>"
+             class="content-item bg-white shadow-md rounded-lg overflow-hidden hover:shadow-xl transition p-1 flex flex-col"
+             data-type="show">
+            <div class="w-full h-[200px] bg-gray-200 overflow-hidden rounded-lg">
+              <img src="${show.thumbnail}" alt="${show.title}" class="w-full h-full object-cover">
+            </div>
+            <div class="p-3 text-center flex-1">
+              <!-- Title: allow wrap, card height auto grows -->
+              <h2 class="text-sm font-bold text-gray-800 leading-snug break-words">${show.title}</h2>
+              <div class="flex flex-wrap justify-center gap-2 mt-2">
+                ${langs.map(lang => `
+                  <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-600 rounded-full">${lang}</span>
+                `).join("")}
+              </div>
+              <p class="text-xs text-gray-600 mt-2 break-words">${show.genre || ''}</p>
+              <p class="text-xs text-purple-500 mt-1 font-semibold break-words">${show.category || ''}</p>
+            </div>
+          </a>`;
             }).join("");
 
             renderPagination(totalPages);

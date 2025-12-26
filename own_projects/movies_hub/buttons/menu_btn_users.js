@@ -39,7 +39,6 @@ module.exports = async (ctx) => {
         // [Markup.button.callback("📘 Help Guide", "HELP_GUIDE")],
         [Markup.button.url("📢 Join Official Channel", `https://t.me/${process.env.CHANNEL_ID_MOVIEHUB}`)],
         [Markup.button.callback("🌐 Change Language", "CHANGE_LANGUAGE")],
-        [Markup.button.callback("💸 Earn Money with Us 💸", "USER_EARN_MONEY")]
     ]);
 
     try {
