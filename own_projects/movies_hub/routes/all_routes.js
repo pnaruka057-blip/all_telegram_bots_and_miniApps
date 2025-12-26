@@ -557,23 +557,22 @@ app.post('/movies-hub/send-request', async (req, res) => {
 
 app.get('/movies-hub/profile', async (req, res) => {
     try {
-        const rawUserId = req.query.userId // support both
-        const userIdNum = Number(rawUserId);
+        const { userId } = req.query;
 
-        console.log(rawUserId);
 
-        // ✅ guard: NaN / missing / invalid
-        if (!rawUserId || Number.isNaN(userIdNum)) {
+        if (!userId) {
             return res.status(400).json({
                 success: false,
-                message: "Missing/Invalid userId"
+                message: "Missing userId"
             });
         }
 
+
         const user = await users_module
-            .findOne({ user_id: userIdNum })
+            .findOne({ user_id: Number(userId) })
             .select("first_name username language_code user_id")
             .lean();
+
 
         if (!user) {
             return res.status(404).json({
@@ -585,14 +584,17 @@ app.get('/movies-hub/profile', async (req, res) => {
         // Backward compatible fields for old views
         user.name = user.first_name;
 
-        return res.render("pages/profile", {
+
+        res.render("pages/profile", {
             currentPath: '/movies-hub/profile',
             user,
-            user_id: userIdNum, // ✅ always number
+            user_id: userId,
             developer_telegram_username,
             current_url: process.env.GLOBLE_DOMAIN || "",
             token: movies_hub_token
         });
+
+
     } catch (error) {
         console.error("Error while fetching profile:", error);
         return res.status(500).json({

@@ -1,9 +1,15 @@
-// startHandler.js
 const { Markup } = require("telegraf");
 const menu_btn_admin = require("../buttons/menu_btn_admin");
 const menu_btn_users = require("../buttons/menu_btn_users");
 const users_module = require("../models/users_module");
 const checkUserInChannel = require("./checkUserInChannel");
+
+// ✅ Multiple admin IDs (Telegram user IDs)
+// Add/remove ids here
+const ADMIN_IDS_MOVIEHUB = [
+    6843306012, // Main admin
+    5838195520  // admin 1 (@Earning_planer Demo)
+];
 
 // HTML-escape helper (safe for parse_mode: "HTML")
 function escapeHtml(text = "") {
@@ -11,7 +17,7 @@ function escapeHtml(text = "") {
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
+        .replace(/\"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
 
@@ -24,14 +30,15 @@ module.exports = async (bot, ctx) => {
 
         // brief loading notice
         const sent = await ctx.reply("Preparing your session...");
-        await new Promise(res => setTimeout(res, 800));
+        await new Promise((res) => setTimeout(res, 800));
         await ctx.deleteMessage(sent.message_id).catch(() => { });
 
         // clear session
         ctx.session = null;
 
-        // admin shortcut
-        if (ctx?.from?.id === parseInt(process.env.ADMIN_ID_MOVIEHUB, 10)) {
+        // admin shortcut (no env)
+        const currentId = Number(ctx?.from?.id);
+        if (currentId && ADMIN_IDS_MOVIEHUB.includes(currentId)) {
             return menu_btn_admin(ctx);
         }
 
@@ -48,7 +55,7 @@ module.exports = async (bot, ctx) => {
             language: languageToStore,
             is_started: true,
             is_blocked: false,
-            last_seen: new Date()
+            last_seen: new Date(),
         };
 
         const user = await users_module.findOneAndUpdate(
@@ -78,11 +85,15 @@ module.exports = async (bot, ctx) => {
         return ctx.reply(promptText, {
             parse_mode: "HTML",
             ...Markup.inlineKeyboard([
-                [Markup.button.url("Join Official Channel", `https://t.me/${process.env.CHANNEL_ID_MOVIEHUB}`)],
-                [Markup.button.callback("I've Joined", "CHECK_JOIN_BACKUP")]
-            ])
+                [
+                    Markup.button.url(
+                        "Join Official Channel",
+                        `https://t.me/${process.env.CHANNEL_ID_MOVIEHUB}`
+                    ),
+                ],
+                [Markup.button.callback("I've Joined", "CHECK_JOIN_BACKUP")],
+            ]),
         });
-
     } catch (err) {
         console.error("Start handler fatal error:", err?.message || err);
         try {

@@ -601,7 +601,7 @@ module.exports = (bot) => {
         showsCount,
         query,
         fromId: msg.chat.id,
-        user_id: userRecord
+        user_id: userRecord?.user_id
       });
 
       // send reply
