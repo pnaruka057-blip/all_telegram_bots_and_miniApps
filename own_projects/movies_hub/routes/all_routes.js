@@ -557,8 +557,10 @@ app.post('/movies-hub/send-request', async (req, res) => {
 
 app.get('/movies-hub/profile', async (req, res) => {
     try {
-        const rawUserId = req.query.userId || req.query.user_id; // support both
+        const rawUserId = req.query.userId // support both
         const userIdNum = Number(rawUserId);
+
+        console.log("-----------------------" + rawUserId);
 
         // ✅ guard: NaN / missing / invalid
         if (!rawUserId || Number.isNaN(userIdNum)) {
