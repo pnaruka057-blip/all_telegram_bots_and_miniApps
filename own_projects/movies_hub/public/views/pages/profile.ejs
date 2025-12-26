@@ -9,6 +9,7 @@
             <!-- Give the img an id so we can update src client-side if server didn't provide user_logo -->
             <img id="profileImg" src="<%= user && user.user_logo ? user.user_logo : '' %>" alt="Profile Picture"
                 class="w-24 h-24 rounded-full shadow-lg border">
+
             <h2 class="text-lg font-bold">
                 <%= user.name %>
             </h2>
@@ -17,38 +18,26 @@
             <span class="text-sm text-gray-400">ID: <%= user.user_id %></span>
         </div>
 
-        <!-- Edit Form -->
-        <form id="profileForm" class="space-y-4">
-            <!-- Name -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Name</label>
-                <input type="text" name="name" value="<%= user.name %>"
-                    class="w-full border rounded-lg px-3 py-2 focus:ring focus:ring-blue-300" />
+        <!-- Read-only Info -->
+        <div class="bg-gray-50 border rounded-xl p-4 space-y-2">
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-500">Name</span>
+                <span class="text-sm font-semibold text-gray-800">
+                    <%= user.name %>
+                </span>
             </div>
-
-            <!-- Username (readonly) -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Username</label>
-                <input type="text" value="<%= user.username %>" disabled
-                    class="w-full border rounded-lg px-3 py-2 bg-gray-100 text-gray-500" />
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-500">Username</span>
+                <span class="text-sm font-semibold text-gray-800">@<%= user.username %></span>
             </div>
-
-            <!-- Language -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Language</label>
-                <select name="language" class="w-full border rounded-lg px-3 py-2 focus:ring focus:ring-blue-300">
-                    <option value="">Select language</option>
-                    <option value="en" <%=user.language==='English' ? 'selected' : '' %>>English</option>
-                    <option value="hi" <%=user.language==='Hindi' ? 'selected' : '' %>>Hindi</option>
-                    <!-- <option value="es" <%=user.language==='es' ? 'selected' : '' %>>Spanish</option> -->
-                </select>
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-500">User ID</span>
+                <span class="text-sm font-semibold text-gray-800">
+                    <%= user.user_id %>
+                </span>
             </div>
+        </div>
 
-            <!-- Save Button -->
-            <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg shadow">
-                Save Changes
-            </button>
-        </form>
     </main>
 
     <!-- Footer -->
@@ -61,73 +50,31 @@
      * - If server passed user.user_logo (non-empty), keep it.
      * - Else, try Telegram WebApp initDataUnsafe.user.photo_url.
      * - If not available, use Cloudinary fallback image.
-     *
-     * This file expects Telegram WebApp script to be available (layout includes it).
      */
-
     (function () {
         const FALLBACK = 'https://res.cloudinary.com/dm8miilli/image/upload/v1755791642/profile_hbb9k4.png';
+
         document.addEventListener('DOMContentLoaded', () => {
             try {
                 const img = document.getElementById('profileImg');
                 if (!img) return;
 
-                // If server already provided a non-empty src, do nothing.
                 const initialSrc = (img.getAttribute('src') || '').trim();
                 if (initialSrc) return;
 
-                // Access Telegram WebApp user photo if available.
                 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-
-                // Attempt to call ready() if available (safe)
-                try { tg && typeof tg.ready === 'function' && tg.ready(); } catch (e) { /* ignore */ }
+                try { tg && typeof tg.ready === 'function' && tg.ready(); } catch (e) { }
 
                 const tgUser = tg && tg.initDataUnsafe ? tg.initDataUnsafe.user : null;
-                if (tgUser && tgUser.photo_url) {
-                    img.src = tgUser.photo_url;
-                } else {
-                    img.src = FALLBACK;
-                }
+                if (tgUser && tgUser.photo_url) img.src = tgUser.photo_url;
+                else img.src = FALLBACK;
             } catch (err) {
-                // On any error, ensure fallback is set so UI doesn't break.
                 try {
                     const img = document.getElementById('profileImg');
                     if (img) img.src = FALLBACK;
-                } catch (e) { /* ignore */ }
+                } catch (e) { }
                 console.error('Profile image init error:', err);
             }
         });
     })();
-</script>
-
-<!-- Existing form submission logic unchanged -->
-<script>
-    const form = document.getElementById("profileForm");
-    form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const formData = new FormData(form);
-        const payload = {
-            userId: "<%= user.user_id %>",
-            name: formData.get("name"),
-            language: formData.get("language")
-        };
-
-        try {
-            const res = await fetch("/movies-hub/update-profile", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert("Profile updated successfully!");
-            } else {
-                alert(data.message || "Failed to update profile");
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Something went wrong!");
-        }
-    });
 </script>
