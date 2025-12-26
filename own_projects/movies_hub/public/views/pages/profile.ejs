@@ -6,74 +6,123 @@
 
         <!-- Profile Section -->
         <div class="flex flex-col items-center text-center space-y-2">
-            <!-- Give the img an id so we can update src client-side if server didn't provide user_logo -->
             <img id="profileImg" src="<%= user && user.user_logo ? user.user_logo : '' %>" alt="Profile Picture"
                 class="w-24 h-24 rounded-full shadow-lg border">
 
-            <h2 class="text-lg font-bold">
-                <%= user.name %>
+            <h2 id="nameTitle" class="text-lg font-bold">
+                <%= user?.name || '' %>
             </h2>
-            <p class="text-gray-500">@<%= user.username %>
+            <p id="usernameLine" class="text-gray-500">
+                <%= user?.username ? '@' + user.username : '' %>
             </p>
-            <span class="text-sm text-gray-400">ID: <%= user.user_id %></span>
+            <span id="idLine" class="text-sm text-gray-400">
+                <%= user?.user_id ? ('ID: ' + user.user_id) : '' %></span>
+    </div>
+
+    <!-- Telegram Info (auto-filled) -->
+    <div class="bg-gray-50 border rounded-xl p-4">
+      <h3 class="text-sm font-bold text-gray-800 mb-3">Telegram info</h3>
+
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-gray-500">ID</span>
+          <span id="tg_id" class="font-semibold text-gray-800 truncate">-</span>
         </div>
-
-        <!-- Read-only Info -->
-        <div class="bg-gray-50 border rounded-xl p-4 space-y-2">
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-500">Name</span>
-                <span class="text-sm font-semibold text-gray-800">
-                    <%= user.name %>
-                </span>
-            </div>
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-500">Username</span>
-                <span class="text-sm font-semibold text-gray-800">@<%= user.username %></span>
-            </div>
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-500">User ID</span>
-                <span class="text-sm font-semibold text-gray-800">
-                    <%= user.user_id %>
-                </span>
-            </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-gray-500">First name</span>
+          <span id="tg_first_name" class="font-semibold text-gray-800 truncate">-</span>
         </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-gray-500">Last name</span>
+          <span id="tg_last_name" class="font-semibold text-gray-800 truncate">-</span>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-gray-500">Username</span>
+          <span id="tg_username" class="font-semibold text-gray-800 truncate">-</span>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-gray-500">Language code</span>
+          <span id="tg_language_code" class="font-semibold text-gray-800 truncate">-</span>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-gray-500">Is premium</span>
+          <span id="tg_is_premium" class="font-semibold text-gray-800 truncate">-</span>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-gray-500">Can write to PM</span>
+          <span id="tg_allows_write_to_pm" class="font-semibold text-gray-800 truncate">-</span>
+        </div>
+      </div>
+    </div>
 
-    </main>
+  </main>
 
-    <!-- Footer -->
-    <%- include('../partials/footer') %>
+  <!-- Footer -->
+  <%- include('../partials/footer') %>
 </section>
 
 <script>
     /**
-     * Client-side logic to set profile image:
-     * - If server passed user.user_logo (non-empty), keep it.
-     * - Else, try Telegram WebApp initDataUnsafe.user.photo_url.
-     * - If not available, use Cloudinary fallback image.
+     * Profile image + Telegram user info
+     * Uses Telegram WebApp initDataUnsafe.user if available.
      */
     (function () {
         const FALLBACK = 'https://res.cloudinary.com/dm8miilli/image/upload/v1755791642/profile_hbb9k4.png';
 
+        function setText(id, value, prefix = '') {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const v = (value === undefined || value === null || value === '') ? '-' : String(value);
+            el.textContent = prefix ? (v === '-' ? '-' : (prefix + v)) : v;
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+            try { tg && typeof tg.ready === 'function' && tg.ready(); } catch (e) { }
+
+            const tgUser = tg && tg.initDataUnsafe ? tg.initDataUnsafe.user : null;
+
+            // Image
             try {
                 const img = document.getElementById('profileImg');
-                if (!img) return;
+                if (img) {
+                    const initialSrc = (img.getAttribute('src') || '').trim();
+                    if (!initialSrc) {
+                        if (tgUser && tgUser.photo_url) img.src = tgUser.photo_url;
+                        else img.src = FALLBACK;
+                    }
+                }
+            } catch (e) { }
 
-                const initialSrc = (img.getAttribute('src') || '').trim();
-                if (initialSrc) return;
+            // Fill Telegram info
+            if (tgUser) {
+                setText('tg_id', tgUser.id);
+                setText('tg_first_name', tgUser.first_name);
+                setText('tg_last_name', tgUser.last_name);
+                setText('tg_username', tgUser.username, '@');
+                setText('tg_language_code', tgUser.language_code);
+                setText('tg_is_premium', tgUser.is_premium);
+                setText('tg_allows_write_to_pm', tgUser.allows_write_to_pm);
 
-                const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-                try { tg && typeof tg.ready === 'function' && tg.ready(); } catch (e) { }
-
-                const tgUser = tg && tg.initDataUnsafe ? tg.initDataUnsafe.user : null;
-                if (tgUser && tgUser.photo_url) img.src = tgUser.photo_url;
-                else img.src = FALLBACK;
-            } catch (err) {
+                // Optional: if server-side name/username missing, fill header too
+                const nameTitle = document.getElementById('nameTitle');
+                if (nameTitle && (!nameTitle.textContent || !nameTitle.textContent.trim())) {
+                    nameTitle.textContent = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || 'User';
+                }
+                const usernameLine = document.getElementById('usernameLine');
+                if (usernameLine && (!usernameLine.textContent || !usernameLine.textContent.trim())) {
+                    usernameLine.textContent = tgUser.username ? ('@' + tgUser.username) : '';
+                }
+                const idLine = document.getElementById('idLine');
+                if (idLine && (!idLine.textContent || !idLine.textContent.trim())) {
+                    idLine.textContent = tgUser.id ? ('ID: ' + tgUser.id) : '';
+                }
+            } else {
+                // No Telegram data: keep '-' and just ensure image fallback
                 try {
                     const img = document.getElementById('profileImg');
-                    if (img) img.src = FALLBACK;
+                    if (img && !(img.getAttribute('src') || '').trim()) img.src = FALLBACK;
                 } catch (e) { }
-                console.error('Profile image init error:', err);
             }
         });
     })();
