@@ -35,19 +35,6 @@ module.exports = async (bot, ctx) => {
             return menu_btn_admin(ctx);
         }
 
-        // fetch profile photo (fallback to default)
-        let profileUrl = "https://res.cloudinary.com/dm8miilli/image/upload/v1755791642/profile_hbb9k4.png";
-        try {
-            const photos = await ctx.telegram.getUserProfilePhotos(ctx.from.id, 0, 1);
-            if (photos?.total_count > 0) {
-                const fileId = photos.photos[0][0].file_id;
-                const file = await ctx.telegram.getFile(fileId);
-                profileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN_MOVIEHUB}/${file.file_path}`;
-            }
-        } catch (err) {
-            console.warn("Profile fetch error:", err?.message || err);
-        }
-
         // determine language: prefer Telegram language_code; otherwise default to 'en'
         const langFromTelegram = ctx.from.language_code
             ? String(ctx.from.language_code).split(/[-_]/)[0]
@@ -56,9 +43,8 @@ module.exports = async (bot, ctx) => {
 
         // upsert user and set flags
         const updateObj = {
-            name: ctx.from.first_name || null,
+            first_name: ctx.from.first_name || null,
             username: ctx.from.username || null,
-            user_logo: profileUrl,
             language: languageToStore,
             is_started: true,
             is_blocked: false,

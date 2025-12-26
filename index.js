@@ -23,7 +23,7 @@ const globle_domain = process.env.GLOBLE_DOMAIN
 const crypto = require("crypto");
 
 // all system middleware
-app.use(cors())
+app.use(cors()) 
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
