@@ -7,8 +7,8 @@
             class="w-full h-full object-fill animate-verticalScroll">
         <span class="absolute top-2 left-2 bg-purple-600 text-white text-xs px-3 py-1 rounded-full shadow">
             <%= updatedMovieDetails.quality.join(", ") %>
-    </span>
-</div>
+        </span>
+    </div>
 
     <!-- Main Content -->
     <main id=" contentGrid" class="flex-1 overflow-y-auto px-6 py-4 bg-gray-50">
@@ -25,7 +25,6 @@
                         <%= updatedMovieDetails.category %>
                     </span>
                 </div>
-
 
                 <!-- Languages -->
                 <div class="mt-3 flex flex-wrap gap-2">
@@ -62,12 +61,27 @@
 </section>
 
 <script>
+    /**
+     * Download button handler:
+     * - Request shortlink from server (same as before)
+     * - Then open in external browser:
+     *     - Prefer Telegram.WebApp.openLink(url) when available (opens external browser). :contentReference[oaicite:2]{index=2}
+     *     - Fallback to window.open(url, '_blank') otherwise.
+     *
+     * Note: Telegram.WebApp.openLink must be called as a result of user interaction (click), which this handler satisfies.
+     */
     document.querySelectorAll(".download-btn").forEach(btn => {
-        btn.addEventListener("click", async () => {
+        btn.addEventListener("click", async (e) => {
+            e.preventDefault(); // keep control
             const originalUrl = btn.dataset.url;
             const movieId = btn.dataset.movieId;
+
+            // show a small immediate UI feedback (optional)
+            const prevText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = 'Please wait...';
+
             try {
-                // Backend par POST request
                 const res = await axios.post("/<%= token %>/movies-hub/get_shortlink", {
                     url: originalUrl,
                     movie_id: movieId,
@@ -75,14 +89,35 @@
                 });
 
                 if (res.data && res.data.success && res.data.short_link) {
-                    // User ko shortlink nayi tab mein open karo
-                    window.open(res.data.short_link, "_blank");
+                    const shortLink = res.data.short_link;
+
+                    // If Telegram WebApp is available, prefer openLink (external browser)
+                    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+                    try {
+                        if (tg && typeof tg.openLink === 'function') {
+                            // openLink opens in external browser (Mini App will remain open). :contentReference[oaicite:3]{index=3}
+                            tg.openLink(shortLink);
+                        } else if (tg && typeof tg.openLink === 'undefined' && typeof tg.openExternalLink === 'function') {
+                            // some older/alternate SDKs might expose a different name (rare) — try defensively
+                            tg.openExternalLink(shortLink);
+                        } else {
+                            // Fallback for non-Telegram contexts
+                            window.open(shortLink, '_blank', 'noopener,noreferrer');
+                        }
+                    } catch (openErr) {
+                        // If openLink throws for any reason, fallback to window.open
+                        console.warn('openLink failed, falling back to window.open', openErr);
+                        window.open(shortLink, '_blank', 'noopener,noreferrer');
+                    }
                 } else {
                     alert("Error: Could not generate shortlink.");
                 }
             } catch (err) {
                 console.error("Shortlink error:", err);
                 alert("Failed to generate shortlink. Please try again.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = prevText;
             }
         });
     });
@@ -91,18 +126,10 @@
 <!-- Ads-on-render (client-only) -->
 <script>
     (function () {
-        /**
-         * Client-only AdsGram ad-on-render.
-         *
-         * Replace ADS_BLOCK_ID with your AdsGram block id.
-         * This script attempts to show an ad once per session/tab for this movie page.
-         * It will not block page functionality if SDK/ad does not load or fails.
-         */
-
-        const ADS_BLOCK_ID = 'int-20013'; // <-- CHANGE THIS
+        const ADS_BLOCK_ID = 'int-20013'; // <-- CHANGE THIS if needed
         const SESSION_KEY = 'ads_shown_movie_<%= updatedMovieDetails._id %>_v1';
-        const SDK_LOAD_TIMEOUT = 1500;        // ms to wait for SDK to initialize
-        const SHOW_SAFETY_TIMEOUT = 8000;     // ms to fallback if ad hangs
+        const SDK_LOAD_TIMEOUT = 1500;
+        const SHOW_SAFETY_TIMEOUT = 8000;
 
         let AdController = null;
         let sdkRequested = false;
@@ -111,7 +138,6 @@
         function loadAdsgramSDK() {
             return new Promise((resolve) => {
                 if (sdkRequested) {
-                    // poll until initialized or short timeout
                     const start = Date.now();
                     const poll = setInterval(() => {
                         if (sdkInitialized || (Date.now() - start) > SDK_LOAD_TIMEOUT) {
@@ -123,7 +149,6 @@
                 }
                 sdkRequested = true;
 
-                // If already available on window, try init
                 if (window.Adsgram && typeof window.Adsgram.init === 'function') {
                     try {
                         AdController = window.Adsgram.init({ blockId: ADS_BLOCK_ID });
@@ -135,7 +160,6 @@
                     }
                 }
 
-                // Dynamically insert SDK script
                 const s = document.createElement('script');
                 s.src = 'https://sad.adsgram.ai/js/sad.min.js';
                 s.async = true;
@@ -158,25 +182,19 @@
                 };
                 document.head.appendChild(s);
 
-                // safety resolve after short timeout
                 setTimeout(() => { if (!sdkInitialized) resolve(sdkInitialized); }, SDK_LOAD_TIMEOUT);
             });
         }
 
         async function showAdOnce() {
             try {
-                // Only show once per session/tab for this movie
                 if (sessionStorage.getItem(SESSION_KEY)) return;
-
-                // Attempt to load/initialize SDK
                 const ready = await loadAdsgramSDK();
                 if (!ready || !AdController || typeof AdController.show !== 'function') {
-                    // mark as shown so we don't retry repeatedly in same session
                     try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
                     return;
                 }
 
-                // Safety fallback ensures page won't hang if ad never resolves
                 let navigatedOrMarked = false;
                 const markShown = () => {
                     if (navigatedOrMarked) return;
@@ -191,9 +209,7 @@
                 try {
                     const res = await AdController.show();
                     clearTimeout(safetyTimer);
-                    // Mark as shown regardless of completion/skipped
                     markShown();
-                    // You may inspect res.done if you want to award client-only coins, etc.
                 } catch (err) {
                     clearTimeout(safetyTimer);
                     console.error('Error while showing Adsgram ad:', err);
@@ -205,11 +221,9 @@
             }
         }
 
-        // Run when DOM is ready (non-blocking)
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', showAdOnce);
         } else {
-            // Already ready
             showAdOnce();
         }
 
