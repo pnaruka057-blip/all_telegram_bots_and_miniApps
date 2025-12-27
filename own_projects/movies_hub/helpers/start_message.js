@@ -52,13 +52,13 @@ module.exports = async (bot, ctx) => {
         const updateObj = {
             first_name: ctx.from.first_name || null,
             username: ctx.from.username || null,
-            language: languageToStore,
+            language_code: languageToStore,   // ✅ correct field
             is_started: true,
             is_blocked: false,
             last_seen: new Date(),
         };
 
-        const user = await users_module.findOneAndUpdate(
+        await users_module.findOneAndUpdate(
             { user_id: ctx.from.id },
             { $set: updateObj },
             { new: true, upsert: true }

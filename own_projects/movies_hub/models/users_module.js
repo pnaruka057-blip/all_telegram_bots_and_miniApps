@@ -5,7 +5,7 @@ const userSchema = new mongooose.Schema({
     user_id: { type: Number, required: true, unique: true },
     first_name: String,
     username: String,
-    language_code: { type: String, default: 'en' },
+    language_code: { type: String },
     is_started: { type: Boolean, default: true },
     is_blocked: { type: Boolean, default: false },
     profile_logo: { type: String, default: "https://res.cloudinary.com/dm8miilli/image/upload/v1755791642/profile_hbb9k4.png" },
