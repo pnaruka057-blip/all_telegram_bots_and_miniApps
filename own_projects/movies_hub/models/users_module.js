@@ -8,7 +8,6 @@ const userSchema = new mongooose.Schema({
     language_code: { type: String },
     is_started: { type: Boolean, default: true },
     is_blocked: { type: Boolean, default: false },
-    profile_logo: { type: String, default: "https://res.cloudinary.com/dm8miilli/image/upload/v1755791642/profile_hbb9k4.png" },
     last_seen: { type: Date, default: Date.now }
 });
 
