@@ -60,23 +60,93 @@
                 <%- include('../partials/footer') %>
 </section>
 
+<!-- Robust download handler + Ads-on-render scripts -->
 <script>
     /**
-     * Download button handler:
-     * - Request shortlink from server (same as before)
-     * - Then open in external browser:
-     *     - Prefer Telegram.WebApp.openLink(url) when available (opens external browser). :contentReference[oaicite:2]{index=2}
-     *     - Fallback to window.open(url, '_blank') otherwise.
+     * Robust external-open helper and download button handler.
+     * - Tries multiple strategies to open short link in external browser.
+     * - If Telegram WebApp present, prefers tg.openLink().
+     * - Fallbacks: programmatic anchor click, Android intent, window.open.
      *
-     * Note: Telegram.WebApp.openLink must be called as a result of user interaction (click), which this handler satisfies.
+     * Also requests shortlink from server before opening.
+     *
+     * Replace ADS_BLOCK_ID below if needed.
      */
-    document.querySelectorAll(".download-btn").forEach(btn => {
-        btn.addEventListener("click", async (e) => {
-            e.preventDefault(); // keep control
+
+    (function () {
+        // ---------- Config ----------
+        const ADS_BLOCK_ID = 'int-20013'; // <-- change if needed
+        const AD_SESSION_KEY = 'ads_shown_movie_<%= updatedMovieDetails._id %>_v1';
+        const SDK_LOAD_TIMEOUT = 1500;
+        const AD_SHOW_SAFETY_TIMEOUT = 8000;
+
+        // ---------- External open helper ----------
+        function openExternally(url) {
+            return new Promise((resolve) => {
+                const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+                // 1) Try Telegram WebApp openLink
+                try {
+                    if (tg && typeof tg.openLink === 'function') {
+                        try {
+                            tg.openLink(url);
+                            setTimeout(() => resolve({ method: 'tg.openLink' }), 400);
+                            return;
+                        } catch (e) {
+                            console.warn('tg.openLink threw:', e);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('tg.openLink check failed:', e);
+                }
+
+                // 2) Programmatic anchor click with target=_blank
+                try {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => resolve({ method: 'anchor_blank' }), 300);
+                    return;
+                } catch (e) {
+                    console.warn('Anchor click fallback failed:', e);
+                }
+
+                // 3) Android intent:// fallback (Android/Chrome)
+                try {
+                    const isAndroid = /Android/i.test(navigator.userAgent);
+                    if (isAndroid) {
+                        const intentUrl = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+                        window.location.href = intentUrl;
+                        setTimeout(() => resolve({ method: 'intent' }), 600);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('intent fallback failed:', e);
+                }
+
+                // 4) Final fallback: window.open
+                try {
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                    setTimeout(() => resolve({ method: 'window.open' }), 200);
+                } catch (e) {
+                    console.error('All external-open attempts failed:', e);
+                    resolve({ method: 'none', error: e });
+                }
+            });
+        }
+
+        // ---------- Download button handler ----------
+        async function handleDownloadClick(e) {
+            e.preventDefault();
+            const btn = e.currentTarget;
             const originalUrl = btn.dataset.url;
             const movieId = btn.dataset.movieId;
 
-            // show a small immediate UI feedback (optional)
             const prevText = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = 'Please wait...';
@@ -90,24 +160,11 @@
 
                 if (res.data && res.data.success && res.data.short_link) {
                     const shortLink = res.data.short_link;
+                    const result = await openExternally(shortLink);
+                    console.log('openExternally result:', result);
 
-                    // If Telegram WebApp is available, prefer openLink (external browser)
-                    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-                    try {
-                        if (tg && typeof tg.openLink === 'function') {
-                            // openLink opens in external browser (Mini App will remain open). :contentReference[oaicite:3]{index=3}
-                            tg.openLink(shortLink);
-                        } else if (tg && typeof tg.openLink === 'undefined' && typeof tg.openExternalLink === 'function') {
-                            // some older/alternate SDKs might expose a different name (rare) — try defensively
-                            tg.openExternalLink(shortLink);
-                        } else {
-                            // Fallback for non-Telegram contexts
-                            window.open(shortLink, '_blank', 'noopener,noreferrer');
-                        }
-                    } catch (openErr) {
-                        // If openLink throws for any reason, fallback to window.open
-                        console.warn('openLink failed, falling back to window.open', openErr);
-                        window.open(shortLink, '_blank', 'noopener,noreferrer');
+                    if (result.method === 'none') {
+                        alert('Unable to open external browser automatically. Please use Telegram menu (⋮) and choose "Open in Browser".');
                     }
                 } else {
                     alert("Error: Could not generate shortlink.");
@@ -119,18 +176,25 @@
                 btn.disabled = false;
                 btn.innerHTML = prevText;
             }
-        });
-    });
-</script>
+        }
 
-<!-- Ads-on-render (client-only) -->
-<script>
-    (function () {
-        const ADS_BLOCK_ID = 'int-20013'; // <-- CHANGE THIS if needed
-        const SESSION_KEY = 'ads_shown_movie_<%= updatedMovieDetails._id %>_v1';
-        const SDK_LOAD_TIMEOUT = 1500;
-        const SHOW_SAFETY_TIMEOUT = 8000;
+        // Attach handlers to all download buttons
+        function attachDownloadHandlers() {
+            document.querySelectorAll(".download-btn").forEach(btn => {
+                // remove existing to avoid double-binding
+                btn.removeEventListener('click', handleDownloadClick);
+                btn.addEventListener('click', handleDownloadClick);
+            });
+        }
 
+        // Attach immediately or on DOMContentLoaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', attachDownloadHandlers);
+        } else {
+            attachDownloadHandlers();
+        }
+
+        // ---------- Ads-on-render logic (client-only) ----------
         let AdController = null;
         let sdkRequested = false;
         let sdkInitialized = false;
@@ -188,23 +252,23 @@
 
         async function showAdOnce() {
             try {
-                if (sessionStorage.getItem(SESSION_KEY)) return;
+                if (sessionStorage.getItem(AD_SESSION_KEY)) return;
                 const ready = await loadAdsgramSDK();
                 if (!ready || !AdController || typeof AdController.show !== 'function') {
-                    try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
+                    try { sessionStorage.setItem(AD_SESSION_KEY, '1'); } catch (e) { }
                     return;
                 }
 
-                let navigatedOrMarked = false;
+                let marked = false;
                 const markShown = () => {
-                    if (navigatedOrMarked) return;
-                    navigatedOrMarked = true;
-                    try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
+                    if (marked) return;
+                    marked = true;
+                    try { sessionStorage.setItem(AD_SESSION_KEY, '1'); } catch (e) { }
                 };
                 const safetyTimer = setTimeout(() => {
                     console.warn('Ads show did not resolve within safety timeout.');
                     markShown();
-                }, SHOW_SAFETY_TIMEOUT);
+                }, AD_SHOW_SAFETY_TIMEOUT);
 
                 try {
                     const res = await AdController.show();
@@ -217,10 +281,11 @@
                 }
             } catch (e) {
                 console.error('Ads-on-render unexpected error:', e);
-                try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (err) { }
+                try { sessionStorage.setItem(AD_SESSION_KEY, '1'); } catch (err) { }
             }
         }
 
+        // Run ad-on-render when DOM ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', showAdOnce);
         } else {
