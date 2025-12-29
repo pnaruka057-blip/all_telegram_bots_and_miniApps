@@ -976,6 +976,7 @@ const deleteSettingsSchema = new mongoose.Schema({
         regulation: { type: timedField, default: () => ({}) },
         personal_commands: { type: timedField, default: () => ({}) },
         punishments: { type: timedField, default: () => ({}) },
+        bot_service: { type: timedField, default: () => ({}) },
         manual_punishments: { type: timedField, default: () => ({}) }
     },
 

@@ -15,8 +15,19 @@ app.set('view engine', 'ejs')
 app.set('views', path.resolve(__dirname, '..', 'public', 'views'));
 app.set('layout', path.resolve(__dirname, '..', 'public', 'views', 'layout'));
 
-app.get('/group-help-advance/html-message-design', (req, res) => {
+app.get('/group-help-advance/html_message_design', (req, res) => {
+    const { placeholders } = req.query;
     res.render('pages/html_message_design', {
+        currentPath: '/',
+        developer_telegram_username,
+        current_url: process.env.GLOBLE_DOMAIN,
+        token: group_help_advance_token,
+        placeholders: placeholders === 'true' ? true : false
+    })
+})
+
+app.get('/group-help-advance/buttons-design', (req, res) => {
+    res.render('pages/btn_design', {
         currentPath: '/',
         developer_telegram_username,
         current_url: process.env.GLOBLE_DOMAIN,
@@ -24,5 +35,13 @@ app.get('/group-help-advance/html-message-design', (req, res) => {
     })
 })
 
+app.get('/group-help-advance/privacy-policy', (req, res) => {
+    res.render('pages/privacy_policy', {
+        currentPath: '/',
+        developer_telegram_username,
+        current_url: process.env.GLOBLE_DOMAIN,
+        token: group_help_advance_token
+    })
+})
 
 module.exports = app

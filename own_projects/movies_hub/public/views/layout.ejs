@@ -47,13 +47,6 @@
                 document.body.innerHTML = '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
                 return;
             }
-
-            // Verify user on server (if your endpoint exists)
-            try {
-                await axios.post("/<%= token %>/movie-hub/verify-telegram-user", user);
-            } catch (error) {
-                console.error("❌ Error verifying Telegram user:", error.response?.data || error.message);
-            }
         });
     </script>
     <style>

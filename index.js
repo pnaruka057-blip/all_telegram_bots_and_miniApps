@@ -4,17 +4,17 @@ let movies_hub_token = process.env.MOVIES_HUB_TOKEN
 let group_help_advance_token = process.env.GROUP_HELP_ADVANCE_TOKEN
 const express = require('express')
 const app = express()
-const { Telegraf, Markup, Scenes, session } = require('telegraf');
+const { Telegraf } = require('telegraf');
 const path = require('path')
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const promoX_routes = require('./clients/PromoX/routes/all_routes')
 const movies_hub_routes = require('./own_projects/movies_hub/routes/all_routes')
-const group_help_advance_routes = require('./own_projects/Group_help_advance/routes/all_routes')
 const promoX_all_actions = require('./clients/PromoX/bot_handler/promoX_bot')
 const message_auto_save_and_post = require('./clients/rv_saini/Message_auto_save_and_post/message_auto_save_and_post')
 const crypto_news_all_actions = require('./clients/mr_akash/Crypto_news/crypto_news_bot')
 const movies_hub_all_actions = require('./own_projects/movies_hub/bot_index')
+const group_help_advance_routes = require('./own_projects/Group_help_advance/routes/all_routes')
 const group_help_advance_all_actions = require('./own_projects/Group_help_advance/bot_index')
 const Checker_Gái_Đẹp_all_actions = require('./clients/co_tat_ca_20usdt_10usdt_per_month/co_tat_ca_20usdt_10usdt_per_month')
 const Whatsapp_group_message_auto_save_and_post = require('./clients/rv_saini/Whatsapp_group_message_auto_save_and_post/Whatsapp_group_message_auto_save_and_post')
@@ -23,7 +23,7 @@ const globle_domain = process.env.GLOBLE_DOMAIN
 const crypto = require("crypto");
 
 // all system middleware
-app.use(cors()) 
+app.use(cors())
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
@@ -139,14 +139,14 @@ app.get('/', (req, res) => {
         // Decode and split the parameter
         const decodedParam = atob(param);
         const parts = decodedParam.split(':');
-        const [miniAppOrBotType, type, query, fromId, userId] = parts;
+        const [miniAppOrBotType] = parts;
 
         switch (miniAppOrBotType) {
 
             /* ================= MOVIES HUB ================= */
             case 'movies-hub': {
                 const basePath = `/${movies_hub_token}/movies-hub`;
-
+                const [_, type, query, fromId, userId] = parts;
                 switch (type) {
                     case 'movies':
                         return res.redirect(
@@ -168,30 +168,24 @@ app.get('/', (req, res) => {
                 }
             }
 
-            /* ================= PROMOX ================= */
-            case 'promox': {
-                const basePath = `/${promoX_token}/promox`;
-
-                // Example (future ready)
-                if (type === 'campaign') {
-                    return res.redirect(
-                        `${basePath}/campaign/${encodeURIComponent(query)}`
-                    );
-                }
-
-                return res.send('✅ Bot is alive! but unknown type');
-            }
-
             /* ================= GROUP HELP ADVANCE ================= */
             case 'group-help-advance': {
                 const basePath = `/${group_help_advance_token}/group-help-advance`;
-
-                if (type === 'text-design') {
-                    return res.redirect(`${basePath}/text-message-design`);
+                const [_, type] = parts;
+                if (type === 'text-message-design') {
+                    return res.redirect(`${basePath}/html_message_design`);
                 }
 
-                if (type === 'buttons-design') {
+                if (type === 'text-message-design-with-placeholders') {
+                    return res.redirect(`${basePath}/html_message_design?placeholders=true`);
+                }
+
+                if (type === 'btn-design') {
                     return res.redirect(`${basePath}/buttons-design`);
+                }
+
+                if (type === 'privacy-policy') {
+                    return res.redirect(`${basePath}/privacy-policy`);
                 }
 
                 return res.send('✅ Bot is alive! but unknown type');
@@ -204,81 +198,6 @@ app.get('/', (req, res) => {
     } catch (error) {
         console.error('Error processing request:', error);
         return res.status(400).send('❌ Invalid or corrupted parameters.');
-    }
-});
-
-app.post("/group-help-advance/init", async (req, res) => {
-    try {
-        const { initData, startParam } = req.body;
-
-        // 🔴 initData mandatory
-        if (!initData) {
-            return res.status(400).json({
-                error: "Missing initData"
-            });
-        }
-
-        // 🔐 Telegram initData verification (INLINE)
-        const BOT_TOKEN = process.env.BOT_TOKEN_GROUP_HELP_ADVANCE;
-
-        const urlParams = new URLSearchParams(initData);
-        const hash = urlParams.get("hash");
-
-        if (!hash) {
-            return res.status(403).json({
-                error: "Invalid Telegram data"
-            });
-        }
-
-        urlParams.delete("hash");
-
-        const dataCheckString = [...urlParams.entries()]
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([key, value]) => `${key}=${value}`)
-            .join("\n");
-
-        const secretKey = crypto
-            .createHmac("sha256", "WebAppData")
-            .update(BOT_TOKEN)
-            .digest();
-
-        const calculatedHash = crypto
-            .createHmac("sha256", secretKey)
-            .update(dataCheckString)
-            .digest("hex");
-
-        if (calculatedHash !== hash) {
-            return res.status(403).json({
-                error: "Telegram verification failed"
-            });
-        }
-
-        // ✅ Telegram user extract
-        const tgUser = JSON.parse(urlParams.get("user"));
-
-        // 🔑 Token (ENV based – your existing architecture)
-        const group_help_advance_token =
-            process.env.GROUP_HELP_ADVANCE_TOKEN;
-
-        if (!group_help_advance_token) {
-            return res.status(500).json({
-                error: "Server token not configured"
-            });
-        }
-
-        // (Optional) log / save session here if needed
-        // console.log("MiniApp access:", tgUser.id, startParam);
-
-        // ✅ ONLY token response
-        return res.json({
-            group_help_advance_token
-        });
-
-    } catch (error) {
-        console.error("Group Help Advance init error:", error);
-        return res.status(500).json({
-            error: "Internal server error"
-        });
     }
 });
 

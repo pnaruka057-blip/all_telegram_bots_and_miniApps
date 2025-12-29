@@ -27,7 +27,7 @@ module.exports = (bot) => {
         const encoded = ctx.match[1];
         const decoded = Buffer.from(encoded, "base64").toString("utf8");
 
-        if (decoded === "del") {
+        if (decoded === "del:") {
             await ctx.deleteMessage();
         } else {
             await ctx.answerCbQuery("Invalid delete action!", { show_alert: true });

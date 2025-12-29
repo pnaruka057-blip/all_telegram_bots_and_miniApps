@@ -8,7 +8,8 @@ const checkUserInChannel = require("./checkUserInChannel");
 // Add/remove ids here
 const ADMIN_IDS_MOVIEHUB = [
     6843306012, // Main admin
-    5838195520  // admin 1 (@Earning_planer Demo)
+    5838195520,  // admin 1 (@Earning_planer Demo)
+    6307756720,  // admin 2 (@sukhveermeena_01 Demo)
 ];
 
 // HTML-escape helper (safe for parse_mode: "HTML")

@@ -13,6 +13,7 @@ const anti_spam_action = require('./actions/anti_spam');
 const anti_spam_Group = require('./actions/anti_spam_Group');
 
 const set_welcome_action = require('./actions/setWelcome');
+const set_welcome_Group = require('./actions/setWelcome_Group');
 const anti_flood_action = require('./actions/anti_flood');
 const good_bye_action = require('./actions/good_bye');
 const alphabets_action = require('./actions/alphabets');
@@ -34,14 +35,19 @@ const members_management_action = require('./actions/members_management');
 const message_length_action = require('./actions/message_length');
 const masked_users_action = require('./actions/masked_users');
 const personal_commands_action = require('./actions/personal_commands');
+const auto_message_delete_cron = require('./cron/auto_message_delete')
 
 module.exports = (bot) => {
+    auto_message_delete_cron(bot, { intervalMs: 1 }) // start the cron job for auto deleting messages
+
     // Middleware to handle sessions and scenes
     bot.use(session());
     // const stage = new Scenes.Stage([]);
     // bot.use(stage.middleware());
-    
+
     anti_spam_Group(bot)
+    set_welcome_Group(bot)
+    button_actions(bot)
 
     // Start command handler
     bot.start(async (ctx) => {
@@ -65,7 +71,6 @@ module.exports = (bot) => {
     go_back_to_start_action(bot)
     groupSettings_action(bot)
     set_regulation_action(bot)
-    button_actions(bot)
     anti_spam_action(bot)
     set_welcome_action(bot)
     anti_flood_action(bot)

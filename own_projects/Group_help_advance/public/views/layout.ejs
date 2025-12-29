@@ -10,140 +10,43 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
         window.addEventListener("DOMContentLoaded", async () => {
+            /**
+             * Wait briefly for the Telegram WebApp script to become available.
+             * Some browsers may load the async script slightly after DOMContentLoaded on first open.
+             */
+            const waitForTelegram = async (timeoutMs = 500) => {
+                const start = Date.now();
+                while (!(window.Telegram && window.Telegram.WebApp) && (Date.now() - start) < timeoutMs) {
+                    await new Promise(r => setTimeout(r, 50));
+                }
+                return !!(window.Telegram && window.Telegram.WebApp);
+            };
+
+            const tgAvailable = await waitForTelegram(500); // wait up to 500ms
+            if (!tgAvailable) {
+                // Telegram WebApp not present — show message and stop further execution
+                document.body.innerHTML = '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
+                return;
+            }
+
             const tg = window.Telegram.WebApp;
-            tg.ready();
-            tg.expand();
 
-            const user = tg.initDataUnsafe?.user;
-            let startParamRaw = tg.initDataUnsafe?.start_param;
+            // Safe calls to ready() / expand()
+            try {
+                if (typeof tg.ready === 'function') tg.ready();
+            } catch (e) { /* ignore */ }
+            try {
+                if (typeof tg.expand === 'function') tg.expand();
+            } catch (e) { /* ignore */ }
 
-            // show something so user isn't stuck on blank screen
-            const status = document.createElement('div');
-            status.style.color = '#fff';
-            status.style.padding = '16px';
-            status.style.textAlign = 'center';
-            status.style.fontSize = '14px';
-            document.body.prepend(status);
+            const initDataUnsafe = tg.initDataUnsafe || {};
+            const user = initDataUnsafe.user;
 
+            // If Telegram did not provide a user object, show same message and stop
             if (!user) {
-                document.body.innerHTML = '<div class="text-center mt-10 text-red-600 text-lg">Please open inside Telegram</div>';
+                document.body.innerHTML = '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
                 return;
             }
-
-            if (!startParamRaw) {
-                status.textContent = 'No start_param present.';
-                console.warn('No start_param:', tg.initDataUnsafe);
-                return;
-            }
-
-            status.textContent = 'start_param found — parsing...';
-
-            // we'll attempt several decoding strategies in order
-            const attempts = [];
-
-            // 1) raw as-is
-            attempts.push({ desc: 'raw', value: startParamRaw });
-
-            // 2) decodeURIComponent (common)
-            try { attempts.push({ desc: 'decodeURIComponent', value: decodeURIComponent(startParamRaw) }); } catch (e) { }
-
-            // 3) try one extra decode (some clients double-encode)
-            try { attempts.push({ desc: 'decodeURIComponent x2', value: decodeURIComponent(decodeURIComponent(startParamRaw)) }); } catch (e) { }
-
-            // 4) treat as base64 (URL-decoded first)
-            try {
-                const asDecoded = decodeURIComponent(startParamRaw);
-                const b = atob(asDecoded); // atob works on base64; wrap in try/catch
-                attempts.push({ desc: 'base64(decodeURIComponent->atob)', value: b });
-            } catch (e) { }
-
-            // 5) treat raw as base64 (some flows may give raw base64)
-            try {
-                const b2 = atob(startParamRaw);
-                attempts.push({ desc: 'base64(raw)->atob', value: b2 });
-            } catch (e) { }
-
-            // 6) try JSON parse attempts (for JSON-string payload)
-            for (const a of [...attempts]) {
-                try {
-                    const maybe = JSON.parse(a.value);
-                    attempts.push({ desc: `json(${a.desc})`, value: maybe });
-                } catch (e) { }
-            }
-
-            attempts.forEach((it, idx) => console.log(idx, it.desc, it.value));
-            console.groupEnd();
-
-            // try to extract token/app/page from attempts
-            function tryExtract(value) {
-                if (!value) return null;
-
-                // if value is object from JSON parse
-                if (typeof value === 'object') {
-                    // expected key names if JSON used
-                    if (value.t && value.a && value.p) {
-                        return { token: value.t, app: value.a, page: value.p };
-                    }
-                    // fallback keys
-                    if (value.token && value.app && value.page) {
-                        return { token: value.token, app: value.app, page: value.page };
-                    }
-                    return null;
-                }
-
-                // if string, accept both colon and pipe or slash separators
-                if (typeof value === 'string') {
-                    let s = value.trim();
-
-                    // replace url-encoded separators if any lingering
-                    s = s.replace(/%3A/gi, ':').replace(/%7C/gi, '|');
-
-                    // common separators to try
-                    const sepCandidates = [':', '|', '/', '::'];
-
-                    for (const sep of sepCandidates) {
-                        if (s.indexOf(sep) !== -1) {
-                            const parts = s.split(sep).map(p => p.trim());
-                            // token:app:page  => length >=3
-                            if (parts.length >= 3) {
-                                return { token: parts[0], app: parts[1], page: parts[2] };
-                            }
-                        }
-                    }
-
-                    // fallback: space-separated
-                    const sp = s.split(' ').filter(Boolean);
-                    if (sp.length >= 3) return { token: sp[0], app: sp[1], page: sp[2] };
-                }
-
-                return null;
-            }
-
-            // iterate attempts in priority order, pick first valid extraction
-            let extracted = null;
-            for (const it of attempts) {
-                const result = tryExtract(it.value);
-                if (result) {
-                    extracted = { ...result, _source: it.desc, _raw: it.value };
-                    break;
-                }
-            }
-
-            if (!extracted) {
-                status.textContent = 'Start param found but could not parse token/app/page. Check console.';
-                return;
-            }
-
-            // safety check
-            if (extracted.app !== 'group-help-advance') {
-                status.textContent = `App mismatch: ${extracted.app}`;
-                console.warn('App name mismatch, expected group-help-advance, got:', extracted.app);
-                return;
-            }
-
-            status.textContent = 'Redirecting...';
-            // final redirect (use replace to avoid history clutter)
-            window.location.replace(`/${extracted.token}/${extracted.app}/${extracted.page}`);
         });
     </script>
     <style>
@@ -166,11 +69,57 @@
         }
 
         .animate-background {
-            background: linear-gradient(-45deg, #e6faff, #5da6ff, #e6faff, #5da6ff);
+            background: linear-gradient(-45deg, #0f0f0f, #1a1a40, #3d0000, #1a1a40);
             background-size: 400% 400%;
-            animation: gradientShift 4s ease infinite;
+            animation: gradientShift 8s ease infinite;
+            color: #f5f5f5;
+            /* text visible hoga white/gray me */
+        }
+
+        /* optional: text ko thoda neon effect dena */
+        .animate-background h1,
+        .animate-background p {
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+        }
+
+        .animate-background label {
+            color: white;
+        }
+
+        .animate-background input,
+        .animate-background select {
+            color: black;
+        }
+
+        .truncate-3-lines {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        @keyframes verticalScroll {
+            0% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20%);
+            }
+
+            /* scroll up */
+            100% {
+                transform: translateY(0);
+            }
+
+            /* scroll back to top */
+        }
+
+        .animate-verticalScroll {
+            animation: verticalScroll 8s ease-in-out infinite;
         }
     </style>
+
 </head>
 
 <body class="bg-gray-800 flex justify-center items-center select-none">
@@ -187,9 +136,12 @@
     <%- body %> <!-- dynamic page content -->
 
         <script>
-            // Show loader on every internal anchor tag click
-            document.querySelectorAll("a").forEach(link => {
-                link.addEventListener("click", function (e) {
+            document.addEventListener("DOMContentLoaded", () => {
+                // Event delegation: body pe listen karo
+                document.body.addEventListener("click", function (e) {
+                    const link = e.target.closest("a");
+                    if (!link) return;
+
                     const href = link.getAttribute("href");
                     if (href && !href.startsWith("http") && !href.startsWith("#") && !link.hasAttribute("target")) {
                         document.getElementById("pageLoader").classList.remove("hidden");

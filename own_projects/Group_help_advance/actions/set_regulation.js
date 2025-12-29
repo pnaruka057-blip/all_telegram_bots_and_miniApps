@@ -1,13 +1,149 @@
 // set_regulation.js
 
 const { Markup } = require("telegraf");
-
 const safeEditOrSend = require("../helpers/safeEditOrSend");
 const validateOwner = require("../helpers/validateOwner");
 const user_setting_module = require("../models/user_settings_module");
+const messages_module = require("../models/messages_module");
 const parseButtonsSyntax = require("../helpers/parseButtonsSyntax");
+const encode_payload = require("../helpers/encode_payload");
 
 module.exports = (bot) => {
+
+    // -------------------------------
+    // HTML validation helpers (same idea as setWelcome.js)
+    // -------------------------------
+    const REG_ALLOWED_TAGS = new Set([
+        'b', 'strong', 'i', 'em', 'u', 'ins', 's', 'strike', 'del', 'code', 'pre', 'a', 'tg-spoiler'
+    ]);
+
+    function escapeHtml(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    function extractAttr(attrs, name) {
+        // tolerate escaped quotes if your client sends: href=\"...\"
+        const s = String(attrs || '')
+            .replace(/\\"/g, '"')
+            .replace(/\\'/g, "'")
+            .replace(/[“”]/g, '"')
+            .replace(/[‘’]/g, "'");
+
+        const re = new RegExp(`\\b${name}\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)`, 'i');
+        const m = s.match(re);
+        if (!m) return null;
+
+        let v = m[1];
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+        return v;
+    }
+
+    function validateTelegramHtmlStrict(html) {
+        const text = String(html ?? '');
+
+        // Quick: if no tags, ok
+        if (!/[<>]/.test(text)) return { ok: true, errors: [] };
+
+        const errors = [];
+        const stack = [];
+
+        const tagRe = /<\s*(\/)?\s*([a-z0-9-]+)([^>]*)>/gi;
+        let m;
+
+        while ((m = tagRe.exec(text))) {
+            const isClose = !!m[1];
+            const rawName = String(m[2] || '');
+            const name = rawName.toLowerCase();
+            const attrs = String(m[3] || '');
+            const isSelfClosing = /\/\s*>\s*$/.test(m[0]);
+
+            if (!REG_ALLOWED_TAGS.has(name)) {
+                errors.push(`Unsupported tag: <${rawName}>.`);
+                continue;
+            }
+
+            // Telegram HTML me self-closing tags allowed nahi (e.g. <b/>)
+            if (!isClose && isSelfClosing) {
+                errors.push(`Invalid self-closing tag: <${rawName}/> . Use </${rawName}> to close.`);
+                continue;
+            }
+
+            // Attributes rules (only for opening tags)
+            const hasAttrs = /\S/.test(attrs.replace(/\/\s*$/, ''));
+            if (!isClose && hasAttrs) {
+                if (name === 'a') {
+                    const href = extractAttr(attrs, 'href');
+                    if (!href) {
+                        errors.push('Tag <a> must include href. Example: <a href="https://example.com">link</a>');
+                    }
+
+                    const attrNameRe = /([a-zA-Z_:][\w:.-]*)\s*=/g;
+                    const names = [];
+                    let am;
+                    while ((am = attrNameRe.exec(attrs))) names.push(am[1].toLowerCase());
+
+                    const extra = names.filter(n => n && n !== 'href');
+                    if (extra.length) errors.push('Only href attribute is allowed in <a> tag.');
+                } else if (name === 'code') {
+                    // optional: allow only class attribute in <code class="language-js">
+                    const cleaned = attrs.replace(/\bclass\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/i, '').trim();
+                    if (cleaned) errors.push('Only class attribute is allowed in <code> tag.');
+                } else {
+                    errors.push(`Attributes are not allowed in <${rawName}> tag.`);
+                }
+            }
+
+            // Stack validation
+            if (!isClose) {
+                stack.push(name);
+            } else {
+                const last = stack.pop();
+                if (last !== name) errors.push(`Tag mismatch: expected </${last || name}> but found </${rawName}>`);
+            }
+        }
+
+        if (stack.length) errors.push(`Unclosed tag(s): ${stack.map(t => `<${t}>`).join(', ')}`);
+
+        return { ok: errors.length === 0, errors };
+    }
+
+    function _isTelegramHtmlParseError(err) {
+        const desc = err?.response?.description || err?.description || '';
+        const code = err?.response?.error_code || err?.code;
+        return code === 400 && /can't parse entities/i.test(String(desc));
+    }
+
+    async function _validateWithTelegramOrThrow(ctx, htmlText) {
+        const sent = await ctx.telegram.sendMessage(ctx.chat.id, htmlText || '', {
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            disable_notification: true,
+        });
+        if (sent?.message_id) {
+            try { await ctx.telegram.deleteMessage(ctx.chat.id, sent.message_id); } catch (_) { }
+        }
+    }
+
+    function findDisallowedPlaceholders(text) {
+        const s = String(text || '');
+
+        // Block both {PLACEHOLDER} and {placeholder} styles
+        const curly = [...s.matchAll(/\{\s*([a-zA-Z_]+)\s*\}/g)].map(m => `{${m[1]}}`);
+        const percent = [...s.matchAll(/%\s*([a-zA-Z_]+)\s*%/g)].map(m => `%${m[1]}%`);
+
+        // If you want to allow normal braces in rules, replace this with a whitelist.
+        // Requirement says: placeholders not allowed at all.
+        const found = [...curly, ...percent];
+
+        // de-dup
+        const uniq = [];
+        for (const x of found) if (x && !uniq.includes(x)) uniq.push(x);
+        return uniq;
+    }
+
     // -------------------------------
     // Helpers
     // -------------------------------
@@ -69,8 +205,9 @@ module.exports = (bot) => {
                     return;
                 }
 
-                if (content === "del") {
+                if (content === "del:") {
                     const encoded = Buffer.from(content, "utf8").toString("base64");
+                    console.log(encoded);
                     rowButtons.push(Markup.button.callback(btn.text, `DEL_${encoded}`));
                     return;
                 }
@@ -93,38 +230,76 @@ module.exports = (bot) => {
         return inlineKeyboard;
     }
 
-    async function sendRegulationToChat(ctx, chatIdStr, reg) {
+    async function sendRegulationToChat(ctx, chatIdStr, reg, autoDeleteOpts = null) {
         const inlineKeyboard = buildInlineKeyboardFromSavedButtons(reg?.buttons);
-
         const replyMarkup = inlineKeyboard.length ? { inline_keyboard: inlineKeyboard } : undefined;
+
+        const groupId = Number(chatIdStr) || ctx.chat?.id;
+
+        // Store bot-sent message so it can be auto-deleted later
+        async function scheduleAutoDelete(sentMsg) {
+            try {
+                if (!autoDeleteOpts || !sentMsg?.message_id) return;
+
+                const { userDB_id, ttl_ms } = autoDeleteOpts;
+                if (!userDB_id || !ttl_ms || ttl_ms <= 0) return;
+
+                const now = new Date();
+                const deleteAt = new Date(now.getTime() + ttl_ms);
+                const ttlMinutes = Math.round(ttl_ms / 60000);
+
+                await messages_module.updateOne(
+                    { group_id: groupId, message_id: sentMsg.message_id },
+                    {
+                        $setOnInsert: { userDB_id },
+                        $set: {
+                            sent_at: now,
+                            delete_at: deleteAt,
+                            ttl_minutes: ttlMinutes,
+                            type: 'regulation',
+                            status: 'pending',
+                        },
+                    },
+                    { upsert: true }
+                );
+            } catch (e) {
+                console.error('Error scheduling auto-delete (regulation):', e);
+            }
+        }
 
         // Media preferred
         if (reg?.media && reg?.media_type) {
             try {
-                if (reg.media_type === "photo") {
-                    await ctx.replyWithPhoto(reg.media, {
-                        caption: reg.text || "",
-                        parse_mode: "HTML",
+                if (reg.media_type === 'photo') {
+                    const sent = await ctx.replyWithPhoto(reg.media, {
+                        caption: reg.text || '',
+                        parse_mode: 'HTML',
+                        disable_web_page_preview: true,
                         reply_markup: replyMarkup,
                     });
+                    await scheduleAutoDelete(sent);
                     return;
                 }
 
-                if (reg.media_type === "video") {
-                    await ctx.replyWithVideo(reg.media, {
-                        caption: reg.text || "",
-                        parse_mode: "HTML",
+                if (reg.media_type === 'video') {
+                    const sent = await ctx.replyWithVideo(reg.media, {
+                        caption: reg.text || '',
+                        parse_mode: 'HTML',
+                        disable_web_page_preview: true,
                         reply_markup: replyMarkup,
                     });
+                    await scheduleAutoDelete(sent);
                     return;
                 }
 
                 // document fallback
-                await ctx.replyWithDocument(reg.media, {
-                    caption: reg.text || "",
-                    parse_mode: "HTML",
+                const sent = await ctx.replyWithDocument(reg.media, {
+                    caption: reg.text || '',
+                    parse_mode: 'HTML',
+                    disable_web_page_preview: true,
                     reply_markup: replyMarkup,
                 });
+                await scheduleAutoDelete(sent);
                 return;
             } catch (e) {
                 // If media send fails, fallback to text
@@ -132,17 +307,18 @@ module.exports = (bot) => {
         }
 
         // Text fallback
-        const textToSend = (reg?.text || "").trim();
+        const textToSend = (reg?.text || '').trim();
         if (textToSend) {
-            await ctx.reply(textToSend, {
-                parse_mode: "HTML",
+            const sent = await ctx.reply(textToSend, {
+                parse_mode: 'HTML',
+                disable_web_page_preview: true,
                 reply_markup: replyMarkup,
             });
+            await scheduleAutoDelete(sent);
             return;
         }
 
-        // If nothing to send
-        await ctx.reply("❌ No rules content found for this group. Ask an admin to set it from the bot menu.");
+        await ctx.reply('❌ No rules content found for this group. Ask an admin to set it from the bot menu.');
     }
 
     // -------------------------------
@@ -155,7 +331,6 @@ module.exports = (bot) => {
 
             const chatIdStr = String(ctx.chat.id);
 
-            // Find any user doc which has this group rules enabled (ownership model should ensure single doc)
             const doc = await user_setting_module
                 .findOne(
                     { [`settings.${chatIdStr}.setregulation_message.enabled`]: true },
@@ -163,20 +338,45 @@ module.exports = (bot) => {
                 )
                 .lean();
 
-            const reg = doc?.settings?.[chatIdStr]?.setregulation_message;
+            if (!doc) return;
 
+            const reg = doc?.settings?.[chatIdStr]?.setregulation_message;
             if (!reg?.enabled) return;
 
             const hasText = !!(reg.text && String(reg.text).trim());
             const hasMedia = !!reg.media;
             const hasButtons = Array.isArray(reg.buttons) && reg.buttons.length > 0;
-
             if (!hasText && !hasMedia && !hasButtons) return;
 
-            await sendRegulationToChat(ctx, chatIdStr, reg);
+            const DEFAULT_TTL_MS = 10 * 60 * 1000;
+
+            const delCfg = doc?.settings?.[chatIdStr]?.delete_settings?.regulation;
+
+            // agar delCfg hi nahi hai => 10 minutes default
+            const ttlMs =
+                (typeof delCfg?.time_ms === "number" && delCfg.time_ms > 0)
+                    ? delCfg.time_ms
+                    : DEFAULT_TTL_MS;
+
+            // enabled field missing ho to bhi default ON maan lo (kyunki user ne bola “na ho to 10 min set”)
+            const enabled =
+                (typeof delCfg?.enabled === "boolean")
+                    ? delCfg.enabled
+                    : true;
+
+            let autoDeleteOpts = null;
+            if (enabled && ttlMs > 0) {
+                autoDeleteOpts = {
+                    userDB_id: doc._id,
+                    ttl_ms: ttlMs,
+                };
+            }
+
+            await sendRegulationToChat(ctx, chatIdStr, reg, autoDeleteOpts);
         } catch (err) {
             console.error("❌ /rules listener error:", err);
         }
+
     });
 
     // -------------------------------
@@ -459,10 +659,8 @@ module.exports = (bot) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
-        // Node (when generating link)
-        const payload = `${process.env.GROUP_HELP_ADVANCE_TOKEN}:group-help-advance:text-message-design`;
-        const encoded = encodeURIComponent(Buffer.from(payload).toString('base64'));
-        const miniAppLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encoded}`;
+        const payload = `group-help-advance:text-message-design`;
+        const miniAppLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payload)}`;
 
         const textMsg =
             "👉🏻 Send the message you want to set.\n\n" +
@@ -516,9 +714,13 @@ module.exports = (bot) => {
 
         const builderUrl = process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE;
 
+        const payload = `group-help-advance:btn-design`;
+        const miniAppLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payload)}`;
+
         const textMsg =
             `👉🏻 Send now the Buttons you want to set.\n\n` +
-            `If you need a visual tool to build the buttons and get the exact code, Click Here.\n\n`;
+            `If you need a visual tool to build the buttons and get the exact code, ` +
+            `<a href="${miniAppLink}">Click Here</a>.`;
 
         const buttons = [
             [Markup.button.callback("🚫 Remove Keyboard", `REMOVE_REG_RULES_BUTTONS_${chatIdStr}`)],
@@ -528,6 +730,7 @@ module.exports = (bot) => {
         await safeEditOrSend(ctx, textMsg, {
             parse_mode: "HTML",
             ...Markup.inlineKeyboard(buttons),
+            disable_web_page_preview: true
         });
 
         ctx.session = ctx.session || {};
@@ -543,6 +746,73 @@ module.exports = (bot) => {
             if (ctx.session?.awaitingTextRegulation) {
                 const { chatIdStr, userId } = ctx.session.awaitingTextRegulation;
                 const text = ctx.message.text;
+                const payload = `group-help-advance:text-message-design`;
+                const miniAppLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payload)}`;
+
+                // NOTE: Placeholders are NOT allowed in regulation text
+                const disallowed = findDisallowedPlaceholders(text);
+                if (disallowed.length) {
+                    const top = disallowed.slice(0, 10).map((p, i) => `${i + 1}. ${escapeHtml(p)}`).join('\n');
+                    await safeEditOrSend(
+                        ctx,
+                        "❌ <b>Placeholders are not allowed</b> in regulations.\n" +
+                        "Please remove placeholders and send again.\n\n" +
+                        `<b>Detected:</b>\n${top}`,
+                        {
+                            parse_mode: "HTML",
+                            disable_web_page_preview: true,
+                            ...Markup.inlineKeyboard([
+                                [Markup.button.callback("❌ Cancel", `CUSTOMIZE_RULES_${chatIdStr}`)]
+                            ])
+                        }
+                    );
+                    return; // keep session so user can resend
+                }
+
+                // Strict HTML validation (before saving)
+                const strict = validateTelegramHtmlStrict(text);
+                if (!strict.ok) {
+                    const top = strict.errors.slice(0, 10).map((e, i) => `${i + 1}. ${e}`).join('\n');
+                    await safeEditOrSend(
+                        ctx,
+                        "❌ <b>Invalid regulation text (HTML).</b>\n" +
+                        "Please fix it and send again.\n\n" +
+                        `<b>Mistakes:</b>\n${escapeHtml(top)}\n\n` +
+                        "Need help ? " + `<a href="${miniAppLink}">Click Here</a>.`,
+                        {
+                            parse_mode: "HTML",
+                            disable_web_page_preview: true,
+                            ...Markup.inlineKeyboard([
+                                [Markup.button.callback("❌ Cancel", `CUSTOMIZE_RULES_${chatIdStr}`)]
+                            ])
+                        }
+                    );
+                    return; // keep session
+                }
+
+                // Telegram-side HTML validation (final authority)
+                try {
+                    await _validateWithTelegramOrThrow(ctx, text);
+                } catch (err) {
+                    if (_isTelegramHtmlParseError(err)) {
+                        await safeEditOrSend(
+                            ctx,
+                            "❌ <b>Telegram can't parse your regulation text.</b>\n" +
+                            `Reason: ${(err?.response?.description || err?.description || "Bad HTML").toString()}\n\n` +
+                            "Please send a valid HTML message." + "\n\nNeed help ? " + `<a href="${miniAppLink}">Click Here</a>.`,
+                            {
+                                parse_mode: "HTML",
+                                disable_web_page_preview: true,
+                                ...Markup.inlineKeyboard([
+                                    [Markup.button.callback("❌ Cancel", `CUSTOMIZE_RULES_${chatIdStr}`)]
+                                ])
+                            }
+                        );
+                        return;
+                    }
+                    throw err;
+                }
+
 
                 const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
                 if (!chat) {

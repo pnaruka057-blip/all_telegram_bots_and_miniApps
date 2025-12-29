@@ -3,6 +3,136 @@ const validateOwner = require("../helpers/validateOwner");
 const user_setting_module = require("../models/user_settings_module");
 const safeEditOrSend = require("../helpers/safeEditOrSend");
 const parseButtonsSyntax = require("../helpers/parseButtonsSyntax");
+const encode_payload = require("../helpers/encode_payload");
+
+// ------------------------- Strict HTML guard (Telegram) -------------------------
+// Telegram HTML allows only a limited set of tags.
+// This validator blocks unsupported tags and common syntax issues BEFORE saving.
+
+const _WELCOME_ALLOWED_TAGS = new Set([
+    'b', 'strong',
+    'i', 'em',
+    'u', 'ins',
+    's', 'strike', 'del',
+    'code', 'pre',
+    'a',
+    'tg-spoiler',
+]);
+
+function escapeHtml(str) {
+    return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
+
+function _extractAttr(attrs, name) {
+    const re = new RegExp(`\\b${name}\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)`, 'i');
+    const m = String(attrs || '').match(re);
+    if (!m) return null;
+    let v = m[1];
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+    return v;
+}
+
+function validateTelegramHtmlStrict(html) {
+    const text = String(html ?? '');
+
+    // Quick: if no tags, ok
+    if (!/[<>]/.test(text)) return { ok: true, errors: [] };
+
+    const errors = [];
+    const stack = [];
+
+    // Match tags like <b>, </b>, <a href="...">, <em/>
+    const tagRe = /<\s*(\/)?\s*([a-z0-9-]+)([^>]*)>/gi;
+    let m;
+
+    while ((m = tagRe.exec(text))) {
+        const isClose = !!m[1];
+        const rawName = String(m[2] || '');
+        const name = rawName.toLowerCase();
+        const attrs = String(m[3] || '');
+
+        // Detect self-closing like <em/> or <em />
+        const isSelfClosing = /\/\s*>\s*$/.test(m[0]);
+
+        if (!_WELCOME_ALLOWED_TAGS.has(name)) {
+            errors.push(`Unsupported tag <${rawName}>`);
+            continue;
+        }
+
+        if (!isClose && isSelfClosing) {
+            errors.push(`Invalid self-closing tag: <${rawName}/> . Use </${rawName}> to close.`);
+            continue;
+        }
+
+        // Attributes rules
+        const hasAttrs = /\S/.test(attrs.replace(/\/\s*$/, ''));
+        if (!isClose && hasAttrs) {
+            if (name === 'a') {
+                // Allow ONLY href on <a>
+                const href = _extractAttr(attrs, 'href');
+                if (!href) {
+                    errors.push('Tag <a> must include href. Example: <a href="https://example.com">link</a>');
+                }
+
+                // Collect attribute names like href, target, rel...
+                const attrNameRe = /([a-zA-Z_:][\w:.-]*)\s*=/g;
+                const names = [];
+                let am;
+                while ((am = attrNameRe.exec(attrs))) {
+                    names.push(am[1].toLowerCase());
+                }
+
+                const extra = names.filter(n => n && n !== 'href');
+                if (extra.length) {
+                    errors.push('Only href attribute is allowed in <a> tag.');
+                }
+            } else if (name === 'code') {
+                const cleaned = attrs.replace(/\\bclass\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)/i, '').trim();
+                if (cleaned) errors.push('Only class attribute is allowed in <code> tag.');
+            } else {
+                errors.push(`Attributes are not allowed in <${rawName}> tag.`);
+            }
+        }
+
+        // Stack validation
+        if (!isClose) {
+            stack.push(name);
+        } else {
+            const last = stack.pop();
+            if (last !== name) {
+                errors.push(`Tag mismatch: expected </${last || name}> but found </${rawName}>`);
+            }
+        }
+    }
+
+    if (stack.length) {
+        errors.push(`Unclosed tag(s): ${stack.map(t => `<${t}>`).join(', ')}`);
+    }
+
+    return { ok: errors.length === 0, errors };
+}
+
+function _isTelegramHtmlParseError(err) {
+    const desc = err?.response?.description || err?.description || '';
+    const code = err?.response?.error_code || err?.code;
+    return code === 400 && /can't parse entities/i.test(String(desc));
+}
+
+async function _validateWithTelegramOrThrow(ctx, htmlText) {
+    const sent = await ctx.telegram.sendMessage(ctx.chat.id, htmlText || '', {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        disable_notification: true,
+    });
+    if (sent?.message_id) {
+        try { await ctx.telegram.deleteMessage(ctx.chat.id, sent.message_id); } catch (_) { }
+    }
+}
+
 
 async function renderWelcomeMenu(ctx, chatIdStr, userId) {
     const userSettings = await user_setting_module.findOne({ user_id: userId });
@@ -299,9 +429,13 @@ module.exports = (bot) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
+        const payload = `group-help-advance:text-message-design-with-placeholders`;
+        const miniAppLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payload)}`;
+
         const textMsg =
             "✍️ <b>Send the welcome text you want to set.</b>\n\n" +
-            `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">Click Here</a>.`;
+            `For message design options (placeholders and HTML), ` +
+            `<a href="${miniAppLink}">Click Here</a>.`;
 
         const buttons = [
             [Markup.button.callback("🚫 Remove message", `REMOVE_WELCOME_TEXT_${chatIdStr}`)],
@@ -310,7 +444,8 @@ module.exports = (bot) => {
 
         await safeEditOrSend(ctx, textMsg, {
             parse_mode: "HTML",
-            ...Markup.inlineKeyboard(buttons)
+            ...Markup.inlineKeyboard(buttons),
+            disable_web_page_preview: true
         });
 
         ctx.session = ctx.session || {};
@@ -397,10 +532,13 @@ module.exports = (bot) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
-        const builderUrl = process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE; // replace with your real tool if available
+        const payload = `group-help-advance:btn-design`;
+        const miniAppLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payload)}`;
+
         const textMsg =
             `👉🏻 <b>Send now the Buttons</b> you want to set.\n\n` +
-            `If you need a visual tool to build the buttons and get the exact code, <a href="${builderUrl}/buttons-design">Click Here</a>.\n\n`
+            `If you need a visual tool to build the buttons and get the exact code, ` +
+            `<a href="${miniAppLink}">Click Here</a>.`;
 
         const buttons = [
             [Markup.button.callback("🚫 Remove Keyboard", `REMOVE_WELCOME_BUTTONS_${chatIdStr}`)],
@@ -409,7 +547,8 @@ module.exports = (bot) => {
 
         await safeEditOrSend(ctx, textMsg, {
             parse_mode: "HTML",
-            ...Markup.inlineKeyboard(buttons)
+            ...Markup.inlineKeyboard(buttons),
+            disable_web_page_preview: true
         });
 
         ctx.session = ctx.session || {};
@@ -464,7 +603,7 @@ module.exports = (bot) => {
                     } else if (content.startsWith("copy:")) {
                         const copyText = content.replace("copy:", "").trim();
                         rowButtons.push({ text: btn.text, copy_text: { text: copyText } });
-                    } else if (content === "del") {
+                    } else if (content === "del:") {
                         const encoded = Buffer.from(content, "utf8").toString("base64");
                         rowButtons.push(Markup.button.callback(btn.text, `DEL_${encoded}`));
                     } else if (content.startsWith("personal:")) {
@@ -503,6 +642,56 @@ module.exports = (bot) => {
             if (ctx.session?.awaitingWelcomeText) {
                 let { chatIdStr, userId } = ctx.session.awaitingWelcomeText;
                 const text = ctx.message.text;
+                const payload = `group-help-advance:text-message-design-with-placeholders`;
+                const miniAppLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payload)}`;
+
+                // Strict validation: block unsupported/invalid HTML before saving
+                const strict = validateTelegramHtmlStrict(text);
+                if (!strict.ok) {
+                    const top = strict.errors.slice(0, 10).map((e, i) => `${i + 1}. ${e}`).join('\n');
+                    await safeEditOrSend(
+                        ctx,
+                        "❌ Invalid welcome text (HTML).\n" +
+                        "Please fix it and send again.\n\n" +
+                        `Mistakes:\n${escapeHtml(top)}\n\n` +
+                        "Need help ? " + `<a href="${miniAppLink}">Click Here</a>.`,
+                        {
+                            parse_mode: "HTML",
+                            disable_web_page_preview: true,
+                            ...Markup.inlineKeyboard([
+                                [Markup.button.callback("❌ Cancel", `CUSTOMIZE_RULES_${chatIdStr}`)]
+                            ])
+                        }
+                    );
+                    // keep session so user can resend corrected text
+                    return;
+                }
+
+                // Telegram-side validation (final authority)
+                try {
+                    await _validateWithTelegramOrThrow(ctx, text);
+                } catch (err) {
+                    if (_isTelegramHtmlParseError(err)) {
+                        await safeEditOrSend(
+                            ctx,
+                            "❌ Telegram can't parse your welcome text (invalid HTML).\n" +
+                            `Mistake: ${(err?.response?.description || err?.description || "Bad HTML").toString()}\n\n` +
+                            "Please send a valid HTML message." + "\n\nNeed help ? " + `<a href="${miniAppLink}">Click Here</a>.`,
+                            {
+                                parse_mode: "HTML",
+                                disable_web_page_preview: true,
+                                reply_markup: {
+                                    inline_keyboard: [
+                                        [Markup.button.callback("❌ Cancel", `CUSTOMIZE_WELCOME_${chatIdStr}`)]
+                                    ]
+                                }
+                            }
+                        );
+                        return;
+                    }
+                    throw err;
+                }
+
 
                 // validate owner (also returns chat info)
                 const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
@@ -726,7 +915,7 @@ module.exports = (bot) => {
                     } else if (content.startsWith("copy:")) {
                         const copyText = content.replace("copy:", "").trim();
                         rowButtons.push({ text: btn.text, copy_text: { text: copyText } });
-                    } else if (content === "del") {
+                    } else if (content === "del:") {
                         const encoded = Buffer.from(content, "utf8").toString("base64");
                         rowButtons.push(Markup.button.callback(btn.text, `DEL_${encoded}`));
                     } else if (content.startsWith("personal:")) {
