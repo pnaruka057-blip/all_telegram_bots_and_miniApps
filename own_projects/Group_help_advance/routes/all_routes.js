@@ -15,6 +15,13 @@ app.set('view engine', 'ejs')
 app.set('views', path.resolve(__dirname, '..', 'public', 'views'));
 app.set('layout', path.resolve(__dirname, '..', 'public', 'views', 'layout'));
 
+app.get('/group-help-advance', (req, res) => {
+    res.render('pages/home', {
+        developer_telegram_username,
+        token: group_help_advance_token
+    })
+})
+
 app.get('/group-help-advance/html_message_design', (req, res) => {
     const { placeholders } = req.query;
     res.render('pages/html_message_design', {

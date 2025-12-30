@@ -133,7 +133,7 @@ app.get('/', (req, res) => {
     try {
         const param = req.query?.tgWebAppStartParam;
         if (!param) {
-            return res.send('✅ Bot is alive! but param now found');
+            return res.send('✅ Bot is alive! but param not found');
         }
 
         // Decode and split the parameter

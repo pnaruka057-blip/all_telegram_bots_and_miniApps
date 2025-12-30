@@ -1,0 +1,202 @@
+<section class="gha-home">
+        <div class="gha-container">
+            <header class="gha-hero">
+                <div class="gha-brand">
+                    <img class="gha-logo"
+                        src="https://cdn5.telesco.pe/file/eHO-n1MotMHBIgPr7ygqzYpbPPRcjuAuxZZt-Yo7Rm7koENXdufk4k9XGj5pIko-M32tA-AlfS0asFfIvfqYqp-l2e7psXXfXzOc_-BmNpOa1L75rjVjU8dEctek_TpL3Fd-9unw4IyS--kVGGzV9iP7SPby8Jx0kf7rc92n6yfhtl_yG6Dk1nvTZYf3D2wuOj7fFOwJAe_pT6L0I1rkf91NEgWdX8OxV2p8vHW8OETJXHiXnmzVC1Jjh9lZT55Dk9TCYcyKS8mxTT68RLpnS98FkOUMV-pMJTOqwJrmRpdCJ6IMRY-55dY6ZY1r6vO_z9I_nvC5oQAyRgGMkp4xaA.jpg"
+                        alt="Group Help Advance" loading="lazy" />
+
+                    <div class="gha-title">
+                        <h1>Group Help Advance</h1>
+                        <p class="gha-subtitle">
+                            Create Telegram-ready messages & inline button layouts quickly using built-in design tools.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="gha-quicklinks">
+                    <a class="gha-btn gha-btn-primary" href="/<%= token %>/group-help-advance/html_message_design">
+                        Message Design (No Placeholders)
+                    </a>
+
+                    <a class="gha-btn" href="/<%= token %>/group-help-advance/html_message_design?placeholders=true">
+                        Message Design (With Placeholders)
+                    </a>
+
+                    <a class="gha-btn" href="/<%= token %>/group-help-advance/buttons-design">
+                        Button Design
+                    </a>
+                </div>
+            </header>
+
+            <main class="gha-grid">
+                <article class="gha-card">
+                    <h2>Message Design</h2>
+                    <p>
+                        Build Telegram HTML messages (bold, italic, links, code, etc.) and preview before using in your
+                        bot settings.
+                    </p>
+                    <div class="gha-card-actions">
+                        <a class="gha-btn gha-btn-primary" href="<%= token %>/group-help-advance/htmlmessagedesign">
+                            Open Designer
+                        </a>
+                    </div>
+                </article>
+
+                <article class="gha-card">
+                    <h2>Placeholders</h2>
+                    <p>
+                        Create messages with placeholders (like user name, group title, IDs, etc.) for dynamic text in
+                        welcome/rules.
+                    </p>
+                    <div class="gha-card-actions">
+                        <a class="gha-btn gha-btn-primary"
+                            href="<%= token %>/group-help-advance/htmlmessagedesign?placeholders=true">
+                            Open With Placeholders
+                        </a>
+                    </div>
+                </article>
+
+                <article class="gha-card">
+                    <h2>Button Design</h2>
+                    <p>
+                        Generate inline keyboard layouts (rows/columns) and copy the final button syntax for your bot
+                        configuration.
+                    </p>
+                    <div class="gha-card-actions">
+                        <a class="gha-btn gha-btn-primary" href="<%= token %>/group-help-advance/buttons-design">
+                            Open Button Builder
+                        </a>
+                    </div>
+                </article>
+            </main>
+        </div>
+
+        <style>
+            .gha-home {
+                padding: 22px 12px;
+            }
+
+            .gha-container {
+                max-width: 980px;
+                margin: 0 auto;
+            }
+
+            .gha-hero {
+                background: #0f172a;
+                color: #fff;
+                border-radius: 16px;
+                padding: 18px;
+                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            }
+
+            .gha-brand {
+                display: flex;
+                gap: 14px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+
+            .gha-logo {
+                width: 64px;
+                height: 64px;
+                border-radius: 14px;
+                object-fit: cover;
+                background: rgba(255, 255, 255, 0.08);
+            }
+
+            .gha-title h1 {
+                margin: 0;
+                font-size: 22px;
+                line-height: 1.2;
+            }
+
+            .gha-subtitle {
+                margin: 6px 0 0;
+                opacity: 0.9;
+                font-size: 14px;
+                max-width: 720px;
+            }
+
+            .gha-quicklinks {
+                margin-top: 14px;
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+
+            .gha-grid {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 14px;
+                margin-top: 14px;
+            }
+
+            @media (max-width: 900px) {
+                .gha-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            .gha-card {
+                background: #ffffff;
+                border-radius: 14px;
+                padding: 14px;
+                border: 1px solid #e5e7eb;
+            }
+
+            .gha-card h2 {
+                margin: 0 0 8px;
+                font-size: 16px;
+                color: #111827;
+            }
+
+            .gha-card p {
+                margin: 0;
+                color: #374151;
+                font-size: 14px;
+                line-height: 1.45;
+            }
+
+            .gha-card-actions {
+                margin-top: 12px;
+            }
+
+            .gha-btn {
+                display: inline-block;
+                text-decoration: none;
+                padding: 10px 12px;
+                border-radius: 10px;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                background: rgba(255, 255, 255, 0.08);
+                color: #fff;
+                font-size: 14px;
+                transition: transform .08s ease, opacity .08s ease;
+            }
+
+            .gha-btn:hover {
+                transform: translateY(-1px);
+                opacity: 0.95;
+            }
+
+            .gha-btn-primary {
+                background: #2563eb;
+                border-color: #2563eb;
+            }
+
+            /* Card buttons (dark text) */
+            .gha-card .gha-btn {
+                background: #111827;
+                border-color: #111827;
+                color: #fff;
+            }
+
+            .gha-card .gha-btn-primary {
+                background: #2563eb;
+                border-color: #2563eb;
+            }
+        </style>
+
+        <!-- Footer -->
+        <%- include('../partials/footer') %>
+</section>
