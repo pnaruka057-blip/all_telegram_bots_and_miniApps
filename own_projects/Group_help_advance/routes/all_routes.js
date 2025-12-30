@@ -18,30 +18,29 @@ app.set('layout', path.resolve(__dirname, '..', 'public', 'views', 'layout'));
 app.get('/group-help-advance/html_message_design', (req, res) => {
     const { placeholders } = req.query;
     res.render('pages/html_message_design', {
-        currentPath: '/',
         developer_telegram_username,
-        current_url: process.env.GLOBLE_DOMAIN,
-        token: group_help_advance_token,
         placeholders: placeholders === 'true' ? true : false
     })
 })
 
 app.get('/group-help-advance/buttons-design', (req, res) => {
     res.render('pages/btn_design', {
-        currentPath: '/',
         developer_telegram_username,
-        current_url: process.env.GLOBLE_DOMAIN,
-        token: group_help_advance_token
     })
 })
 
-app.get('/group-help-advance/privacy-policy', (req, res) => {
-    res.render('pages/privacy_policy', {
-        currentPath: '/',
+app.get("/group-help-advance/privacy-policy", (req, res) => {
+    res.render("pages/privacy_policy", {
         developer_telegram_username,
-        current_url: process.env.GLOBLE_DOMAIN,
-        token: group_help_advance_token
-    })
-})
+        botName: "Group Help Advance Bot",
+        botHandle: "@Group_help_advanced_bot",
+        brandName: "Group Help Advance",
+        supportTelegram_account: "support@yourdomain.com",
+        ownerName: "Earning Planer IT Services",
+        ownerAddress: "Jaipur, Rajasthan, IN",
+        lastUpdated: "December 29, 2025",
+        botLogoUrl: "https://yourdomain.com/path-to-bot-logo.png"
+    });
+});
 
 module.exports = app

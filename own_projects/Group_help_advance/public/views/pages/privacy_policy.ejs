@@ -1,234 +1,248 @@
-<section class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
-    <div class="min-h-screen py-10 px-4 sm:px-6 lg:px-8 flex justify-center">
-        <main class="content-max w-full">
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center gap-4">
-                    <!-- Logo (SVG) -->
-                    <div class="w-12 h-12 rounded-lg bg-white dark:bg-gray-800 shadow flex items-center justify-center">
-                        <svg class="w-8 h-8 text-ghblue-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                            fill="currentColor" aria-hidden="true">
-                            <path
-                                d="M12 2C7.03 2 3 5.58 3 10c0 2.73 1.59 5.16 4.09 6.63L7 22l5-2 5 2-0.09-5.37C19.41 15.16 21 12.73 21 10c0-4.42-4.03-8-9-8zM12 6c2.76 0 5 1.79 5 4s-2.24 4-5 4-5-1.79-5-4 2.24-4 5-4z" />
-                        </svg>
-                    </div>
+<% const BOT_NAME=(typeof botName !=="undefined" && botName) ? botName : "Group Help Advance Bot" ; const
+    BOT_HANDLE=(typeof botHandle !=="undefined" && botHandle) ? botHandle : "@GroupHelpAdvanceBot" ; const
+    BRAND_NAME=(typeof brandName !=="undefined" && brandName) ? brandName : "Group Help Advance" ; const
+    SUPPORT_EMAIL=(typeof supportEmail !=="undefined" && supportEmail) ? supportEmail : "support@yourdomain.com" ; const
+    SUPPORT_PEC=(typeof supportPecEmail !=="undefined" && supportPecEmail) ? supportPecEmail : "" ; const
+    OWNER_NAME=(typeof ownerName !=="undefined" && ownerName) ? ownerName : "Your Name / Company" ; const
+    OWNER_ADDRESS=(typeof ownerAddress !=="undefined" && ownerAddress) ? ownerAddress : "" ; const LAST_UPDATED=(typeof
+    lastUpdated !=="undefined" && lastUpdated) ? lastUpdated : "December 29, 2025" ; const BOT_LOGO_URL=(typeof
+    botLogoUrl !=="undefined" && botLogoUrl) ? botLogoUrl : "" ; %>
 
-                    <div>
-                        <h1 class="text-lg font-semibold">Group Help Advance Bot</h1>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">Privacy Policy</p>
-                    </div>
+    <section class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+        <!-- Sticky top bar -->
+        <header
+            class="sticky top-0 z-20 border-b border-slate-200/70 bg-slate-50/80 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/70">
+            <div class="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
+                <!-- Logo -->
+                <div class="shrink-0">
+                    <% if (BOT_LOGO_URL && String(BOT_LOGO_URL).trim()) { %>
+                        <img src="<%= BOT_LOGO_URL %>" alt="Bot logo"
+                            class="h-10 w-10 rounded-2xl object-cover bg-white dark:bg-slate-900" loading="lazy" />
+                        <% } else { %>
+                            <div
+                                class="h-10 w-10 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 flex items-center justify-center font-semibold">
+                                GH
+                            </div>
+                            <% } %>
                 </div>
 
-                <div class="flex items-center gap-3 no-print">
-                    <!-- Theme toggle -->
-                    <button id="themeToggle"
-                        class="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-sm">
-                        <svg id="icon-sun" class="w-4 h-4 text-yellow-400 hidden" viewBox="0 0 24 24"
-                            fill="currentColor">
-                            <path
-                                d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.8 1.42-1.42zM1 13h3v-2H1v2zm10-9h2V1h-2v3zm7.66 2.05l1.41-1.41-1.79-1.8-1.41 1.41 1.79 1.8zM20 11v2h3v-2h-3zM4.22 19.78l1.41-1.41-1.79-1.8-1.41 1.41 1.79 1.8zM13 23h-2v-3h2v3zm6.36-4.95l1.79 1.8 1.41-1.41-1.79-1.8-1.41 1.41zM12 7a5 5 0 100 10 5 5 0 000-10z" />
-                        </svg>
-                        <svg id="icon-moon" class="w-4 h-4 text-gray-600 dark:text-gray-300" viewBox="0 0 24 24"
-                            fill="currentColor">
-                            <path d="M21.64 13a9 9 0 01-11.03 8.6c-3.83-.74-6.63-3.87-7.26-7.61A9 9 0 1121.64 13z" />
-                        </svg>
-                        <span id="themeText" class="text-xs text-gray-700 dark:text-gray-300">Theme</span>
-                    </button>
-
-                    <!-- Print -->
-                    <button onclick="window.print()"
-                        class="px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-sm">Print</button>
+                <!-- Title -->
+                <div class="min-w-0">
+                    <p class="text-xs text-slate-600 dark:text-slate-400">Telegram Bot</p>
+                    <h1 class="truncate text-base font-semibold sm:text-lg">
+                        <%= BOT_NAME %>
+                    </h1>
                 </div>
             </div>
+        </header>
 
-            <article class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 md:p-8">
-                <header class="mb-4">
-                    <h2 class="text-2xl font-semibold mb-2">Privacy Policy</h2>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">At <strong>Group Help Advance</strong>,
-                        accessible from <a href="https://t.me/GroupHelpAdvanceBot"
-                            class="text-ghblue-500 hover:underline">@GroupHelpAdvanceBot</a>, one of our main priorities
-                        is the privacy of our users. This Privacy Policy document contains types of information that is
-                        collected and recorded by Group Help Advance.</p>
-                </header>
+        <main class="mx-auto max-w-3xl px-4 pb-12 pt-6">
+            <!-- Intro (no boxes/cards) -->
+            <div class="space-y-2">
+                <h2 class="text-xl font-semibold tracking-tight sm:text-2xl">Privacy Policy</h2>
 
-                <section class="prose prose-sm dark:prose-invert max-w-none">
-                    <h3>Overview</h3>
-                    <p>If you have additional questions or require more information about our Privacy Policy, do not
-                        hesitate to contact us using the Support button in the Bot or through our email (see
-                        <strong>Contact</strong> below).</p>
+                <p class="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                    At <span class="font-medium">
+                        <%= BRAND_NAME %>
+                    </span>, the privacy and safety of users and groups is a priority.
+                    This Privacy Policy describes what information may be processed while operating the Telegram bot(s),
+                    why it is processed,
+                    and what rights you have.
+                </p>
 
-                    <h3>Scope</h3>
-                    <p>This Privacy Policy applies only to our online activities and is valid for users who come into
-                        contact with our Telegram bots with regards to the information that they share and/or that
-                        Telegram provides to Group Help Advance related to them. This policy is not applicable to any
-                        information collected offline or via channels other than these Telegram bots.</p>
+                <p class="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                    This page also explains how you use <span class="font-medium">
+                        <%= BOT_HANDLE %>
+                    </span> and any connected bots/services.
+                </p>
 
-                    <h3>Lawful bases</h3>
-                    <p>We do not ask for your prior consent in relation to the data that is saved when that information
-                        is essential to provide the services to the groups that use our bot. The lawful bases we rely on
-                        for processing your information are:</p>
-                    <ul>
-                        <li>We offer a public service for the protection of Telegram groups. Telegram does not offer
-                            automatic group protection by itself, so our bot acts in the public interest by providing a
-                            mostly free protection service.</li>
-                        <li>The manual group management functions provided directly by Telegram are incomplete or hard
-                            to use: our bot facilitates administrators’ actions to protect their groups, compensating
-                            for platform shortcomings.</li>
-                        <li>We pursue the legitimate interest of groups and their administrators who use our services
-                            for group safety and management.</li>
-                    </ul>
+                <p class="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                    If you have questions or you want to make a privacy request, contact us through the bot’s Support
+                    button or email
+                    <a class="underline decoration-slate-400 underline-offset-4 hover:decoration-slate-700 dark:decoration-slate-600 dark:hover:decoration-slate-200"
+                        href="mailto:<%= SUPPORT_EMAIL %>">
+                        <%= SUPPORT_EMAIL %>
+                    </a>.
+                </p>
+            </div>
 
-                    <h3>Data we collect and why</h3>
-                    <p>To provide our services we need to collect some information. For each data type we describe how
-                        we collect it, why we collect it, who can access it, and retention periods.</p>
+            <!-- Normal (no collapse) -->
+            <div class="mt-6 space-y-8">
 
-                    <h4>Account information</h4>
-                    <p>We store account information such as Telegram ID, name, surname, username, bio, language and the
-                        date of the last update of this data in our database. These values are provided by the Telegram
-                        API when you interact with our bots (join a group, send a message, start a private bot
-                        conversation, or when a command references your username).</p>
-                    <p>Some fields (e.g., bio) may not always be saved. These data are retained as long as your Telegram
-                        account exists and up to 20 years after its eventual cancellation. They are used to allow bot
-                        commands by id/username (for example <code>/ban</code>, <code>/mute</code>, <code>/info</code>)
-                        to work properly. Certain commands make this information visible to group staff (for example via
-                        <code>/info</code>). Telegram profile data are public in Telegram.</p>
-
-                    <h4>Group participation data</h4>
-                    <p>We record which groups your account was present in, your group status (member, restricted,
-                        banned, left), number of messages, date of last detected message and date of joining. These
-                        values are supplied by the Telegram API and retained while your account exists on Telegram (and
-                        up to 20 years after cancellation). They enable commands such as <code>/list</code>,
-                        <code>/inactives</code> and group staff tools. Group staff may retrieve these items only for
-                        data about that group.</p>
-
-                    <h4>Administration & roles</h4>
-                    <p>If you are owner or administrator in a group our bot will save your admin status, permissions and
-                        custom title. Those are obtained via the Telegram API and retained while you hold the role (and
-                        until the local copy is refreshed, typically within 48 hours for active groups). This data
-                        allows administrators to use the commands they are entitled to and to manage the bot via private
-                        chat.</p>
-                    <p>You cannot request deletion of this information when it is necessary to provide the public
-                        service. To remove such data, leave groups where you are admin and where our bot is present.</p>
-
-                    <h4>Roles & custom roles</h4>
-                    <p>We save roles (co-founder, moderator, chat cleaner, muter, helper, free user, group custom role),
-                        possible custom title and expiry date for the role. Data are retained while the role exists and
-                        up to 20 years after account deletion. This supports role-based permissions and the
-                        <code>/staff</code> command.</p>
-
-                    <h4>Warns and disciplinary records</h4>
-                    <p>We store warns you receive in groups, when you received them and their expiry. These records are
-                        retained until removed by group managers or expired, and while your account exists on Telegram
-                        (and up to 20 years thereafter). They are required for warning systems and accessible by group
-                        staff for that group only.</p>
-
-                    <h4>Bot clones, PRO/ULTRAPRO, purchases and transactions</h4>
-                    <p>We store data related to bot clones you created (username and token), groups where you activated
-                        PRO/ULTRAPRO features and purchase records (type of service, transaction IDs for Stripe, PayPal,
-                        Telegram Stars, crypto transaction IDs where provided). These records remain until you request
-                        deletion; removing them may disable paid features.</p>
-
-                    <h4>Captcha & pending-join data</h4>
-                    <p>When you join a group with a captcha active we temporarily store the fact you joined, captcha
-                        expiry and your group permissions at the time. These temporary records are retained up to 30
-                        minutes to allow captcha resolution. If unresolved, some related records may be stored up to 2
-                        months to allow rejoin/resolution flows.</p>
-
-                    <h4>Personal blacks / blocklists</h4>
-                    <p>We store Personal Blacklist information created or administrated by users. These are retained
-                        while the blacklist exists. Imported blacklists may be visible to group members where imported.
-                        For safety reasons, certain blocklist data cannot be deleted on user request.</p>
-
-                    <h4>Support messages</h4>
-                    <p>We keep a record of messages you send to Support (date, content, reason, related group and
-                        resolution flags). These are used to provide and improve support and retained while your account
-                        exists (and up to 20 years after cancellation).</p>
-
-                    <h3>Where data is stored & who can access it</h3>
-                    <p>Data are stored on servers located in the European Union. Data may be accessed by our Bot Staff
-                        for support, verification of abuse or to provide the service. Group staff may access data that
-                        relates to their group (for moderation and management only).</p>
-
-                    <h3>GDPR Rights</h3>
-                    <p>Every user is entitled to the following:</p>
-                    <ul>
-                        <li><strong>Right to access:</strong> You may request copies of your personal data (full or
-                            partial). One free copy every 30 days; further copies may incur small fees.</li>
-                        <li><strong>Right to erasure:</strong> You may request deletion of personal data. Some data,
-                            necessary for public service operation, cannot be deleted. You may request deletion once
-                            every 30 days for free; additional requests may incur small fees.</li>
-                        <li><strong>Right to lodge a complaint:</strong> You may complain to the competent supervisory
-                            authority if you believe processing violates the law.</li>
-                    </ul>
-                    <p>If you make a request, we have 30 days to respond.</p>
-
-                    <h3>Children's information</h3>
-                    <p>We do not knowingly collect personal identifiable information from children under 13. If you
-                        believe such data exists in our bots, contact support and we will remove it promptly.</p>
-
-                    <h3>Blocklist and safety</h3>
-                    <p>We maintain a global Blocklist managed by our Bot Staff. Reasons and evidence for blocklist
-                        entries are recorded. Blocklist entries are stored as long as needed for group safety (and may
-                        be kept up to 20 years). Inclusion in the Blocklist is not removable by normal users; appeals
-                        should be sent to Support.</p>
-
-                    <h3>Contact</h3>
-                    <p><strong>Owner of processing:</strong><br>
-                        Bruno Andreuccetti<br>
-                        E-mail: <a href="mailto:bruno@grouphelp.top"
-                            class="text-ghblue-500 hover:underline">bruno@grouphelp.top</a><br>
-                        Support: use the Support button in the bot or email the address above.</p>
-
-                    <h3>Final notes</h3>
-                    <p>Data retention, access rules and lawful bases are explained above. By using <strong>Group Help
-                            Advance</strong> you agree to these terms as part of the service to protect Telegram groups.
-                    </p>
-
-                    <footer
-                        class="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4 text-sm text-gray-500 dark:text-gray-400">
-                        <p>Last update: July 19, 2024</p>
-                        <p>Copyright © 2016-2026 · Group Help Advance · P.IVA/VAT IT07072510485</p>
-                    </footer>
+                <section>
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Scope</h3>
+                    <div class="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li>This policy applies to interactions on Telegram with <%= BOT_HANDLE %> and any connected
+                                    bots/services.</li>
+                            <li>It covers data that you provide, data generated by using bot features, and data that
+                                Telegram shares through its APIs.</li>
+                            <li>It does not cover offline collection or third-party services not used by the bot.</li>
+                        </ul>
+                    </div>
                 </section>
-            </article>
+
+                <section>
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Lawful bases</h3>
+                    <div class="mt-2 space-y-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                        <p>
+                            Consent is not always requested because certain minimal processing is necessary to provide
+                            the group-protection
+                            and moderation features requested by group owners/admins, and to operate the bot reliably.
+                        </p>
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li><span class="font-semibold">Public interest & safety:</span> helping groups reduce
+                                spam/abuse and enforce rules.</li>
+                            <li><span class="font-semibold">Legitimate interests:</span> allowing administrators to
+                                manage communities efficiently and securely.</li>
+                            <li><span class="font-semibold">Necessity:</span> when you choose to use bot features,
+                                processing is needed to deliver them.</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Data we may process</h3>
+                    <div class="mt-2 space-y-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                        <p>
+                            The bot is designed to store only what is needed for moderation, automation, analytics for
+                            group health, and support handling.
+                            Depending on which features are enabled by a group admin, the bot may process the categories
+                            below.
+                        </p>
+
+                        <div class="space-y-2">
+                            <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">1) Basic Telegram
+                                account details</h4>
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li>Examples: Telegram user ID, display name, username (if any), language, timestamps
+                                    (when available).</li>
+                                <li>Purpose: moderation commands, abuse prevention, audits.</li>
+                            </ul>
+                        </div>
+
+                        <div class="space-y-2">
+                            <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">2) Group activity &
+                                membership metadata</h4>
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li>Examples: group identifiers, membership status, activity timestamps, counters
+                                    (feature-dependent).</li>
+                                <li>Purpose: group analytics, moderation workflows.</li>
+                            </ul>
+                        </div>
+
+                        <div class="space-y-2">
+                            <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">3) Admin/owner
+                                permissions metadata</h4>
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li>Examples: creator/admin status and permissions (as provided by Telegram).</li>
+                                <li>Purpose: authorize settings panels and privileged commands.</li>
+                            </ul>
+                        </div>
+
+                        <div class="space-y-2">
+                            <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">4) Warnings /
+                                punishments (feature-dependent)</h4>
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li>Examples: warning count, mute/ban records and expiry.</li>
+                                <li>Purpose: consistent enforcement of anti-spam/anti-abuse rules.</li>
+                            </ul>
+                        </div>
+
+                        <div class="space-y-2">
+                            <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">5) Support requests
+                            </h4>
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li>Examples: messages you send to support, timestamps, related identifiers.</li>
+                                <li>Purpose: provide support, investigate abuse, improve service quality.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Data sharing</h3>
+                    <div class="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li>Telegram: bot uses Telegram APIs; Telegram processes data under its own policies.</li>
+                            <li>Group staff: group-related info may be visible to authorized admins/moderators via bot
+                                features.</li>
+                            <li>Service operators: limited access for operations/support and abuse handling.</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Your data protection rights
+                    </h3>
+                    <div class="mt-2 space-y-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                        <p>
+                            Depending on your jurisdiction, you may have rights such as access, correction, deletion,
+                            restriction, and complaint rights.
+                        </p>
+                        <ul class="list-disc pl-5 space-y-1">
+                            <li><span class="font-semibold">Access:</span> request a copy of data we hold about you.
+                            </li>
+                            <li><span class="font-semibold">Erasure:</span> request deletion, unless required for
+                                safety/legal reasons.</li>
+                            <li><span class="font-semibold">Restriction/Objection:</span> request limited processing in
+                                certain cases.</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Children’s information</h3>
+                    <div class="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                        <p>
+                            The service is not intended to knowingly collect personal data from children under the age
+                            required by applicable law.
+                        </p>
+                    </div>
+                </section>
+
+                <section>
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Contact (data
+                        controller/operator)</h3>
+                    <div class="mt-2 space-y-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                        <ul class="space-y-1">
+                            <li><span class="font-semibold">Name:</span>
+                                <%= OWNER_NAME %>
+                            </li>
+
+                            <% if (OWNER_ADDRESS && String(OWNER_ADDRESS).trim()) { %>
+                                <li><span class="font-semibold">Address:</span>
+                                    <%= OWNER_ADDRESS %>
+                                </li>
+                                <% } %>
+
+                                    <li>
+                                        <span class="font-semibold">Email:</span>
+                                        <a class="underline underline-offset-4" href="mailto:<%= SUPPORT_EMAIL %>">
+                                            <%= SUPPORT_EMAIL %>
+                                        </a>
+                                    </li>
+
+                                    <% if (SUPPORT_PEC && String(SUPPORT_PEC).trim()) { %>
+                                        <li>
+                                            <span class="font-semibold">PEC:</span>
+                                            <a class="underline underline-offset-4" href="mailto:<%= SUPPORT_PEC %>">
+                                                <%= SUPPORT_PEC %>
+                                            </a>
+                                        </li>
+                                        <% } %>
+                        </ul>
+
+                        <p class="text-xs text-slate-600 dark:text-slate-400">Last update: <%= LAST_UPDATED %>
+                        </p>
+                    </div>
+                </section>
+
+            </div>
+
+            <footer
+                class="mt-8 border-t border-slate-200 pt-4 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                Copyright © 2016-2026 · <%= BRAND_NAME %>. All rights reserved.
+            </footer>
         </main>
-    </div>
-
-    <script>
-            // Theme toggle: persist to localStorage
-            (function () {
-                const root = document.documentElement;
-                const btn = document.getElementById('themeToggle');
-                const iconSun = document.getElementById('icon-sun');
-                const iconMoon = document.getElementById('icon-moon');
-                const themeText = document.getElementById('themeText');
-
-                function applyTheme(isDark) {
-                    if (isDark) {
-                        root.classList.add('dark');
-                        iconSun.classList.remove('hidden');
-                        iconMoon.classList.add('hidden');
-                        themeText.textContent = 'Dark';
-                    } else {
-                        root.classList.remove('dark');
-                        iconSun.classList.add('hidden');
-                        iconMoon.classList.remove('hidden');
-                        themeText.textContent = 'Light';
-                    }
-                }
-
-                // initialize: check saved preference, otherwise system
-                const saved = localStorage.getItem('gha_theme');
-                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                const isDark = saved ? saved === 'dark' : prefersDark;
-                applyTheme(isDark);
-
-                btn.addEventListener('click', () => {
-                    const nowDark = document.documentElement.classList.contains('dark');
-                    applyTheme(!nowDark);
-                    localStorage.setItem('gha_theme', !nowDark ? 'dark' : 'light');
-                });
-            })();
-    </script>
-</section>
-
-</html>
+    </section>
