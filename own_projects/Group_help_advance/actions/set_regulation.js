@@ -711,9 +711,6 @@ module.exports = (bot) => {
     bot.action(/SET_REG_RULES_BUTTONS_(.+)/, async (ctx) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
-
-        const builderUrl = process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE;
-
         const payload = `group-help-advance:btn-design`;
         const miniAppLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payload)}`;
 
@@ -734,7 +731,7 @@ module.exports = (bot) => {
         });
 
         ctx.session = ctx.session || {};
-        ctx.session.awaitingButtonsRegulation = { chatIdStr, userId, builderUrl };
+        ctx.session.awaitingButtonsRegulation = { chatIdStr, userId };
     });
 
     // -------------------------------
