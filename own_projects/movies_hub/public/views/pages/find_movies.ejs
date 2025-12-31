@@ -139,10 +139,88 @@
     }
 </script>
 
+<!-- Monetag: auto-show rewarded interstitial (silent failures) -->
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        if (typeof show_10399131 === 'function') {
-            show_10399131().then(() => {/* success */ }).catch(() => {/* silent */ });
+    (function () {
+        // CONFIG
+        const SHOW_FN_NAME = 'show_10399131'; // agar tumhara function alag name ho to yahan change kar do
+        const AD_SHOW_TIMEOUT_MS = 8000;      // ad show promise ke liye safety timeout
+        const SDK_POLL_INTERVAL_MS = 500;     // agar SDK thoda late load ho to poll karega
+        const SDK_POLL_MAX_ATTEMPTS = 8;      // maximum attempts to find the function
+
+        function tryShowWithTimeout(showFn) {
+            return new Promise((resolve, reject) => {
+                let settled = false;
+                const safety = setTimeout(() => {
+                    if (settled) return;
+                    settled = true;
+                    // swallow timeout as failure
+                    reject(new Error('ad-timeout'));
+                }, AD_SHOW_TIMEOUT_MS);
+
+                // call the show function (it returns a promise in Monetag example)
+                Promise.resolve()
+                    .then(() => showFn())
+                    .then((res) => {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(safety);
+                        resolve(res);
+                    })
+                    .catch((err) => {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(safety);
+                        reject(err);
+                    });
+            });
         }
-    });
+
+        function silentNoop() {
+            // intentionally empty: no UI, no alert, no console error output to user
+        }
+
+        function runShowFlow() {
+            try {
+                const globalFn = window[SHOW_FN_NAME];
+                if (typeof globalFn === 'function') {
+                    // try show, but swallow any error or timeout silently
+                    tryShowWithTimeout(globalFn).then(() => {
+                        // success -> perform any silent post-ad action here if needed
+                        // e.g. call a reward function (but don't alert)
+                        // rewardUser(); // optional
+                    }).catch(() => {
+                        // swallow
+                    });
+                    return;
+                }
+
+                // If function not yet present, poll a few times (SDK might be loaded async)
+                let attempts = 0;
+                const iv = setInterval(() => {
+                    attempts++;
+                    const fnNow = window[SHOW_FN_NAME];
+                    if (typeof fnNow === 'function') {
+                        clearInterval(iv);
+                        tryShowWithTimeout(fnNow).catch(() => { /* swallow */ });
+                        return;
+                    }
+                    if (attempts >= SDK_POLL_MAX_ATTEMPTS) {
+                        clearInterval(iv);
+                        // give up silently
+                    }
+                }, SDK_POLL_INTERVAL_MS);
+            } catch (e) {
+                // final guard: swallow everything
+                try { silentNoop(); } catch (e2) { }
+            }
+        }
+
+        // Run on DOM ready (non-blocking)
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', runShowFlow);
+        } else {
+            runShowFlow();
+        }
+    })();
 </script>
