@@ -66,5 +66,5 @@ module.exports = async (ctx) => {
     });
 
     // show ad for block id 'int-20013' (numeric part is 20013)
-    await sendAdsgramAd(ctx, 'int-20013', { language: 'en' });
+    await sendAdsgramAd(ctx, 'int-20340', { language: 'en' });
 };
