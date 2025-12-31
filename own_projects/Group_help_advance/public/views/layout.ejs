@@ -115,21 +115,21 @@
             try { tg.expand?.(); } catch (e) { } // max available height [web:125]
 
             // Fullscreen request (supported devices only) [web:125]
-            try { tg.requestFullscreen?.(); } catch (e) { }
+            // try { tg.requestFullscreen?.(); } catch (e) { }
 
             // Optional: keep viewport vars in sync for layout stability
-            const syncVh = () => {
-                try {
-                    if (typeof tg.viewportHeight === "number") {
-                        document.documentElement.style.setProperty("--tg-viewport-height", tg.viewportHeight + "px");
-                    }
-                } catch (e) { }
-            };
+            // const syncVh = () => {
+            //     try {
+            //         if (typeof tg.viewportHeight === "number") {
+            //             document.documentElement.style.setProperty("--tg-viewport-height", tg.viewportHeight + "px");
+            //         }
+            //     } catch (e) { }
+            // };
 
-            try {
-                tg.onEvent?.("viewportChanged", syncVh);
-                syncVh();
-            } catch (e) { }
+            // try {
+            //     tg.onEvent?.("viewportChanged", syncVh);
+            //     syncVh();
+            // } catch (e) { }
 
             const initDataUnsafe = tg.initDataUnsafe || {};
             const user = initDataUnsafe.user;
