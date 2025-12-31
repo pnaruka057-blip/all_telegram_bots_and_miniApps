@@ -17,24 +17,25 @@ module.exports = (bot) => {
             // ✅ Settings menu
             const keyboard = Markup.inlineKeyboard([
                 [Markup.button.callback("📜 Regulation", `SET_REGULATION_${chatIdStr}`), Markup.button.callback("🧯 Anti-Spam", `SET_ANTISPAM_${chatIdStr}`)],
-                [Markup.button.callback("💬 Welcome", `SET_WELCOME_${chatIdStr}`), Markup.button.callback("🌊 Anti-Flood", `SET_ANTIFLOOD_${chatIdStr}`)],
-                [Markup.button.callback("🖐️ Goodbye", `SET_GOODBYE_${chatIdStr}`), Markup.button.callback("🕉 Alphabets", `SET_ALPHABETS_${chatIdStr}`)],
-                [Markup.button.callback("🧠 Captcha", `SET_CAPTCHA_${chatIdStr}`), Markup.button.callback("🪓 Checks", `SET_CHECKS_${chatIdStr}`)],
-                [Markup.button.callback("🆘 @Admin", `SET_ATADMIN_${chatIdStr}`), Markup.button.callback("🔒 Blocks", `SET_BLOCKS_${chatIdStr}`)],
-                [Markup.button.callback("🎞️ Media", `SET_MEDIA_${chatIdStr}`), Markup.button.callback("🚫 Porn", `SET_PORN_${chatIdStr}`)],
-                [Markup.button.callback("❗ Warns", `SET_WARNS_${chatIdStr}`), Markup.button.callback("🌙 Night", `SET_NIGHT_${chatIdStr}`)],
-                // [Markup.button.callback("🔔 Tag", `SET_TAG_${chatIdStr}`), Markup.button.callback("🔗 Link", `SET_LINK_${chatIdStr}`)],
-                [Markup.button.callback("📨 Approval mode", `SET_APPROVAL_${chatIdStr}`)],
-                [Markup.button.callback("🗑️ Deleting Messages", `SET_DELETING_${chatIdStr}`)],
-                // [Markup.button.callback("🕰 Time Zone", `NIGHT_TZ_${chatIdStr}`), Markup.button.callback("🏳️ Lang", `SET_LANG_${chatIdStr}`)],
-                [Markup.button.callback("🕰 Time Zone", `NIGHT_TZ_${chatIdStr}`)],
-                [Markup.button.callback("🔤 Banned Words", `SET_BANNED_WORDS_${chatIdStr}`)],
-                [Markup.button.callback("🕓 Recurring messages", `RECURRING_MESSAGES_${chatIdStr}`)],
-                [Markup.button.callback("👥 Members Management", `MEMBERS_MANAGEMENT_${chatIdStr}`)],
-                [Markup.button.callback("😶‍🌫️ Masked users", `MASKED_USERS_${chatIdStr}`)],
-                [Markup.button.callback("📱 Personal Commands", `PERSONAL_COMMANDS_${chatIdStr}`)],
-                [Markup.button.callback("📏 Message length", `MESSAGE_LENGTH_${chatIdStr}`)],
-                [Markup.button.callback("⬅️ Back", "MANAGE_GROUPS")]
+                [Markup.button.callback("💬 Welcome", `SET_WELCOME_${chatIdStr}`), Markup.button.callback("✨ More coming soon", `SOON_more_${chatIdStr}`)],
+                // [Markup.button.callback("💬 Welcome", `SET_WELCOME_${chatIdStr}`), Markup.button.callback("🌊 Anti-Flood", `SET_ANTIFLOOD_${chatIdStr}`)],
+                // [Markup.button.callback("🖐️ Goodbye", `SET_GOODBYE_${chatIdStr}`), Markup.button.callback("🕉 Alphabets", `SET_ALPHABETS_${chatIdStr}`)],
+                // [Markup.button.callback("🧠 Captcha", `SET_CAPTCHA_${chatIdStr}`), Markup.button.callback("🪓 Checks", `SET_CHECKS_${chatIdStr}`)],
+                // [Markup.button.callback("🆘 @Admin", `SET_ATADMIN_${chatIdStr}`), Markup.button.callback("🔒 Blocks", `SET_BLOCKS_${chatIdStr}`)],
+                // [Markup.button.callback("🎞️ Media", `SET_MEDIA_${chatIdStr}`), Markup.button.callback("🚫 Porn", `SET_PORN_${chatIdStr}`)],
+                // [Markup.button.callback("❗ Warns", `SET_WARNS_${chatIdStr}`), Markup.button.callback("🌙 Night", `SET_NIGHT_${chatIdStr}`)],
+                // // [Markup.button.callback("🔔 Tag", `SET_TAG_${chatIdStr}`), Markup.button.callback("🔗 Link", `SET_LINK_${chatIdStr}`)],
+                // [Markup.button.callback("📨 Approval mode", `SET_APPROVAL_${chatIdStr}`)],
+                // [Markup.button.callback("🗑️ Deleting Messages", `SET_DELETING_${chatIdStr}`)],
+                // // [Markup.button.callback("🕰 Time Zone", `NIGHT_TZ_${chatIdStr}`), Markup.button.callback("🏳️ Lang", `SET_LANG_${chatIdStr}`)],
+                // [Markup.button.callback("🕰 Time Zone", `NIGHT_TZ_${chatIdStr}`)],
+                // [Markup.button.callback("🔤 Banned Words", `SET_BANNED_WORDS_${chatIdStr}`)],
+                // [Markup.button.callback("🕓 Recurring messages", `RECURRING_MESSAGES_${chatIdStr}`)],
+                // [Markup.button.callback("👥 Members Management", `MEMBERS_MANAGEMENT_${chatIdStr}`)],
+                // [Markup.button.callback("😶‍🌫️ Masked users", `MASKED_USERS_${chatIdStr}`)],
+                // [Markup.button.callback("📱 Personal Commands", `PERSONAL_COMMANDS_${chatIdStr}`)],
+                // [Markup.button.callback("📏 Message length", `MESSAGE_LENGTH_${chatIdStr}`)],
+                // [Markup.button.callback("⬅️ Back", "MANAGE_GROUPS")]
             ]);
 
             const text = `⚙️ <b>SETTINGS</b>\n\nGroup: <code>${chat.title || chatIdStr}</code>\n\n<i>Select one of the settings that you want to change.</i>`;
@@ -47,4 +48,26 @@ module.exports = (bot) => {
             } catch (e) { }
         }
     });
+
+
+    // catch any SOON_<slug>_<chatIdStr> pattern
+    bot.action(/^SOON_([a-z0-9_-]+)_(-?\d+)$/i, async (ctx) => {
+        try {
+            // slug describes the feature, chatIdStr helps if you need context (optional)
+            const slug = ctx.match[1] || "feature";
+            // human friendly label (replace underscores/dashes)
+            const label = String(slug).replace(/[_-]+/g, " ").trim();
+
+            // present a short alert to the user
+            // show_alert: true makes it a popup, better to inform immediately
+            await ctx.answerCbQuery(`✨ "${label}" is coming soon — stay tuned!`, { show_alert: true });
+
+            // optional: log the interest for analytics / feature prioritization
+            // console.info(`User ${ctx.from.id} asked for future feature: ${label} in chat ${ctx.match[2]}`);
+        } catch (err) {
+            console.error("SOON handler error:", err);
+            try { await ctx.answerCbQuery("⚠️ Something went wrong.", { show_alert: false }); } catch (_) { }
+        }
+    });
+
 };
