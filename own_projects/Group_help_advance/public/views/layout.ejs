@@ -94,20 +94,20 @@
 
     <script>
         window.addEventListener("DOMContentLoaded", async () => {
-            const waitForTelegram = async (timeoutMs = 700) => {
-                const start = Date.now();
-                while (!(window.Telegram && window.Telegram.WebApp) && (Date.now() - start) < timeoutMs) {
-                    await new Promise(r => setTimeout(r, 50));
-                }
-                return !!(window.Telegram && window.Telegram.WebApp);
-            };
+            // const waitForTelegram = async (timeoutMs = 700) => {
+            //     const start = Date.now();
+            //     while (!(window.Telegram && window.Telegram.WebApp) && (Date.now() - start) < timeoutMs) {
+            //         await new Promise(r => setTimeout(r, 50));
+            //     }
+            //     return !!(window.Telegram && window.Telegram.WebApp);
+            // };
 
-            const tgAvailable = await waitForTelegram(700);
-            if (!tgAvailable) {
-                document.body.innerHTML =
-                    '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
-                return;
-            }
+            // const tgAvailable = await waitForTelegram(700);
+            // if (!tgAvailable) {
+            //     document.body.innerHTML =
+            //         '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
+            //     return;
+            // }
 
             const tg = window.Telegram.WebApp;
 
@@ -134,11 +134,11 @@
             const initDataUnsafe = tg.initDataUnsafe || {};
             const user = initDataUnsafe.user;
 
-            if (!user) {
-                document.body.innerHTML =
-                    '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
-                return;
-            }
+            // if (!user) {
+            //     document.body.innerHTML =
+            //         '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
+            //     return;
+            // }
         });
     </script>
 </head>
