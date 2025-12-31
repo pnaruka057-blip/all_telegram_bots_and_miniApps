@@ -1,14 +1,65 @@
 <% const BOT_NAME=(typeof botName !=="undefined" && botName) ? botName : "Group Help Advance Bot" ; const
     BOT_HANDLE=(typeof botHandle !=="undefined" && botHandle) ? botHandle : "@GroupHelpAdvanceBot" ; const
     BRAND_NAME=(typeof brandName !=="undefined" && brandName) ? brandName : "Group Help Advance" ; const
-    SUPPORT_EMAIL=(typeof supportEmail !=="undefined" && supportEmail) ? supportEmail : "support@yourdomain.com" ; const
-    SUPPORT_PEC=(typeof supportPecEmail !=="undefined" && supportPecEmail) ? supportPecEmail : "" ; const
-    OWNER_NAME=(typeof ownerName !=="undefined" && ownerName) ? ownerName : "Your Name / Company" ; const
+    SUPPORT_TG=(typeof supportTelegram_account !=="undefined" && supportTelegram_account) ? supportTelegram_account : ""
+    ; const OWNER_NAME=(typeof ownerName !=="undefined" && ownerName) ? ownerName : "Your Name / Company" ; const
     OWNER_ADDRESS=(typeof ownerAddress !=="undefined" && ownerAddress) ? ownerAddress : "" ; const LAST_UPDATED=(typeof
     lastUpdated !=="undefined" && lastUpdated) ? lastUpdated : "December 29, 2025" ; const BOT_LOGO_URL=(typeof
     botLogoUrl !=="undefined" && botLogoUrl) ? botLogoUrl : "" ; %>
 
     <section class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+        <!-- Safe-area vars early (reduce flicker) -->
+        <style>
+            :root {
+                --app-safe-top: env(safe-area-inset-top, 0px);
+                --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+            }
+        </style>
+
+        <script>
+            (function () {
+                const root = document.documentElement;
+                const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+                function numCssVar(name) {
+                    const v = getComputedStyle(root).getPropertyValue(name);
+                    const n = parseFloat(v);
+                    return Number.isFinite(n) ? n : 0;
+                }
+
+                function setSafeVars() {
+                    let top = 0, bottom = 0;
+
+                    try {
+                        top = tg?.safeAreaInset?.top ?? 0;
+                        bottom = tg?.safeAreaInset?.bottom ?? 0;
+                    } catch (e) { }
+
+                    if (!top) top = numCssVar('--tg-safe-area-inset-top');
+                    if (!bottom) bottom = numCssVar('--tg-safe-area-inset-bottom');
+
+                    if (!top && /iPhone|iPad|iPod/i.test(navigator.userAgent)) top = 24;
+
+                    root.style.setProperty('--app-safe-top', top + 'px');
+                    root.style.setProperty('--app-safe-bottom', bottom + 'px');
+                }
+
+                setSafeVars();
+
+                try { tg?.onEvent?.('safeAreaChanged', setSafeVars); } catch (e) { }
+                try { tg?.onEvent?.('safe_area_changed', setSafeVars); } catch (e) { }
+
+                try {
+                    if (tg?.setHeaderColor && tg?.colorScheme) {
+                        tg.setHeaderColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+                    }
+                    if (tg?.setBackgroundColor && tg?.colorScheme) {
+                        tg.setBackgroundColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+                    }
+                } catch (e) { }
+            })();
+        </script>
+
         <!-- HERO -->
         <%- include('../partials/header') %>
 
@@ -40,7 +91,7 @@
             </header>
 
             <main class="mx-auto max-w-3xl px-4 pb-12 pt-6">
-                <!-- Intro (no boxes/cards) -->
+                <!-- Intro -->
                 <div class="space-y-2">
                     <h2 class="text-xl font-semibold tracking-tight sm:text-2xl">Privacy Policy</h2>
 
@@ -49,8 +100,7 @@
                             <%= BRAND_NAME %>
                         </span>, the privacy and safety of users and groups is a priority.
                         This Privacy Policy describes what information may be processed while operating the Telegram
-                        bot(s),
-                        why it is processed,
+                        bot(s), why it is processed,
                         and what rights you have.
                     </p>
 
@@ -61,26 +111,26 @@
                     </p>
 
                     <p class="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                        If you have questions or you want to make a privacy request, contact us through the bot’s
-                        Support
-                        button or email
-                        <a class="underline decoration-slate-400 underline-offset-4 hover:decoration-slate-700 dark:decoration-slate-600 dark:hover:decoration-slate-200"
-                            href="mailto:<%= SUPPORT_EMAIL %>">
-                            <%= SUPPORT_EMAIL %>
-                        </a>.
+                        For support or privacy requests, contact us on Telegram:
+                        <% if (SUPPORT_TG && String(SUPPORT_TG).trim()) { %>
+                            <a class="underline decoration-slate-400 underline-offset-4 hover:decoration-slate-700 dark:decoration-slate-600 dark:hover:decoration-slate-200"
+                                href="<%= SUPPORT_TG %>" target="_blank" rel="noopener">
+                                <%= SUPPORT_TG %>
+                            </a>
+                            <% } else { %>
+                                <span class="font-medium">Support link not configured.</span>
+                                <% } %>
                     </p>
                 </div>
 
-                <!-- Normal (no collapse) -->
+                <!-- Sections -->
                 <div class="mt-6 space-y-8">
-
                     <section>
                         <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Scope</h3>
                         <div class="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                             <ul class="list-disc pl-5 space-y-1">
                                 <li>This policy applies to interactions on Telegram with <%= BOT_HANDLE %> and any
-                                        connected
-                                        bots/services.</li>
+                                        connected bots/services.</li>
                                 <li>It covers data that you provide, data generated by using bot features, and data that
                                     Telegram shares through its APIs.</li>
                                 <li>It does not cover offline collection or third-party services not used by the bot.
@@ -94,8 +144,7 @@
                         <div class="mt-2 space-y-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                             <p>
                                 Consent is not always requested because certain minimal processing is necessary to
-                                provide
-                                the group-protection
+                                provide the group-protection
                                 and moderation features requested by group owners/admins, and to operate the bot
                                 reliably.
                             </p>
@@ -115,11 +164,9 @@
                         <div class="mt-2 space-y-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                             <p>
                                 The bot is designed to store only what is needed for moderation, automation, analytics
-                                for
-                                group health, and support handling.
+                                for group health, and support handling.
                                 Depending on which features are enabled by a group admin, the bot may process the
-                                categories
-                                below.
+                                categories below.
                             </p>
 
                             <div class="space-y-2">
@@ -127,8 +174,7 @@
                                     account details</h4>
                                 <ul class="list-disc pl-5 space-y-1">
                                     <li>Examples: Telegram user ID, display name, username (if any), language,
-                                        timestamps
-                                        (when available).</li>
+                                        timestamps (when available).</li>
                                     <li>Purpose: moderation commands, abuse prevention, audits.</li>
                                 </ul>
                             </div>
@@ -179,8 +225,7 @@
                                 <li>Telegram: bot uses Telegram APIs; Telegram processes data under its own policies.
                                 </li>
                                 <li>Group staff: group-related info may be visible to authorized admins/moderators via
-                                    bot
-                                    features.</li>
+                                    bot features.</li>
                                 <li>Service operators: limited access for operations/support and abuse handling.</li>
                             </ul>
                         </div>
@@ -192,8 +237,7 @@
                         <div class="mt-2 space-y-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                             <p>
                                 Depending on your jurisdiction, you may have rights such as access, correction,
-                                deletion,
-                                restriction, and complaint rights.
+                                deletion, restriction, and complaint rights.
                             </p>
                             <ul class="list-disc pl-5 space-y-1">
                                 <li><span class="font-semibold">Access:</span> request a copy of data we hold about you.
@@ -201,8 +245,7 @@
                                 <li><span class="font-semibold">Erasure:</span> request deletion, unless required for
                                     safety/legal reasons.</li>
                                 <li><span class="font-semibold">Restriction/Objection:</span> request limited processing
-                                    in
-                                    certain cases.</li>
+                                    in certain cases.</li>
                             </ul>
                         </div>
                     </section>
@@ -212,15 +255,14 @@
                         <div class="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                             <p>
                                 The service is not intended to knowingly collect personal data from children under the
-                                age
-                                required by applicable law.
+                                age required by applicable law.
                             </p>
                         </div>
                     </section>
 
                     <section>
-                        <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Contact (data
-                            controller/operator)</h3>
+                        <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Contact
+                            (controller/operator)</h3>
                         <div class="mt-2 space-y-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                             <ul class="space-y-1">
                                 <li><span class="font-semibold">Name:</span>
@@ -234,28 +276,22 @@
                                     <% } %>
 
                                         <li>
-                                            <span class="font-semibold">Email:</span>
-                                            <a class="underline underline-offset-4" href="mailto:<%= SUPPORT_EMAIL %>">
-                                                <%= SUPPORT_EMAIL %>
-                                            </a>
-                                        </li>
-
-                                        <% if (SUPPORT_PEC && String(SUPPORT_PEC).trim()) { %>
-                                            <li>
-                                                <span class="font-semibold">PEC:</span>
-                                                <a class="underline underline-offset-4"
-                                                    href="mailto:<%= SUPPORT_PEC %>">
-                                                    <%= SUPPORT_PEC %>
+                                            <span class="font-semibold">Support (Telegram):</span>
+                                            <% if (SUPPORT_TG && String(SUPPORT_TG).trim()) { %>
+                                                <a class="underline underline-offset-4" href="<%= SUPPORT_TG %>"
+                                                    target="_blank" rel="noopener">
+                                                    <%= SUPPORT_TG %>
                                                 </a>
-                                            </li>
-                                            <% } %>
+                                                <% } else { %>
+                                                    <span class="font-medium">Not configured</span>
+                                                    <% } %>
+                                        </li>
                             </ul>
 
                             <p class="text-xs text-slate-600 dark:text-slate-400">Last update: <%= LAST_UPDATED %>
                             </p>
                         </div>
                     </section>
-
                 </div>
             </main>
 
@@ -265,64 +301,20 @@
 
     <script>
         (function () {
-            const root = document.documentElement;
-            const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-
-            function numCssVar(name) {
-                const v = getComputedStyle(root).getPropertyValue(name);
-                const n = parseFloat(v);
-                return Number.isFinite(n) ? n : 0;
-            }
-
-            function setSafeVars() {
-                let top = 0;
-                let bottom = 0;
-
-                // Prefer Telegram provided insets (new clients)
-                try {
-                    top = tg?.safeAreaInset?.top ?? 0;
-                    bottom = tg?.safeAreaInset?.bottom ?? 0;
-                } catch (e) { }
-
-                // Fallback to Telegram CSS vars if present
-                if (!top) top = numCssVar('--tg-safe-area-inset-top');
-                if (!bottom) bottom = numCssVar('--tg-safe-area-inset-bottom');
-
-                // Last fallback for iOS-like devices if everything is 0
-                if (!top && /iPhone|iPad|iPod/i.test(navigator.userAgent)) top = 24;
-
-                root.style.setProperty('--app-safe-top', top + 'px');
-                root.style.setProperty('--app-safe-bottom', bottom + 'px');
-            }
-
-            setSafeVars();
-
-            // Keep it updated when Telegram reports changes
-            try { tg?.onEvent?.('safeAreaChanged', setSafeVars); } catch (e) { }
-            try { tg?.onEvent?.('safe_area_changed', setSafeVars); } catch (e) { } // some wrappers emit snake_case [web:203][web:128]
-
-            // Optional: set header/background color so status bar icons look correct in fullscreen [page:1]
-            try {
-                if (tg?.setHeaderColor && tg?.colorScheme) {
-                    tg.setHeaderColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
-                }
-                if (tg?.setBackgroundColor && tg?.colorScheme) {
-                    tg.setBackgroundColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
-                }
-            } catch (e) { }
-        })();
-
-        try {
+            // Native Telegram Back Button (optional) [web:217]
             function goBack() {
                 if (window.history.length > 1) return window.history.back();
                 return window.location.href = "/<%= token %>/group-help-advance";
             }
-            const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-            if (tg?.BackButton) {
-                tg.BackButton.show();
-                tg.BackButton.onClick(goBack);
-            }
-        } catch (e) { }
+
+            try {
+                const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+                if (tg?.BackButton) {
+                    tg.BackButton.show();
+                    tg.BackButton.onClick(goBack);
+                }
+            } catch (e) { }
+        })();
     </script>
 
     <!-- Ads on first page load (client-only) -->
@@ -338,7 +330,6 @@
             function loadAdsgramSDK() {
                 return new Promise((resolve) => {
                     if (sdkRequested) {
-                        // wait until sdkLoaded becomes true or small timeout
                         const start = Date.now();
                         const check = setInterval(() => {
                             if (sdkLoaded || (Date.now() - start) > 1200) { clearInterval(check); resolve(sdkLoaded); }
@@ -353,9 +344,7 @@
                             sdkLoaded = true;
                             resolve(true);
                             return;
-                        } catch (e) {
-                            console.error('Adsgram init error:', e);
-                        }
+                        } catch (e) { }
                     }
 
                     const s = document.createElement('script');
@@ -369,56 +358,40 @@
                                 resolve(true);
                                 return;
                             }
-                        } catch (err) {
-                            console.error('Adsgram init after load failed:', err);
-                        }
+                        } catch (err) { }
                         resolve(false);
                     };
-                    s.onerror = function () {
-                        console.error('Failed to load Adsgram SDK.');
-                        resolve(false);
-                    };
+                    s.onerror = function () { resolve(false); };
                     document.head.appendChild(s);
 
-                    // fallback resolve after short delay in case onload doesn't fire quickly
                     setTimeout(() => { if (!sdkLoaded) resolve(sdkLoaded); }, 1200);
                 });
             }
 
             async function showAdIfNeeded() {
                 try {
-                    // Only show once per session/tab
                     if (sessionStorage.getItem(SESSION_KEY)) return;
 
-                    // try to load SDK (non-blocking)
                     const ready = await loadAdsgramSDK();
-
-                    // if no SDK, do nothing
                     if (!ready || !AdController || typeof AdController.show !== 'function') return;
 
-                    // show ad with safety timeout
                     const t = setTimeout(() => {
-                        // if ad didn't start / resolve within timeout, just mark shown so we don't retry
                         try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
                     }, SAFETY_TIMEOUT_MS);
 
                     try {
-                        const res = await AdController.show();
+                        await AdController.show();
                         clearTimeout(t);
-                        // mark as shown regardless of completion/skipped to avoid repeat
                         try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
                     } catch (err) {
                         clearTimeout(t);
-                        console.error('Adsgram show error:', err);
                         try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
                     }
                 } catch (e) {
-                    console.error('Error while attempting to show ad on page load', e);
                     try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
                 }
             }
 
-            // Run on DOMContentLoaded - ensure page UI is ready first
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', showAdIfNeeded);
             } else {

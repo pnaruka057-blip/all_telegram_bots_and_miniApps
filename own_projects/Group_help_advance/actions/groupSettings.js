@@ -35,7 +35,7 @@ module.exports = (bot) => {
                 // [Markup.button.callback("😶‍🌫️ Masked users", `MASKED_USERS_${chatIdStr}`)],
                 // [Markup.button.callback("📱 Personal Commands", `PERSONAL_COMMANDS_${chatIdStr}`)],
                 // [Markup.button.callback("📏 Message length", `MESSAGE_LENGTH_${chatIdStr}`)],
-                // [Markup.button.callback("⬅️ Back", "MANAGE_GROUPS")]
+                [Markup.button.callback("⬅️ Back", "MANAGE_GROUPS")]
             ]);
 
             const text = `⚙️ <b>SETTINGS</b>\n\nGroup: <code>${chat.title || chatIdStr}</code>\n\n<i>Select one of the settings that you want to change.</i>`;
@@ -53,21 +53,25 @@ module.exports = (bot) => {
     // catch any SOON_<slug>_<chatIdStr> pattern
     bot.action(/^SOON_([a-z0-9_-]+)_(-?\d+)$/i, async (ctx) => {
         try {
-            // slug describes the feature, chatIdStr helps if you need context (optional)
             const slug = ctx.match[1] || "feature";
-            // human friendly label (replace underscores/dashes)
+
+            // Convert slug → nice readable label
             const label = String(slug).replace(/[_-]+/g, " ").trim();
 
-            // present a short alert to the user
-            // show_alert: true makes it a popup, better to inform immediately
-            await ctx.answerCbQuery(`✨ "${label}" is coming soon — stay tuned!`, { show_alert: true });
+            await ctx.answerCbQuery(
+                `🚧 Other feature options are currently under development.\n\nAs soon as they are completed, they will automatically appear here in this settings menu.`,
+                { show_alert: true }
+            );
 
-            // optional: log the interest for analytics / feature prioritization
-            // console.info(`User ${ctx.from.id} asked for future feature: ${label} in chat ${ctx.match[2]}`);
         } catch (err) {
             console.error("SOON handler error:", err);
-            try { await ctx.answerCbQuery("⚠️ Something went wrong.", { show_alert: false }); } catch (_) { }
+
+            try {
+                await ctx.answerCbQuery(
+                    "ℹ️ The selected feature is not available yet. It will be released in an upcoming update.",
+                    { show_alert: true }
+                );
+            } catch (_) { }
         }
     });
-
 };

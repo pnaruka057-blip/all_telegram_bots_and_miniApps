@@ -44,7 +44,7 @@ app.get("/group-help-advance/privacy-policy", (req, res) => {
         botName: "Group Help Advance Bot",
         botHandle: "@Group_help_advanced_bot",
         brandName: "Group Help Advance",
-        supportTelegram_account: "support@yourdomain.com",
+        supportTelegram_account: "https://telegram.me/Earning_planer",
         ownerName: "Earning Planer IT Services",
         ownerAddress: "Jaipur, Rajasthan, IN",
         lastUpdated: "December 29, 2025",

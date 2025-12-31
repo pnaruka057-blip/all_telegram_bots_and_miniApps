@@ -89,4 +89,23 @@ module.exports = (bot) => {
 
     bot.action("MANAGE_CHANNELS", (ctx) => handleManageChannels(ctx, false));
     bot.action("MANAGE_CHANNELS_RELOAD", (ctx) => handleManageChannels(ctx, true));
+
+
+    bot.action(/^CHANNEL_SETTINGS_(-?\d+)$/, async (ctx) => {
+        try {
+            const chatIdStr = ctx.match[1];
+            const userId = ctx.from.id;
+
+            // Render the per-channel settings menu (this also validates owner)
+            await renderChannelSettings(ctx, chatIdStr, userId);
+        } catch (err) {
+            console.error("CHANNEL_SETTINGS_ handler error:", err);
+            try {
+                await ctx.answerCbQuery(
+                    "🚧 Channel settings are under development.\n\nThis feature is not available yet — it will be released soon.",
+                    { show_alert: true }
+                );
+            } catch (_) { }
+        }
+    });
 };
