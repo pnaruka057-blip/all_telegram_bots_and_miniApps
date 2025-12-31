@@ -63,97 +63,73 @@
     </div>
 </footer>
 
-<!-- AdsGram Client-only Integration -->
+<!-- Interstitial/navigation behaviour (Ads removed) -->
 <script>
     (function () {
+        // This script preserves the click/navigation behaviour for links marked with data-ad="interstitial"
+        // but does NOT load or show any third-party ad SDK. Failures are silent and user is never shown errors.
 
-        const ADS_BLOCK_ID = 'int-20013'; // <-- CHANGE THIS
+        const SAFETY_TIMEOUT_MS = 8000;   // fallback navigation delay (keeps previous safety behaviour)
+        const NAV_DELAY_MS = 300;         // small async delay to mimic SDK init wait (keeps UX consistent)
 
-        const SAFETY_TIMEOUT_MS = 8000;
-        const SDK_LOAD_DELAY_MS = 300;
-
-        let AdController = null;
-        let sdkLoaded = false;
-        let sdkRequested = false;
-
-        function loadAdsgram() {
-            if (sdkRequested) return;
-            sdkRequested = true;
-
-            if (window.Adsgram?.init) {
-                try {
-                    AdController = window.Adsgram.init({ blockId: ADS_BLOCK_ID });
-                    sdkLoaded = true;
-                    return;
-                } catch (e) { console.error(e); }
+        function safeNavigate(href) {
+            try {
+                // prefer location.assign for normal navigation behaviour
+                window.location.assign(href);
+            } catch (e) {
+                // last resort
+                window.location.href = href;
             }
-
-            const s = document.createElement('script');
-            s.src = 'https://sad.adsgram.ai/js/sad.min.js';
-            s.async = true;
-            s.onload = function () {
-                try {
-                    if (window.Adsgram?.init) {
-                        AdController = window.Adsgram.init({ blockId: ADS_BLOCK_ID });
-                        sdkLoaded = true;
-                    }
-                } catch (e) {
-                    console.error('Adsgram init failed:', e);
-                }
-            };
-            s.onerror = () => console.error('Adsgram SDK load failed.');
-            document.head.appendChild(s);
         }
 
-        function attachAdNav() {
+        function attachInterstitialNav() {
             const links = document.querySelectorAll('footer a[data-ad]');
-            links.forEach(a => {
-                a.addEventListener('click', async function (ev) {
-                    ev.preventDefault();
-                    const href = this.href;
+            if (!links || !links.length) return;
 
-                    if (!sdkLoaded && !sdkRequested) {
-                        loadAdsgram();
-                        await new Promise(r => setTimeout(r, SDK_LOAD_DELAY_MS));
-                    }
-
-                    let navigated = false;
-                    const go = () => {
-                        if (navigated) return;
-                        navigated = true;
-                        window.location.href = href;
-                    };
-
-                    const timer = setTimeout(go, SAFETY_TIMEOUT_MS);
-
+            links.forEach(anchor => {
+                anchor.addEventListener('click', async function (ev) {
                     try {
-                        if (sdkLoaded && AdController?.show) {
-                            const res = await AdController.show();
-                            clearTimeout(timer);
-                            // client-only behaviour: navigate regardless of done/skip
-                            go();
-                        } else {
-                            clearTimeout(timer);
-                            go();
-                        }
-                    } catch (err) {
-                        console.error('Ad show error:', err);
+                        ev.preventDefault();
+
+                        const href = this.href;
+                        // optional: show page loader if present (keep UX consistent)
+                        try {
+                            const loader = document.getElementById('pageLoader');
+                            if (loader && loader.classList.contains('hidden')) loader.classList.remove('hidden');
+                        } catch (e) { /* silent */ }
+
+                        // small initial delay (was SDK load delay previously)
+                        await new Promise(r => setTimeout(r, NAV_DELAY_MS));
+
+                        // safety timer in case something blocks navigation
+                        let navigated = false;
+                        const go = () => {
+                            if (navigated) return;
+                            navigated = true;
+                            safeNavigate(href);
+                        };
+                        const timer = setTimeout(go, SAFETY_TIMEOUT_MS);
+
+                        // No SDK available: we immediately clear timer and navigate.
                         clearTimeout(timer);
                         go();
+
+                        // Note: errors intentionally swallowed to avoid any user-visible messages
+                    } catch (err) {
+                        try {
+                            // fallback navigation even on unexpected error
+                            const href = this && this.href ? this.href : '/';
+                            window.location.href = href;
+                        } catch (_) { /* silent */ }
                     }
                 }, { passive: false });
             });
         }
 
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                loadAdsgram();
-                attachAdNav();
-            });
+            document.addEventListener('DOMContentLoaded', attachInterstitialNav);
         } else {
-            loadAdsgram();
-            attachAdNav();
+            attachInterstitialNav();
         }
-
     })();
 </script>
