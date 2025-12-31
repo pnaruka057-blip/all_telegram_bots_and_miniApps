@@ -444,16 +444,13 @@
             })();
         </script>
 
-        <!-- Ads integration (client-only) -->
+        <!-- Replace your existing AdsGram block with this script -->
         <script>
             (function () {
-                // AdsGram interstitial / ad-on-render integration
-                // Only client-side, non-blocking, show once per session.
-                const ADS_BLOCK_ID = 'int-20322'; // <-- change to your AdsGram block id if needed
-                const SESSION_KEY = 'ads_shown_inline_builder_v1';
+                const ADS_BLOCK_ID = 'int-20322'; // <-- replace with your AdsGram block id
                 const SDK_URL = 'https://sad.adsgram.ai/js/sad.min.js';
-                const SDK_LOAD_TIMEOUT = 1500; // ms
-                const SHOW_SAFETY_TIMEOUT = 8000; // ms
+                const SDK_LOAD_TIMEOUT = 1500;    // ms to wait for SDK init
+                const SHOW_SAFETY_TIMEOUT = 8000; // ms safety fallback if ad hangs
 
                 let AdController = null;
                 let sdkRequested = false;
@@ -462,7 +459,7 @@
                 function loadAdsgramSDK() {
                     return new Promise((resolve) => {
                         if (sdkRequested) {
-                            // poll until initialized or timed out
+                            // poll until initialized or timeout
                             const start = Date.now();
                             const poll = setInterval(() => {
                                 if (sdkInitialized || (Date.now() - start) > SDK_LOAD_TIMEOUT) {
@@ -474,7 +471,7 @@
                         }
                         sdkRequested = true;
 
-                        // If already available, try init
+                        // If already present, try to init immediately
                         if (window.Adsgram && typeof window.Adsgram.init === 'function') {
                             try {
                                 AdController = window.Adsgram.init({ blockId: ADS_BLOCK_ID });
@@ -513,45 +510,36 @@
                     });
                 }
 
-                async function showAdOnce() {
+                async function showAdImmediately() {
                     try {
-                        if (sessionStorage.getItem(SESSION_KEY)) return;
-
                         const ready = await loadAdsgramSDK();
                         if (!ready || !AdController || typeof AdController.show !== 'function') {
-                            try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
                             return;
                         }
 
-                        let didMark = false;
-                        const markShown = () => { if (didMark) return; didMark = true; try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { } };
+                        // Safety timer so ad doesn't hang page
                         const safetyTimer = setTimeout(() => {
                             console.warn('Ads show did not resolve within safety timeout.');
-                            markShown();
                         }, SHOW_SAFETY_TIMEOUT);
 
                         try {
                             await AdController.show();
-                            clearTimeout(safetyTimer);
-                            markShown();
                         } catch (err) {
-                            clearTimeout(safetyTimer);
                             console.error('Error while showing Adsgram ad:', err);
-                            markShown();
+                        } finally {
+                            clearTimeout(safetyTimer);
                         }
                     } catch (e) {
-                        console.error('Ads-on-render unexpected error:', e);
-                        try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (err) { }
+                        console.error('Ads immediate show unexpected error:', e);
                     }
                 }
 
-                // Show the ad on page ready (non-blocking)
+                // Run on DOM ready (immediately show ad)
                 if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', showAdOnce);
+                    document.addEventListener('DOMContentLoaded', showAdImmediately);
                 } else {
-                    showAdOnce();
+                    showAdImmediately();
                 }
-
             })();
         </script>
 
