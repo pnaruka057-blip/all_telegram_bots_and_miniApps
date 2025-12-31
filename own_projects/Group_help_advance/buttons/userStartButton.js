@@ -29,7 +29,7 @@ module.exports = async (ctx) => {
 
     // IMPORTANT: env me username without @ ho sakta hai, isliye direct t.me/<username> ok hai
     const groupUsername = String(process.env.GROUP_HELP_ADVANCE_TELEGRAM_GROUP || "").trim();
-    const channelUsername = String(process.env.GROUP_HELP_ADVANCE_TELEGRAM_CHANNEL_USER_MUST_JOIN || "").trim();
+    const channelUsername = String(process.env.GROUP_HELP_ADVANCE_TELEGRAM_CHANNEL || "").trim();
     const supportUsername = String(process.env.GROUP_HELP_ADVANCE_SUPPORT_ACCOUNT || "").trim();
 
     const keyboard = Markup.inlineKeyboard([
