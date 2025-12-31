@@ -1,22 +1,22 @@
 <!-- Main Wrapper -->
 <section class="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col min-h-[100svh]">
 
-    <!-- Main Content -->
-    <main class="flex-1 overflow-y-auto px-6 py-6 space-y-6 animate-background">
+  <!-- Main Content -->
+  <main class="flex-1 overflow-y-auto px-6 py-6 space-y-6 animate-background">
 
-        <!-- Profile Section -->
-        <div class="flex flex-col items-center text-center space-y-2">
-            <img id="profileImg" src="<%= user && user.user_logo ? user.user_logo : '' %>" alt="Profile Picture"
-                class="w-24 h-24 rounded-full shadow-lg border">
+    <!-- Profile Section -->
+    <div class="flex flex-col items-center text-center space-y-2">
+      <img id="profileImg" src="<%= user && user.user_logo ? user.user_logo : '' %>" alt="Profile Picture"
+        class="w-24 h-24 rounded-full shadow-lg border">
 
-            <h2 id="nameTitle" class="text-lg font-bold">
-                <%= user?.name || '' %>
-            </h2>
-            <p id="usernameLine" class="text-gray-500">
-                <%= user?.username ? '@' + user.username : '' %>
-            </p>
-            <span id="idLine" class="text-sm text-gray-400">
-                <%= user?.user_id ? ('ID: ' + user.user_id) : '' %></span>
+      <h2 id="nameTitle" class="text-lg font-bold">
+        <%= user?.name || '' %>
+      </h2>
+      <p id="usernameLine" class="text-gray-500">
+        <%= user?.username ? '@' + user.username : '' %>
+      </p>
+      <span id="idLine" class="text-sm text-gray-400">
+        <%= user?.user_id ? ('ID: ' + user.user_id) : '' %></span>
     </div>
 
     <!-- Telegram Info (auto-filled) -->
@@ -58,72 +58,81 @@
   </main>
 
   <!-- Footer -->
-  <%- include('../partials/footer') %>
+  <%- include(' ../partials/footer') %>
 </section>
 
 <script>
-    /**
-     * Profile image + Telegram user info
-     * Uses Telegram WebApp initDataUnsafe.user if available.
-     */
-    (function () {
-        const FALLBACK = 'https://res.cloudinary.com/dm8miilli/image/upload/v1755791642/profile_hbb9k4.png';
+  /**
+   * Profile image + Telegram user info
+   * Uses Telegram WebApp initDataUnsafe.user if available.
+   */
+  (function () {
+    const FALLBACK = 'https://res.cloudinary.com/dm8miilli/image/upload/v1755791642/profile_hbb9k4.png';
 
-        function setText(id, value, prefix = '') {
-            const el = document.getElementById(id);
-            if (!el) return;
-            const v = (value === undefined || value === null || value === '') ? '-' : String(value);
-            el.textContent = prefix ? (v === '-' ? '-' : (prefix + v)) : v;
+    function setText(id, value, prefix = '') {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const v = (value === undefined || value === null || value === '') ? '-' : String(value);
+      el.textContent = prefix ? (v === '-' ? '-' : (prefix + v)) : v;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+      try { tg && typeof tg.ready === 'function' && tg.ready(); } catch (e) { }
+
+      const tgUser = tg && tg.initDataUnsafe ? tg.initDataUnsafe.user : null;
+
+      // Image
+      try {
+        const img = document.getElementById('profileImg');
+        if (img) {
+          const initialSrc = (img.getAttribute('src') || '').trim();
+          if (!initialSrc) {
+            if (tgUser && tgUser.photo_url) img.src = tgUser.photo_url;
+            else img.src = FALLBACK;
+          }
         }
+      } catch (e) { }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-            try { tg && typeof tg.ready === 'function' && tg.ready(); } catch (e) { }
+      // Fill Telegram info
+      if (tgUser) {
+        setText('tg_id', tgUser.id);
+        setText('tg_first_name', tgUser.first_name);
+        setText('tg_last_name', tgUser.last_name);
+        setText('tg_username', tgUser.username, '@');
+        setText('tg_language_code', tgUser.language_code);
+        setText('tg_is_premium', tgUser.is_premium);
+        setText('tg_allows_write_to_pm', tgUser.allows_write_to_pm);
 
-            const tgUser = tg && tg.initDataUnsafe ? tg.initDataUnsafe.user : null;
+        // Optional: if server-side name/username missing, fill header too
+        const nameTitle = document.getElementById('nameTitle');
+        if (nameTitle && (!nameTitle.textContent || !nameTitle.textContent.trim())) {
+          nameTitle.textContent = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || 'User';
+        }
+        const usernameLine = document.getElementById('usernameLine');
+        if (usernameLine && (!usernameLine.textContent || !usernameLine.textContent.trim())) {
+          usernameLine.textContent = tgUser.username ? ('@' + tgUser.username) : '';
+        }
+        const idLine = document.getElementById('idLine');
+        if (idLine && (!idLine.textContent || !idLine.textContent.trim())) {
+          idLine.textContent = tgUser.id ? ('ID: ' + tgUser.id) : '';
+        }
+      } else {
+        // No Telegram data: keep '-' and just ensure image fallback
+        try {
+          const img = document.getElementById('profileImg');
+          if (img && !(img.getAttribute('src') || '').trim()) img.src = FALLBACK;
+        } catch (e) { }
+      }
+    });
+  })();
+</script>
 
-            // Image
-            try {
-                const img = document.getElementById('profileImg');
-                if (img) {
-                    const initialSrc = (img.getAttribute('src') || '').trim();
-                    if (!initialSrc) {
-                        if (tgUser && tgUser.photo_url) img.src = tgUser.photo_url;
-                        else img.src = FALLBACK;
-                    }
-                }
-            } catch (e) { }
 
-            // Fill Telegram info
-            if (tgUser) {
-                setText('tg_id', tgUser.id);
-                setText('tg_first_name', tgUser.first_name);
-                setText('tg_last_name', tgUser.last_name);
-                setText('tg_username', tgUser.username, '@');
-                setText('tg_language_code', tgUser.language_code);
-                setText('tg_is_premium', tgUser.is_premium);
-                setText('tg_allows_write_to_pm', tgUser.allows_write_to_pm);
-
-                // Optional: if server-side name/username missing, fill header too
-                const nameTitle = document.getElementById('nameTitle');
-                if (nameTitle && (!nameTitle.textContent || !nameTitle.textContent.trim())) {
-                    nameTitle.textContent = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || 'User';
-                }
-                const usernameLine = document.getElementById('usernameLine');
-                if (usernameLine && (!usernameLine.textContent || !usernameLine.textContent.trim())) {
-                    usernameLine.textContent = tgUser.username ? ('@' + tgUser.username) : '';
-                }
-                const idLine = document.getElementById('idLine');
-                if (idLine && (!idLine.textContent || !idLine.textContent.trim())) {
-                    idLine.textContent = tgUser.id ? ('ID: ' + tgUser.id) : '';
-                }
-            } else {
-                // No Telegram data: keep '-' and just ensure image fallback
-                try {
-                    const img = document.getElementById('profileImg');
-                    if (img && !(img.getAttribute('src') || '').trim()) img.src = FALLBACK;
-                } catch (e) { }
-            }
-        });
-    })();
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof show_10399131 === 'function') {
+      show_10399131().then(() => {/* success */ }).catch(() => {/* silent */ });
+    }
+  });
 </script>

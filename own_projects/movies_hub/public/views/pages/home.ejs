@@ -63,8 +63,8 @@
         const categories = document.querySelectorAll('#categories button');
         const footer = document.getElementById('pagination');
 
-        const movies_array = <%- JSON.stringify(movies) %>;
-        const shows_array = <%- JSON.stringify(shows) %>;
+        const movies_array = <% - JSON.stringify(movies) %>;
+        const shows_array = <% - JSON.stringify(shows) %>;
 
         let type = 'movie';
         let category = '';
@@ -227,3 +227,11 @@
         }
     </script>
 </body>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof show_10399131 === 'function') {
+            show_10399131().then(() => {/* success */ }).catch(() => {/* silent */ });
+        }
+    });
+</script>

@@ -1,10 +1,10 @@
-<!-- Main Wrapper -->
+<!-- Movie card (fixed to behave like "shows" template) -->
 <section class="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col min-h-[100svh]">
 
     <!-- Movie Thumbnail -->
     <div class="relative w-full max-h-[350px] overflow-hidden rounded-lg">
         <img src="<%= updatedMovieDetails.thumbnail %>" alt="<%= updatedMovieDetails.title %>"
-            class="w-full h-full object-fill animate-verticalScroll">
+            class="w-full h-auto object-contain animate-verticalScroll">
         <span class="absolute top-2 left-2 bg-purple-600 text-white text-xs px-3 py-1 rounded-full shadow">
             <%= updatedMovieDetails.quality.join(", ") %>
         </span>
@@ -51,6 +51,7 @@
                         </button>
                         <% }) %>
                 </div>
+
                 </main>
 
                 <!-- Pagination (Optional if needed) -->
@@ -60,96 +61,12 @@
                 <%- include('../partials/footer') %>
 </section>
 
-<!-- Robust download handler + Ads-on-render scripts -->
+<!-- Simple shortlink generator + open (same pattern as shows) -->
 <script>
-    /**
-     * Robust external-open helper and download button handler.
-     * - Tries multiple strategies to open short link in external browser.
-     * - If Telegram WebApp present, prefers tg.openLink().
-     * - Fallbacks: programmatic anchor click, Android intent, window.open.
-     *
-     * Also requests shortlink from server before opening.
-     *
-     * Replace ADS_BLOCK_ID below if needed.
-     */
-
-    (function () {
-        // ---------- Config ----------
-        const ADS_BLOCK_ID = 'int-20013'; // <-- change if needed
-        const AD_SESSION_KEY = 'ads_shown_movie_<%= updatedMovieDetails._id %>_v1';
-        const SDK_LOAD_TIMEOUT = 1500;
-        const AD_SHOW_SAFETY_TIMEOUT = 8000;
-
-        // ---------- External open helper ----------
-        function openExternally(url) {
-            return new Promise((resolve) => {
-                const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-
-                // 1) Try Telegram WebApp openLink
-                try {
-                    if (tg && typeof tg.openLink === 'function') {
-                        try {
-                            tg.openLink(url);
-                            setTimeout(() => resolve({ method: 'tg.openLink' }), 400);
-                            return;
-                        } catch (e) {
-                            console.warn('tg.openLink threw:', e);
-                        }
-                    }
-                } catch (e) {
-                    console.warn('tg.openLink check failed:', e);
-                }
-
-                // 2) Programmatic anchor click with target=_blank
-                try {
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.target = '_blank';
-                    a.rel = 'noopener noreferrer';
-                    a.style.display = 'none';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    setTimeout(() => resolve({ method: 'anchor_blank' }), 300);
-                    return;
-                } catch (e) {
-                    console.warn('Anchor click fallback failed:', e);
-                }
-
-                // 3) Android intent:// fallback (Android/Chrome)
-                try {
-                    const isAndroid = /Android/i.test(navigator.userAgent);
-                    if (isAndroid) {
-                        const intentUrl = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
-                        window.location.href = intentUrl;
-                        setTimeout(() => resolve({ method: 'intent' }), 600);
-                        return;
-                    }
-                } catch (e) {
-                    console.warn('intent fallback failed:', e);
-                }
-
-                // 4) Final fallback: window.open
-                try {
-                    window.open(url, '_blank', 'noopener,noreferrer');
-                    setTimeout(() => resolve({ method: 'window.open' }), 200);
-                } catch (e) {
-                    console.error('All external-open attempts failed:', e);
-                    resolve({ method: 'none', error: e });
-                }
-            });
-        }
-
-        // ---------- Download button handler ----------
-        async function handleDownloadClick(e) {
-            e.preventDefault();
-            const btn = e.currentTarget;
+    document.querySelectorAll(".download-btn").forEach(btn => {
+        btn.addEventListener("click", async () => {
             const originalUrl = btn.dataset.url;
             const movieId = btn.dataset.movieId;
-
-            const prevText = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = 'Please wait...';
 
             try {
                 const res = await axios.post("/<%= token %>/movies-hub/get_shortlink", {
@@ -159,138 +76,23 @@
                 });
 
                 if (res.data && res.data.success && res.data.short_link) {
-                    const shortLink = res.data.short_link;
-                    const result = await openExternally(shortLink);
-                    console.log('openExternally result:', result);
-
-                    if (result.method === 'none') {
-                        alert('Unable to open external browser automatically. Please use Telegram menu (⋮) and choose "Open in Browser".');
-                    }
+                    window.open(res.data.short_link, "_blank", "noopener,noreferrer");
                 } else {
                     alert("Error: Could not generate shortlink.");
                 }
             } catch (err) {
                 console.error("Shortlink error:", err);
                 alert("Failed to generate shortlink. Please try again.");
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = prevText;
             }
+        });
+    });
+</script>
+
+<!-- Ad / Mini-app call (kept the same as shows) -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof show_10399131 === 'function') {
+            show_10399131().then(() => {/* success */ }).catch(() => {/* silent */ });
         }
-
-        // Attach handlers to all download buttons
-        function attachDownloadHandlers() {
-            document.querySelectorAll(".download-btn").forEach(btn => {
-                // remove existing to avoid double-binding
-                btn.removeEventListener('click', handleDownloadClick);
-                btn.addEventListener('click', handleDownloadClick);
-            });
-        }
-
-        // Attach immediately or on DOMContentLoaded
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', attachDownloadHandlers);
-        } else {
-            attachDownloadHandlers();
-        }
-
-        // ---------- Ads-on-render logic (client-only) ----------
-        let AdController = null;
-        let sdkRequested = false;
-        let sdkInitialized = false;
-
-        function loadAdsgramSDK() {
-            return new Promise((resolve) => {
-                if (sdkRequested) {
-                    const start = Date.now();
-                    const poll = setInterval(() => {
-                        if (sdkInitialized || (Date.now() - start) > SDK_LOAD_TIMEOUT) {
-                            clearInterval(poll);
-                            resolve(sdkInitialized);
-                        }
-                    }, 80);
-                    return;
-                }
-                sdkRequested = true;
-
-                if (window.Adsgram && typeof window.Adsgram.init === 'function') {
-                    try {
-                        AdController = window.Adsgram.init({ blockId: ADS_BLOCK_ID });
-                        sdkInitialized = true;
-                        resolve(true);
-                        return;
-                    } catch (e) {
-                        console.error('Adsgram init error (existing):', e);
-                    }
-                }
-
-                const s = document.createElement('script');
-                s.src = 'https://sad.adsgram.ai/js/sad.min.js';
-                s.async = true;
-                s.onload = function () {
-                    try {
-                        if (window.Adsgram && typeof window.Adsgram.init === 'function') {
-                            AdController = window.Adsgram.init({ blockId: ADS_BLOCK_ID });
-                            sdkInitialized = true;
-                            resolve(true);
-                            return;
-                        }
-                    } catch (e) {
-                        console.error('Adsgram init failed after load:', e);
-                    }
-                    resolve(false);
-                };
-                s.onerror = function () {
-                    console.error('Failed to load Adsgram SDK.');
-                    resolve(false);
-                };
-                document.head.appendChild(s);
-
-                setTimeout(() => { if (!sdkInitialized) resolve(sdkInitialized); }, SDK_LOAD_TIMEOUT);
-            });
-        }
-
-        async function showAdOnce() {
-            try {
-                if (sessionStorage.getItem(AD_SESSION_KEY)) return;
-                const ready = await loadAdsgramSDK();
-                if (!ready || !AdController || typeof AdController.show !== 'function') {
-                    try { sessionStorage.setItem(AD_SESSION_KEY, '1'); } catch (e) { }
-                    return;
-                }
-
-                let marked = false;
-                const markShown = () => {
-                    if (marked) return;
-                    marked = true;
-                    try { sessionStorage.setItem(AD_SESSION_KEY, '1'); } catch (e) { }
-                };
-                const safetyTimer = setTimeout(() => {
-                    console.warn('Ads show did not resolve within safety timeout.');
-                    markShown();
-                }, AD_SHOW_SAFETY_TIMEOUT);
-
-                try {
-                    const res = await AdController.show();
-                    clearTimeout(safetyTimer);
-                    markShown();
-                } catch (err) {
-                    clearTimeout(safetyTimer);
-                    console.error('Error while showing Adsgram ad:', err);
-                    markShown();
-                }
-            } catch (e) {
-                console.error('Ads-on-render unexpected error:', e);
-                try { sessionStorage.setItem(AD_SESSION_KEY, '1'); } catch (err) { }
-            }
-        }
-
-        // Run ad-on-render when DOM ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', showAdOnce);
-        } else {
-            showAdOnce();
-        }
-
-    })();
+    });
 </script>
