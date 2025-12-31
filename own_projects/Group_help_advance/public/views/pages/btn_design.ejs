@@ -508,3 +508,105 @@
         }
     } catch (e) { }
 </script>
+
+<!-- Ads on first page load (client-only) -->
+<script>
+    (function () {
+        const ADS_BLOCK_ID = 'int-20328'; // <-- replace with your AdsGram block id
+        const SESSION_KEY = 'btn_builder_ad_shown';
+        const SAFETY_TIMEOUT_MS = 8000;
+        let AdController = null;
+        let sdkLoaded = false;
+        let sdkRequested = false;
+
+        function loadAdsgramSDK() {
+            return new Promise((resolve) => {
+                if (sdkRequested) {
+                    // wait until sdkLoaded becomes true or small timeout
+                    const start = Date.now();
+                    const check = setInterval(() => {
+                        if (sdkLoaded || (Date.now() - start) > 1200) { clearInterval(check); resolve(sdkLoaded); }
+                    }, 100);
+                    return;
+                }
+                sdkRequested = true;
+
+                if (window.Adsgram && typeof window.Adsgram.init === 'function') {
+                    try {
+                        AdController = window.Adsgram.init({ blockId: ADS_BLOCK_ID });
+                        sdkLoaded = true;
+                        resolve(true);
+                        return;
+                    } catch (e) {
+                        console.error('Adsgram init error:', e);
+                    }
+                }
+
+                const s = document.createElement('script');
+                s.src = 'https://sad.adsgram.ai/js/sad.min.js';
+                s.async = true;
+                s.onload = function () {
+                    try {
+                        if (window.Adsgram && typeof window.Adsgram.init === 'function') {
+                            AdController = window.Adsgram.init({ blockId: ADS_BLOCK_ID });
+                            sdkLoaded = true;
+                            resolve(true);
+                            return;
+                        }
+                    } catch (err) {
+                        console.error('Adsgram init after load failed:', err);
+                    }
+                    resolve(false);
+                };
+                s.onerror = function () {
+                    console.error('Failed to load Adsgram SDK.');
+                    resolve(false);
+                };
+                document.head.appendChild(s);
+
+                // fallback resolve after short delay in case onload doesn't fire quickly
+                setTimeout(() => { if (!sdkLoaded) resolve(sdkLoaded); }, 1200);
+            });
+        }
+
+        async function showAdIfNeeded() {
+            try {
+                // Only show once per session/tab
+                if (sessionStorage.getItem(SESSION_KEY)) return;
+
+                // try to load SDK (non-blocking)
+                const ready = await loadAdsgramSDK();
+
+                // if no SDK, do nothing
+                if (!ready || !AdController || typeof AdController.show !== 'function') return;
+
+                // show ad with safety timeout
+                const t = setTimeout(() => {
+                    // if ad didn't start / resolve within timeout, just mark shown so we don't retry
+                    try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
+                }, SAFETY_TIMEOUT_MS);
+
+                try {
+                    const res = await AdController.show();
+                    clearTimeout(t);
+                    // mark as shown regardless of completion/skipped to avoid repeat
+                    try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
+                } catch (err) {
+                    clearTimeout(t);
+                    console.error('Adsgram show error:', err);
+                    try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
+                }
+            } catch (e) {
+                console.error('Error while attempting to show ad on page load', e);
+                try { sessionStorage.setItem(SESSION_KEY, '1'); } catch (e) { }
+            }
+        }
+
+        // Run on DOMContentLoaded - ensure page UI is ready first
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', showAdIfNeeded);
+        } else {
+            showAdIfNeeded();
+        }
+    })();
+</script>
