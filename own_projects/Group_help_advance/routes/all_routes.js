@@ -22,6 +22,10 @@ app.get('/group-help-advance', (req, res) => {
     })
 })
 
+app.get('/group-help-advance/adsgram-reward', (req, res) => {
+    res.json({ status: "success", message: "AdsGram reward sended to user." })
+})
+
 app.get('/group-help-advance/html_message_design', (req, res) => {
     const { placeholders } = req.query;
     res.render('pages/html_message_design', {

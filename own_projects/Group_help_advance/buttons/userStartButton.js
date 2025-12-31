@@ -1,6 +1,7 @@
 const { Markup } = require("telegraf");
 const safeEditOrSend = require("../helpers/safeEditOrSend");
 const encode_payload = require("../helpers/encode_payload");
+const sendAdsgramAd = require("../helpers/sendAdsgramAd");
 
 // simple HTML escaper for user-provided text
 function escapeHTML(input) {
@@ -63,4 +64,7 @@ module.exports = async (ctx) => {
         disable_web_page_preview: true,
         ...keyboard,
     });
+
+    // show ad for block id 'int-20013' (numeric part is 20013)
+    await sendAdsgramAd(ctx, 'int-20013', { language: 'en' });
 };
