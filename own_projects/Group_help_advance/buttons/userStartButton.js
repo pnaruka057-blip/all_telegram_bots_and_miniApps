@@ -1,7 +1,7 @@
 const { Markup } = require("telegraf");
 const safeEditOrSend = require("../helpers/safeEditOrSend");
 const encode_payload = require("../helpers/encode_payload");
-const sendAdsgramAd = require("../helpers/sendAdsgramAd");
+const sendAdsgramAd = require("../helpers/adsgram_bot");
 
 // simple HTML escaper for user-provided text
 function escapeHTML(input) {
