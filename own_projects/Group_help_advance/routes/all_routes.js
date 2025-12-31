@@ -53,7 +53,7 @@ app.get("/group-help-advance/privacy-policy", (req, res) => {
         ownerAddress: "Jaipur, Rajasthan, IN",
         lastUpdated: "December 29, 2025",
         token: group_help_advance_token,
-        botLogoUrl: "https://res.cloudinary.com/dm8miilli/image/upload/v1767181841/Untitled_design_bildro.png"
+        botLogoUrl: "https://res.cloudinary.com/dm8miilli/image/upload/t_fdfsd/v1767181841/Untitled_design_bildro.png"
     });
 });
 
