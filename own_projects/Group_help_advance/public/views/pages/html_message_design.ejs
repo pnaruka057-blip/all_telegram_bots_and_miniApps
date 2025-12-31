@@ -1,260 +1,327 @@
 <section class="mx-auto w-full max-w-2xl px-4 py-6">
-    <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Telegram HTML Message Design</h1>
-    <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
-        Use only Telegram supported HTML tags. Examples below are copy-ready and the preview is a simple browser
-        approximation.
-    </p>
+    <!-- HERO -->
+    <%- include('../partials/header') %>
 
-    <div class="mt-5 space-y-6">
-        <!-- Supported tags list (simple + mobile friendly) -->
-        <div>
-            <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Supported tags</h2>
-            <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                Keep your message short, close tags properly, and use real new lines.
-            </p>
+        <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Telegram HTML Message Design</h1>
+        <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+            Use only Telegram supported HTML tags. Examples below are copy-ready and the preview is a simple browser
+            approximation.
+        </p>
 
-            <div class="mt-4 space-y-5">
-                <!-- Bold -->
-                <div class="space-y-2">
-                    <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        Bold —
-                        <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;b&gt; /
-                            &lt;strong&gt;</span>
-                    </div>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
-                    <pre
-                        class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>&lt;b&gt;Important:&lt;/b&gt; Please read the rules.</code></pre>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
-                    <div
-                        class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-                        <b>Important:</b> Please read the rules.
-                    </div>
-                </div>
-
-                <!-- Italic -->
-                <div class="space-y-2">
-                    <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        Italic —
-                        <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;i&gt; / &lt;em&gt;</span>
-                    </div>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
-                    <pre
-                        class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>&lt;i&gt;Tip:&lt;/i&gt; Keep chat clean.</code></pre>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
-                    <div
-                        class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-                        <i>Tip:</i> Keep chat clean.
-                    </div>
-                </div>
-
-                <!-- Underline -->
-                <div class="space-y-2">
-                    <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        Underline —
-                        <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;u&gt; /
-                            &lt;ins&gt;</span>
-                    </div>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
-                    <pre
-                        class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>Please follow the &lt;u&gt;group rules&lt;/u&gt;.</code></pre>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
-                    <div
-                        class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-                        Please follow the <u>group rules</u>.
-                    </div>
-                </div>
-
-                <!-- Strikethrough -->
-                <div class="space-y-2">
-                    <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        Strikethrough —
-                        <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;s&gt; / &lt;strike&gt; /
-                            &lt;del&gt;</span>
-                    </div>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
-                    <pre
-                        class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>&lt;s&gt;No spam&lt;/s&gt; Only helpful messages.</code></pre>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
-                    <div
-                        class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-                        <s>No spam</s> Only helpful messages.
-                    </div>
-                </div>
-
-                <!-- Inline code -->
-                <div class="space-y-2">
-                    <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        Inline code —
-                        <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;code&gt;</span>
-                    </div>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
-                    <pre
-                        class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>Use &lt;code&gt;/start&lt;/code&gt; to begin.</code></pre>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
-                    <div
-                        class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-                        Use
-                        <code
-                            class="rounded bg-white px-1 py-0.5 text-slate-900 dark:bg-slate-800 dark:text-slate-100">/start</code>
-                        to begin.
-                    </div>
-                </div>
-
-                <!-- Code block -->
-                <div class="space-y-2">
-                    <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        Code block —
-                        <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;pre&gt;</span>
-                    </div>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
-                    <pre
-                        class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>&lt;pre&gt;
-console.log(&quot;Hello&quot;);
-&lt;/pre&gt;</code></pre>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
-                    <div class="rounded-xl bg-slate-100 p-3 dark:bg-slate-900">
-                        <pre
-                            class="m-0 whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>console.log("Hello");</code></pre>
-                    </div>
-                </div>
-
-                <!-- Link -->
-                <div class="space-y-2">
-                    <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        Link —
-                        <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;a
-                            href=&quot;...&quot;&gt;</span>
-                    </div>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
-                    <pre
-                        class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>&lt;a href=&quot;https://example.com&quot;&gt;Open Rules&lt;/a&gt;</code></pre>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
-                    <div class="rounded-xl bg-slate-100 p-3 text-sm leading-6 dark:bg-slate-900">
-                        <a class="break-words text-blue-600 underline dark:text-blue-400" href="https://example.com"
-                            target="_blank" rel="noopener">Open Rules</a>
-                    </div>
-                </div>
-
-                <!-- Spoiler -->
-                <div class="space-y-2">
-                    <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        Spoiler —
-                        <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;tg-spoiler&gt;</span>
-                    </div>
-                    <div class="text-xs leading-5 text-slate-500 dark:text-slate-400">
-                        In Telegram it will be hidden until tapped (browser preview can only simulate).
-                    </div>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
-                    <pre
-                        class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>Secret: &lt;tg-spoiler&gt;42&lt;/tg-spoiler&gt;</code></pre>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
-                    <div
-                        class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-                        Secret:
-                        <span
-                            class="rounded bg-slate-300 px-1 py-0.5 text-slate-800 dark:bg-slate-700 dark:text-slate-100">42</span>
-                    </div>
-                </div>
-            </div>
-
-            <div
-                class="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-                <p class="font-medium">Notes</p>
-                <ul class="mt-2 list-disc space-y-1 pl-5">
-                    <li>
-                        Do not use layout tags like
-                        <span class="font-mono">&lt;div&gt;</span>,
-                        <span class="font-mono">&lt;br&gt;</span>,
-                        <span class="font-mono">&lt;img&gt;</span>
-                        in Telegram messages.
-                    </li>
-                    <li>
-                        If you want to show <span class="font-mono">&lt;</span> or <span class="font-mono">&gt;</span>
-                        as text, escape them:
-                        <span class="font-mono">&amp;lt;</span>
-                        <span class="font-mono">&amp;gt;</span>.
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <% if (placeholders) { %>
-            <!-- Placeholders -->
+        <div class="mt-5 space-y-6">
+            <!-- Supported tags list (simple + mobile friendly) -->
             <div>
-                <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Dynamic placeholders</h2>
+                <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Supported tags</h2>
                 <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                    If your message contains any placeholder below, the bot replaces it at runtime.
+                    Keep your message short, close tags properly, and use real new lines.
                 </p>
 
-                <div class="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-200">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <code
-                            class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">{ID}</code>
-                        <span>User Telegram ID.</span>
+                <div class="mt-4 space-y-5">
+                    <!-- Bold -->
+                    <div class="space-y-2">
+                        <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Bold —
+                            <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;b&gt; /
+                                &lt;strong&gt;</span>
+                        </div>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
+                        <pre
+                            class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>&lt;b&gt;Important:&lt;/b&gt; Please read the rules.</code></pre>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
+                        <div
+                            class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+                            <b>Important:</b> Please read the rules.
+                        </div>
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-2">
-                        <code
-                            class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">{MENTION}</code>
-                        <span>User mention (clickable).</span>
+                    <!-- Italic -->
+                    <div class="space-y-2">
+                        <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Italic —
+                            <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;i&gt; /
+                                &lt;em&gt;</span>
+                        </div>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
+                        <pre
+                            class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>&lt;i&gt;Tip:&lt;/i&gt; Keep chat clean.</code></pre>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
+                        <div
+                            class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+                            <i>Tip:</i> Keep chat clean.
+                        </div>
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-2">
-                        <code
-                            class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">{NAME}</code>
-                        <span>User first name.</span>
+                    <!-- Underline -->
+                    <div class="space-y-2">
+                        <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Underline —
+                            <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;u&gt; /
+                                &lt;ins&gt;</span>
+                        </div>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
+                        <pre
+                            class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>Please follow the &lt;u&gt;group rules&lt;/u&gt;.</code></pre>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
+                        <div
+                            class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+                            Please follow the <u>group rules</u>.
+                        </div>
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-2">
-                        <code
-                            class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">{SURNAME}</code>
-                        <span>User last name (if available).</span>
+                    <!-- Strikethrough -->
+                    <div class="space-y-2">
+                        <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Strikethrough —
+                            <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;s&gt; /
+                                &lt;strike&gt; /
+                                &lt;del&gt;</span>
+                        </div>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
+                        <pre
+                            class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>&lt;s&gt;No spam&lt;/s&gt; Only helpful messages.</code></pre>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
+                        <div
+                            class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+                            <s>No spam</s> Only helpful messages.
+                        </div>
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-2">
-                        <code
-                            class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">{USERNAME}</code>
-                        <span>User username (if available).</span>
+                    <!-- Inline code -->
+                    <div class="space-y-2">
+                        <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Inline code —
+                            <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;code&gt;</span>
+                        </div>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
+                        <pre
+                            class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>Use &lt;code&gt;/start&lt;/code&gt; to begin.</code></pre>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
+                        <div
+                            class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+                            Use
+                            <code
+                                class="rounded bg-white px-1 py-0.5 text-slate-900 dark:bg-slate-800 dark:text-slate-100">/start</code>
+                            to begin.
+                        </div>
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-2">
-                        <code
-                            class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">{GROUPNAME}</code>
-                        <span>Current group title.</span>
+                    <!-- Code block -->
+                    <div class="space-y-2">
+                        <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Code block —
+                            <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;pre&gt;</span>
+                        </div>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
+                        <pre
+                            class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>&lt;pre&gt;
+console.log(&quot;Hello&quot;);
+&lt;/pre&gt;</code></pre>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
+                        <div class="rounded-xl bg-slate-100 p-3 dark:bg-slate-900">
+                            <pre
+                                class="m-0 whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>console.log("Hello");</code></pre>
+                        </div>
+                    </div>
+
+                    <!-- Link -->
+                    <div class="space-y-2">
+                        <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Link —
+                            <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;a
+                                href=&quot;...&quot;&gt;</span>
+                        </div>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
+                        <pre
+                            class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>&lt;a href=&quot;https://example.com&quot;&gt;Open Rules&lt;/a&gt;</code></pre>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
+                        <div class="rounded-xl bg-slate-100 p-3 text-sm leading-6 dark:bg-slate-900">
+                            <a class="break-words text-blue-600 underline dark:text-blue-400" href="https://example.com"
+                                target="_blank" rel="noopener">Open Rules</a>
+                        </div>
+                    </div>
+
+                    <!-- Spoiler -->
+                    <div class="space-y-2">
+                        <div class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            Spoiler —
+                            <span class="font-mono text-xs text-slate-600 dark:text-slate-300">&lt;tg-spoiler&gt;</span>
+                        </div>
+                        <div class="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                            In Telegram it will be hidden until tapped (browser preview can only simulate).
+                        </div>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
+                        <pre
+                            class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>Secret: &lt;tg-spoiler&gt;42&lt;/tg-spoiler&gt;</code></pre>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
+                        <div
+                            class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+                            Secret:
+                            <span
+                                class="rounded bg-slate-300 px-1 py-0.5 text-slate-800 dark:bg-slate-700 dark:text-slate-100">42</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="mt-4 space-y-2">
-                    <div class="text-sm font-medium text-slate-900 dark:text-slate-100">Placeholder example</div>
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
+                <div
+                    class="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                    <p class="font-medium">Notes</p>
+                    <ul class="mt-2 list-disc space-y-1 pl-5">
+                        <li>
+                            Do not use layout tags like
+                            <span class="font-mono">&lt;div&gt;</span>,
+                            <span class="font-mono">&lt;br&gt;</span>,
+                            <span class="font-mono">&lt;img&gt;</span>
+                            in Telegram messages.
+                        </li>
+                        <li>
+                            If you want to show <span class="font-mono">&lt;</span> or <span
+                                class="font-mono">&gt;</span>
+                            as text, escape them:
+                            <span class="font-mono">&amp;lt;</span>
+                            <span class="font-mono">&amp;gt;</span>.
+                        </li>
+                    </ul>
+                </div>
+            </div>
 
-                    <pre
-                        class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>&lt;b&gt;Welcome {MENTION}!&lt;/b&gt;
+            <% if (placeholders) { %>
+                <!-- Placeholders -->
+                <div>
+                    <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Dynamic placeholders</h2>
+                    <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        If your message contains any placeholder below, the bot replaces it at runtime.
+                    </p>
+
+                    <div class="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-200">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <code
+                                class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">{ID}</code>
+                            <span>User Telegram ID.</span>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <code
+                                class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">{MENTION}</code>
+                            <span>User mention (clickable).</span>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <code
+                                class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">{NAME}</code>
+                            <span>User first name.</span>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <code
+                                class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">{SURNAME}</code>
+                            <span>User last name (if available).</span>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <code
+                                class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">{USERNAME}</code>
+                            <span>User username (if available).</span>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <code
+                                class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">{GROUPNAME}</code>
+                            <span>Current group title.</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 space-y-2">
+                        <div class="text-sm font-medium text-slate-900 dark:text-slate-100">Placeholder example</div>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Example:</div>
+
+                        <pre
+                            class="whitespace-pre-wrap break-words rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100 dark:bg-slate-950"><code>&lt;b&gt;Welcome {MENTION}!&lt;/b&gt;
 
 You are now in &lt;u&gt;{GROUPNAME}&lt;/u&gt;.
 
 Your ID: &lt;code&gt;{ID}&lt;/code&gt;
 Username: &lt;code&gt;{USERNAME}&lt;/code&gt;</code></pre>
 
-                    <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
-                    <div
-                        class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-                        <b>Welcome {MENTION}!</b>
-                        <div class="h-3"></div>
-                        You are now in <u>{GROUPNAME}</u>.
-                        <div class="h-3"></div>
-                        Your ID:
-                        <code
-                            class="rounded bg-white px-1 py-0.5 text-slate-900 dark:bg-slate-800 dark:text-slate-100">{ID}</code>
-                        <br />
-                        Username:
-                        <code
-                            class="rounded bg-white px-1 py-0.5 text-slate-900 dark:bg-slate-800 dark:text-slate-100">{USERNAME}</code>
+                        <div class="text-sm text-slate-700 dark:text-slate-200">Preview:</div>
+                        <div
+                            class="rounded-xl bg-slate-100 p-3 text-sm leading-6 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+                            <b>Welcome {MENTION}!</b>
+                            <div class="h-3"></div>
+                            You are now in <u>{GROUPNAME}</u>.
+                            <div class="h-3"></div>
+                            Your ID:
+                            <code
+                                class="rounded bg-white px-1 py-0.5 text-slate-900 dark:bg-slate-800 dark:text-slate-100">{ID}</code>
+                            <br />
+                            Username:
+                            <code
+                                class="rounded bg-white px-1 py-0.5 text-slate-900 dark:bg-slate-800 dark:text-slate-100">{USERNAME}</code>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <% } %>
-    </div>
-    <!-- Footer -->
-    <%- include('../partials/footer') %>
+                <% } %>
+        </div>
+        <!-- Footer -->
+        <%- include('../partials/footer') %>
 </section>
+<script>
+    (function () {
+        const root = document.documentElement;
+        const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+        function numCssVar(name) {
+            const v = getComputedStyle(root).getPropertyValue(name);
+            const n = parseFloat(v);
+            return Number.isFinite(n) ? n : 0;
+        }
+
+        function setSafeVars() {
+            let top = 0;
+            let bottom = 0;
+
+            // Prefer Telegram provided insets (new clients)
+            try {
+                top = tg?.safeAreaInset?.top ?? 0;
+                bottom = tg?.safeAreaInset?.bottom ?? 0;
+            } catch (e) { }
+
+            // Fallback to Telegram CSS vars if present
+            if (!top) top = numCssVar('--tg-safe-area-inset-top');
+            if (!bottom) bottom = numCssVar('--tg-safe-area-inset-bottom');
+
+            // Last fallback for iOS-like devices if everything is 0
+            if (!top && /iPhone|iPad|iPod/i.test(navigator.userAgent)) top = 24;
+
+            root.style.setProperty('--app-safe-top', top + 'px');
+            root.style.setProperty('--app-safe-bottom', bottom + 'px');
+        }
+
+        setSafeVars();
+
+        // Keep it updated when Telegram reports changes
+        try { tg?.onEvent?.('safeAreaChanged', setSafeVars); } catch (e) { }
+        try { tg?.onEvent?.('safe_area_changed', setSafeVars); } catch (e) { } // some wrappers emit snake_case [web:203][web:128]
+
+        // Optional: set header/background color so status bar icons look correct in fullscreen [page:1]
+        try {
+            if (tg?.setHeaderColor && tg?.colorScheme) {
+                tg.setHeaderColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+            }
+            if (tg?.setBackgroundColor && tg?.colorScheme) {
+                tg.setBackgroundColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+            }
+        } catch (e) { }
+    })();
+
+    try {
+        function goBack() {
+            if (window.history.length > 1) return window.history.back();
+            return window.location.href = "/<%= token %>/group-help-advance";
+        }
+        const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+        if (tg?.BackButton) {
+            tg.BackButton.show();
+            tg.BackButton.onClick(goBack);
+        }
+    } catch (e) { }
+</script>

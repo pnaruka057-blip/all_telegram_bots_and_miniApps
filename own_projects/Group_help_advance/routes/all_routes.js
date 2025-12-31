@@ -26,13 +26,15 @@ app.get('/group-help-advance/html_message_design', (req, res) => {
     const { placeholders } = req.query;
     res.render('pages/html_message_design', {
         developer_telegram_username,
-        placeholders: placeholders === 'true' ? true : false
+        placeholders: placeholders === 'true' ? true : false,
+        token: group_help_advance_token
     })
 })
 
 app.get('/group-help-advance/buttons-design', (req, res) => {
     res.render('pages/btn_design', {
         developer_telegram_username,
+        token: group_help_advance_token
     })
 })
 
@@ -46,7 +48,8 @@ app.get("/group-help-advance/privacy-policy", (req, res) => {
         ownerName: "Earning Planer IT Services",
         ownerAddress: "Jaipur, Rajasthan, IN",
         lastUpdated: "December 29, 2025",
-        botLogoUrl: "https://yourdomain.com/path-to-bot-logo.png"
+        token: group_help_advance_token,
+        botLogoUrl: "https://cdn5.telesco.pe/file/pLZhHNHpRsAxX-WAOAzr76AW20kOG7P2MPrn_f46wC7FHQL-D6e0JJdHwsGMKRphbDODw6lKLDU1G94SnWXIr580oIX-2IsjnZFR5csIXOfbmPS45FlOfGebLD19sVVzOW380GGl_vZ2ds4v7O7ngN02Wy_iA7Sv30apKJP9V7dGcfV8VPwBlHV9HDYWrGZcKOL8yyv1ByMRVryyQZOTkXOvWw3pOrZcC6ycBk3k37w130GPXBbF2P8lTl9FcxKUZiTMOm1s_AZ_AB4XpBw-VnE0gNY-g4gcC2V6fRWXJEj4Oi0Y-LQkVArlRprCUHaCOmH41et6UqEIcKpJ7DPmOw.jpg"
     });
 });
 

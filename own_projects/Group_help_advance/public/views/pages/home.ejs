@@ -1,202 +1,153 @@
-<section class="gha-home">
-        <div class="gha-container">
-            <header class="gha-hero">
-                <div class="gha-brand">
-                    <img class="gha-logo"
-                        src="https://cdn5.telesco.pe/file/eHO-n1MotMHBIgPr7ygqzYpbPPRcjuAuxZZt-Yo7Rm7koENXdufk4k9XGj5pIko-M32tA-AlfS0asFfIvfqYqp-l2e7psXXfXzOc_-BmNpOa1L75rjVjU8dEctek_TpL3Fd-9unw4IyS--kVGGzV9iP7SPby8Jx0kf7rc92n6yfhtl_yG6Dk1nvTZYf3D2wuOj7fFOwJAe_pT6L0I1rkf91NEgWdX8OxV2p8vHW8OETJXHiXnmzVC1Jjh9lZT55Dk9TCYcyKS8mxTT68RLpnS98FkOUMV-pMJTOqwJrmRpdCJ6IMRY-55dY6ZY1r6vO_z9I_nvC5oQAyRgGMkp4xaA.jpg"
-                        alt="Group Help Advance" loading="lazy" />
+<section class="mx-auto w-full max-w-2xl px-4 py-6">
+    <!-- HERO -->
+    <%- include('../partials/header') %>
 
-                    <div class="gha-title">
-                        <h1>Group Help Advance</h1>
-                        <p class="gha-subtitle">
-                            Create Telegram-ready messages & inline button layouts quickly using built-in design tools.
-                        </p>
+        <header
+            class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div class="flex flex-wrap items-center gap-4">
+                <img class="h-16 w-16 rounded-full object-cover ring-2 ring-slate-200 shadow-sm dark:ring-slate-700"
+                    src="https://cdn5.telesco.pe/file/eHO-n1MotMHBIgPr7ygqzYpbPPRcjuAuxZZt-Yo7Rm7koENXdufk4k9XGj5pIko-M32tA-AlfS0asFfIvfqYqp-l2e7psXXfXzOc_-BmNpOa1L75rjVjU8dEctek_TpL3Fd-9unw4IyS--kVGGzV9iP7SPby8Jx0kf7rc92n6yfhtl_yG6Dk1nvTZYf3D2wuOj7fFOwJAe_pT6L0I1rkf91NEgWdX8OxV2p8vHW8OETJXHiXnmzVC1Jjh9lZT55Dk9TCYcyKS8mxTT68RLpnS98FkOUMV-pMJTOqwJrmRpdCJ6IMRY-55dY6ZY1r6vO_z9I_nvC5oQAyRgGMkp4xaA.jpg"
+                    alt="Group Help Advance" loading="lazy" />
+
+                <div class="min-w-[220px] flex-1">
+                    <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Group Help Advance</h1>
+
+                    <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        Create Telegram-ready messages & inline button layouts quickly using built-in design tools.
+                    </p>
+
+                    <div class="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                        <a class="text-blue-600 hover:underline dark:text-blue-400"
+                            href="/<%= token %>/group-help-advance/privacy-policy">
+                            Privacy Policy
+                        </a>
                     </div>
                 </div>
+            </div>
 
-                <div class="gha-quicklinks">
-                    <a class="gha-btn gha-btn-primary" href="/<%= token %>/group-help-advance/html_message_design">
-                        Message Design (No Placeholders)
-                    </a>
+            <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <a class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 active:scale-[0.99]"
+                    href="/<%= token %>/group-help-advance/html_message_design">
+                    Message Design (No Placeholders)
+                </a>
 
-                    <a class="gha-btn" href="/<%= token %>/group-help-advance/html_message_design?placeholders=true">
-                        Message Design (With Placeholders)
-                    </a>
+                <a class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50 active:scale-[0.99]
+                  dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:hover:bg-slate-900"
+                    href="/<%= token %>/group-help-advance/html_message_design?placeholders=true">
+                    Message Design (With Placeholders)
+                </a>
 
-                    <a class="gha-btn" href="/<%= token %>/group-help-advance/buttons-design">
-                        Button Design
+                <a class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50 active:scale-[0.99]
+                  dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:hover:bg-slate-900"
+                    href="/<%= token %>/group-help-advance/buttons-design">
+                    Button Design
+                </a>
+            </div>
+        </header>
+
+        <main class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <article
+                class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Message Design</h2>
+                <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    Build Telegram HTML messages (bold, italic, links, code, etc.) and preview before using in your bot
+                    settings.
+                </p>
+                <div class="mt-3">
+                    <a class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                        href="/<%= token %>/group-help-advance/html_message_design">
+                        Open Designer
                     </a>
                 </div>
-            </header>
+            </article>
 
-            <main class="gha-grid">
-                <article class="gha-card">
-                    <h2>Message Design</h2>
-                    <p>
-                        Build Telegram HTML messages (bold, italic, links, code, etc.) and preview before using in your
-                        bot settings.
-                    </p>
-                    <div class="gha-card-actions">
-                        <a class="gha-btn gha-btn-primary" href="<%= token %>/group-help-advance/htmlmessagedesign">
-                            Open Designer
-                        </a>
-                    </div>
-                </article>
+            <article
+                class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Placeholders</h2>
+                <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    Create messages with placeholders (like user name, group title, IDs, etc.) for dynamic text in
+                    welcome/rules.
+                </p>
+                <div class="mt-3">
+                    <a class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                        href="/<%= token %>/group-help-advance/html_message_design?placeholders=true">
+                        Open With Placeholders
+                    </a>
+                </div>
+            </article>
 
-                <article class="gha-card">
-                    <h2>Placeholders</h2>
-                    <p>
-                        Create messages with placeholders (like user name, group title, IDs, etc.) for dynamic text in
-                        welcome/rules.
-                    </p>
-                    <div class="gha-card-actions">
-                        <a class="gha-btn gha-btn-primary"
-                            href="<%= token %>/group-help-advance/htmlmessagedesign?placeholders=true">
-                            Open With Placeholders
-                        </a>
-                    </div>
-                </article>
+            <article
+                class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:col-span-2">
+                <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Button Design</h2>
+                <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    Generate inline keyboard layouts (rows/columns) and copy the final button syntax for your bot
+                    configuration.
+                </p>
+                <div class="mt-3">
+                    <a class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                        href="/<%= token %>/group-help-advance/buttons-design">
+                        Open Button Builder
+                    </a>
+                </div>
+            </article>
+        </main>
 
-                <article class="gha-card">
-                    <h2>Button Design</h2>
-                    <p>
-                        Generate inline keyboard layouts (rows/columns) and copy the final button syntax for your bot
-                        configuration.
-                    </p>
-                    <div class="gha-card-actions">
-                        <a class="gha-btn gha-btn-primary" href="<%= token %>/group-help-advance/buttons-design">
-                            Open Button Builder
-                        </a>
-                    </div>
-                </article>
-            </main>
-        </div>
-
-        <style>
-            .gha-home {
-                padding: 22px 12px;
-            }
-
-            .gha-container {
-                max-width: 980px;
-                margin: 0 auto;
-            }
-
-            .gha-hero {
-                background: #0f172a;
-                color: #fff;
-                border-radius: 16px;
-                padding: 18px;
-                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-            }
-
-            .gha-brand {
-                display: flex;
-                gap: 14px;
-                align-items: center;
-                flex-wrap: wrap;
-            }
-
-            .gha-logo {
-                width: 64px;
-                height: 64px;
-                border-radius: 14px;
-                object-fit: cover;
-                background: rgba(255, 255, 255, 0.08);
-            }
-
-            .gha-title h1 {
-                margin: 0;
-                font-size: 22px;
-                line-height: 1.2;
-            }
-
-            .gha-subtitle {
-                margin: 6px 0 0;
-                opacity: 0.9;
-                font-size: 14px;
-                max-width: 720px;
-            }
-
-            .gha-quicklinks {
-                margin-top: 14px;
-                display: flex;
-                gap: 10px;
-                flex-wrap: wrap;
-            }
-
-            .gha-grid {
-                display: grid;
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-                gap: 14px;
-                margin-top: 14px;
-            }
-
-            @media (max-width: 900px) {
-                .gha-grid {
-                    grid-template-columns: 1fr;
-                }
-            }
-
-            .gha-card {
-                background: #ffffff;
-                border-radius: 14px;
-                padding: 14px;
-                border: 1px solid #e5e7eb;
-            }
-
-            .gha-card h2 {
-                margin: 0 0 8px;
-                font-size: 16px;
-                color: #111827;
-            }
-
-            .gha-card p {
-                margin: 0;
-                color: #374151;
-                font-size: 14px;
-                line-height: 1.45;
-            }
-
-            .gha-card-actions {
-                margin-top: 12px;
-            }
-
-            .gha-btn {
-                display: inline-block;
-                text-decoration: none;
-                padding: 10px 12px;
-                border-radius: 10px;
-                border: 1px solid rgba(255, 255, 255, 0.18);
-                background: rgba(255, 255, 255, 0.08);
-                color: #fff;
-                font-size: 14px;
-                transition: transform .08s ease, opacity .08s ease;
-            }
-
-            .gha-btn:hover {
-                transform: translateY(-1px);
-                opacity: 0.95;
-            }
-
-            .gha-btn-primary {
-                background: #2563eb;
-                border-color: #2563eb;
-            }
-
-            /* Card buttons (dark text) */
-            .gha-card .gha-btn {
-                background: #111827;
-                border-color: #111827;
-                color: #fff;
-            }
-
-            .gha-card .gha-btn-primary {
-                background: #2563eb;
-                border-color: #2563eb;
-            }
-        </style>
-
-        <!-- Footer -->
         <%- include('../partials/footer') %>
 </section>
+
+<script>
+    (function () {
+        const root = document.documentElement;
+        const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+        function numCssVar(name) {
+            const v = getComputedStyle(root).getPropertyValue(name);
+            const n = parseFloat(v);
+            return Number.isFinite(n) ? n : 0;
+        }
+
+        function setSafeVars() {
+            let top = 0;
+            let bottom = 0;
+
+            // Prefer Telegram provided insets (new clients)
+            try {
+                top = tg?.safeAreaInset?.top ?? 0;
+                bottom = tg?.safeAreaInset?.bottom ?? 0;
+            } catch (e) { }
+
+            // Fallback to Telegram CSS vars if present
+            if (!top) top = numCssVar('--tg-safe-area-inset-top');
+            if (!bottom) bottom = numCssVar('--tg-safe-area-inset-bottom');
+
+            // Last fallback for iOS-like devices if everything is 0
+            if (!top && /iPhone|iPad|iPod/i.test(navigator.userAgent)) top = 24;
+
+            root.style.setProperty('--app-safe-top', top + 'px');
+            root.style.setProperty('--app-safe-bottom', bottom + 'px');
+        }
+
+        setSafeVars();
+
+        // Keep it updated when Telegram reports changes
+        try { tg?.onEvent?.('safeAreaChanged', setSafeVars); } catch (e) { }
+        try { tg?.onEvent?.('safe_area_changed', setSafeVars); } catch (e) { } // some wrappers emit snake_case [web:203][web:128]
+
+        // Optional: set header/background color so status bar icons look correct in fullscreen [page:1]
+        try {
+            if (tg?.setHeaderColor && tg?.colorScheme) {
+                tg.setHeaderColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+            }
+            if (tg?.setBackgroundColor && tg?.colorScheme) {
+                tg.setBackgroundColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+            }
+        } catch (e) { }
+    })();
+
+     try {
+            const tg = window.Telegram?.WebApp;
+            tg.BackButton.hide();
+        } catch (e) {
+            console.error("CloseButton init error:", e);
+        }
+</script>

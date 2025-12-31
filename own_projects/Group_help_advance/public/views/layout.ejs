@@ -1,55 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <script src='//libtl.com/sdk.js' data-zone='9690148' data-sdk='show_9690148'></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script async src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script>
-        window.addEventListener("DOMContentLoaded", async () => {
-            /**
-             * Wait briefly for the Telegram WebApp script to become available.
-             * Some browsers may load the async script slightly after DOMContentLoaded on first open.
-             */
-            const waitForTelegram = async (timeoutMs = 500) => {
-                const start = Date.now();
-                while (!(window.Telegram && window.Telegram.WebApp) && (Date.now() - start) < timeoutMs) {
-                    await new Promise(r => setTimeout(r, 50));
-                }
-                return !!(window.Telegram && window.Telegram.WebApp);
-            };
 
-            const tgAvailable = await waitForTelegram(500); // wait up to 500ms
-            if (!tgAvailable) {
-                // Telegram WebApp not present — show message and stop further execution
-                document.body.innerHTML = '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
-                return;
-            }
-
-            const tg = window.Telegram.WebApp;
-
-            // Safe calls to ready() / expand()
-            try {
-                if (typeof tg.ready === 'function') tg.ready();
-            } catch (e) { /* ignore */ }
-            try {
-                if (typeof tg.expand === 'function') tg.expand();
-            } catch (e) { /* ignore */ }
-
-            const initDataUnsafe = tg.initDataUnsafe || {};
-            const user = initDataUnsafe.user;
-
-            // If Telegram did not provide a user object, show same message and stop
-            if (!user) {
-                document.body.innerHTML = '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
-                return;
-            }
-        });
-    </script>
     <style>
+        /* Make the page truly fill the Telegram viewport */
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Telegram exposes viewport height as CSS var in Mini Apps environments */
+        body {
+            min-height: var(--tg-viewport-height, 100vh);
+            height: var(--tg-viewport-height, 100vh);
+            overflow-x: hidden;
+        }
+
         .hidden {
             display: none;
         }
@@ -73,10 +50,8 @@
             background-size: 400% 400%;
             animation: gradientShift 8s ease infinite;
             color: #f5f5f5;
-            /* text visible hoga white/gray me */
         }
 
-        /* optional: text ko thoda neon effect dena */
         .animate-background h1,
         .animate-background p {
             text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
@@ -107,12 +82,9 @@
                 transform: translateY(-20%);
             }
 
-            /* scroll up */
             100% {
                 transform: translateY(0);
             }
-
-            /* scroll back to top */
         }
 
         .animate-verticalScroll {
@@ -120,9 +92,58 @@
         }
     </style>
 
+    <script>
+        window.addEventListener("DOMContentLoaded", async () => {
+            const waitForTelegram = async (timeoutMs = 700) => {
+                const start = Date.now();
+                while (!(window.Telegram && window.Telegram.WebApp) && (Date.now() - start) < timeoutMs) {
+                    await new Promise(r => setTimeout(r, 50));
+                }
+                return !!(window.Telegram && window.Telegram.WebApp);
+            };
+
+            const tgAvailable = await waitForTelegram(700);
+            if (!tgAvailable) {
+                document.body.innerHTML =
+                    '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
+                return;
+            }
+
+            const tg = window.Telegram.WebApp;
+
+            try { tg.ready?.(); } catch (e) { }
+            try { tg.expand?.(); } catch (e) { } // max available height [web:125]
+
+            // Fullscreen request (supported devices only) [web:125]
+            try { tg.requestFullscreen?.(); } catch (e) { }
+
+            // Optional: keep viewport vars in sync for layout stability
+            const syncVh = () => {
+                try {
+                    if (typeof tg.viewportHeight === "number") {
+                        document.documentElement.style.setProperty("--tg-viewport-height", tg.viewportHeight + "px");
+                    }
+                } catch (e) { }
+            };
+
+            try {
+                tg.onEvent?.("viewportChanged", syncVh);
+                syncVh();
+            } catch (e) { }
+
+            const initDataUnsafe = tg.initDataUnsafe || {};
+            const user = initDataUnsafe.user;
+
+            if (!user) {
+                document.body.innerHTML =
+                    '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
+                return;
+            }
+        });
+    </script>
 </head>
 
-<body class="bg-gray-800 flex justify-center items-center select-none">
+<body class="w-full select-none pt-20">
     <!-- Page Loader -->
     <div id="pageLoader"
         class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center hidden">
@@ -133,11 +154,10 @@
         </div>
     </div>
 
-    <%- body %> <!-- dynamic page content -->
+    <%- body %>
 
         <script>
             document.addEventListener("DOMContentLoaded", () => {
-                // Event delegation: body pe listen karo
                 document.body.addEventListener("click", function (e) {
                     const link = e.target.closest("a");
                     if (!link) return;
@@ -150,8 +170,5 @@
             });
         </script>
 </body>
-<script>
-
-</script>
 
 </html>
