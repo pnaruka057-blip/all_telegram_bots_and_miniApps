@@ -1,31 +1,47 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en" class="h-full dark">
 
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src='//libtl.com/sdk.js' data-zone='10401300' data-sdk='show_10401300'></script>
+
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Tailwind CDN: force class-based dark mode (very important) [web:532]
+        tailwind.config = { darkMode: 'class' };
+    </script>
+
     <script async src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
     <style>
-        /* Make the page truly fill the Telegram viewport */
+        /* Lock dark UI, even if some 3rd-party CSS tries to change it */
+        :root {
+            color-scheme: dark;
+            /* dark native controls/scrollbars [web:540] */
+        }
+
         html,
         body {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
+            background: #020617;
+            /* slate-950 */
+            color: #e2e8f0;
+            /* slate-200 */
         }
 
-        /* Telegram exposes viewport height as CSS var in Mini Apps environments */
+        /* Telegram exposes viewport height var */
         body {
             min-height: var(--tg-viewport-height, 100vh);
             height: var(--tg-viewport-height, 100vh);
             overflow-x: hidden;
         }
 
+        /* Keep your util */
         .hidden {
             display: none;
         }
@@ -60,10 +76,8 @@
             color: white;
         }
 
-        .animate-background input,
-        .animate-background select {
-            color: black;
-        }
+        /* Avoid forcing inputs to black text globally (this can look like light mode) */
+        /* If you need specific forms, apply a class locally instead of global rule. */
 
         .truncate-3-lines {
             display: -webkit-box;
@@ -92,6 +106,14 @@
     </style>
 
     <script>
+        // Always keep dark forced (ads/other scripts shouldn't flip it)
+        (function () {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+        })();
+    </script>
+
+    <script>
         window.addEventListener("DOMContentLoaded", async () => {
             const waitForTelegram = async (timeoutMs = 700) => {
                 const start = Date.now();
@@ -111,12 +133,15 @@
             const tg = window.Telegram.WebApp;
 
             try { tg.ready?.(); } catch (e) { }
-            try { tg.expand?.(); } catch (e) { } // max available height [web:125]
-
-            // Fullscreen request (supported devices only) [web:125]
+            try { tg.expand?.(); } catch (e) { }
             try { tg.requestFullscreen?.(); } catch (e) { }
 
-            // Optional: keep viewport vars in sync for layout stability
+            // Force dark Telegram chrome as well (optional but helps)
+            try {
+                if (tg.setHeaderColor) tg.setHeaderColor('#020617');
+                if (tg.setBackgroundColor) tg.setBackgroundColor('#020617');
+            } catch (e) { }
+
             const syncVh = () => {
                 try {
                     if (typeof tg.viewportHeight === "number") {
@@ -142,7 +167,7 @@
     </script>
 </head>
 
-<body class="w-full select-none pt-20">
+<body class="w-full select-none pt-20 bg-slate-950 text-slate-200">
     <!-- Page Loader -->
     <div id="pageLoader"
         class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center hidden">

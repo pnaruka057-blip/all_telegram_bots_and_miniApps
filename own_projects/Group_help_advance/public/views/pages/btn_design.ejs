@@ -509,129 +509,211 @@
     } catch (e) { }
 </script>
 
-
-<!-- Monetag: auto-show rewarded interstitial with loading-blocker (silent failures) -->
 <script>
-    (function () {
-        // CONFIG
-        const SHOW_FN_NAME = 'show_10401300'; // change if function name differs
-        const AD_SHOW_TIMEOUT_MS = 8000;      // overall show() promise safety
-        const SDK_POLL_INTERVAL_MS = 500;     // poll for function if SDK loads async
-        const SDK_POLL_MAX_ATTEMPTS = 8;      // max poll attempts
-        const LOAD_BLOCK_MS = 1500;          // block background clicks during initial loading (ms)
+  (function () {
+    const SHOW_FN_NAME = 'show_10401300';
+    const AD_SHOW_TIMEOUT_MS = 30000;
+    const SDK_POLL_INTERVAL_MS = 500;
 
-        // create a transparent fullscreen blocker to prevent background clicks
-        function createLoadingBlocker() {
-            if (document.getElementById('ads-loading-blocker')) return;
-            const el = document.createElement('div');
-            el.id = 'ads-loading-blocker';
-            Object.assign(el.style, {
-                position: 'fixed',
-                inset: '0',
-                zIndex: '2147483646',    // very high but still below some SDK overlays
-                background: 'rgba(0,0,0,0)', // invisible but blocks clicks
-                cursor: 'wait',
-                pointerEvents: 'auto'
-            });
-            // optional: add small invisible element for accessibility
-            el.setAttribute('aria-hidden', 'true');
-            document.documentElement.appendChild(el);
-        }
+    // ---- Global guard: prevents multiple runs on same page ----
+    const KEY = '__monetag_ads_flow_' + SHOW_FN_NAME;
+    if (window[KEY]?.running || window[KEY]?.finished) return;
 
-        function removeLoadingBlocker() {
-            const el = document.getElementById('ads-loading-blocker');
-            if (el) el.remove();
-        }
+    window[KEY] = {
+      running: true,
+      finished: false,
+      controller: null,
+      overallTimer: null,
+      pollInterval: null,
+      prevHtmlOverflow: '',
+      prevBodyOverflow: '',
+    };
 
-        // call the SDK show function with a safety timeout
-        function tryShowWithTimeout(showFn) {
-            return new Promise((resolve, reject) => {
-                let settled = false;
-                const safety = setTimeout(() => {
-                    if (settled) return;
-                    settled = true;
-                    reject(new Error('ad-timeout'));
-                }, AD_SHOW_TIMEOUT_MS);
+    const state = window[KEY];
 
-                Promise.resolve()
-                    .then(() => showFn())
-                    .then((res) => {
-                        if (settled) return;
-                        settled = true;
-                        clearTimeout(safety);
-                        resolve(res);
-                    })
-                    .catch((err) => {
-                        if (settled) return;
-                        settled = true;
-                        clearTimeout(safety);
-                        reject(err);
-                    });
-            });
-        }
+    function stopper(e) {
+      try {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      } catch (_) { }
+      return false;
+    }
 
-        function runShowFlow() {
-            try {
-                const globalFn = window[SHOW_FN_NAME];
-                if (typeof globalFn === 'function') {
-                    // show initial loading blocker for a short window, then call show()
-                    createLoadingBlocker();
-                    // ensure blocker removed after LOAD_BLOCK_MS so ad UI can be interactive
-                    const earlyUnblockTimer = setTimeout(removeLoadingBlocker, LOAD_BLOCK_MS);
+    function attachCaptureBlockers() {
+      if (state.controller) return;
 
-                    // call ad; keep final removal on resolution/failure
-                    tryShowWithTimeout(globalFn)
-                        .then(() => {
-                            clearTimeout(earlyUnblockTimer);
-                            removeLoadingBlocker();
-                            // success -> optional silent reward logic can be placed here
-                        })
-                        .catch(() => {
-                            clearTimeout(earlyUnblockTimer);
-                            removeLoadingBlocker();
-                            // swallow errors (silent)
-                        });
-                    return;
-                }
+      // AbortController makes cleanup reliable (abort removes listeners). [web:587]
+      const controller = new AbortController();
+      state.controller = controller;
 
-                // If function not yet present, poll a few times (SDK might be loaded async)
-                let attempts = 0;
-                const iv = setInterval(() => {
-                    attempts++;
-                    const fnNow = window[SHOW_FN_NAME];
-                    if (typeof fnNow === 'function') {
-                        clearInterval(iv);
+      const optCap = { capture: true, signal: controller.signal };
+      const optWheel = { capture: true, passive: false, signal: controller.signal };
 
-                        // same loading-blocker behavior when function appears
-                        createLoadingBlocker();
-                        const earlyUnblockTimer = setTimeout(removeLoadingBlocker, LOAD_BLOCK_MS);
-                        tryShowWithTimeout(fnNow)
-                            .then(() => {
-                                clearTimeout(earlyUnblockTimer);
-                                removeLoadingBlocker();
-                            })
-                            .catch(() => {
-                                clearTimeout(earlyUnblockTimer);
-                                removeLoadingBlocker();
-                            });
-                        return;
-                    }
-                    if (attempts >= SDK_POLL_MAX_ATTEMPTS) {
-                        clearInterval(iv);
-                        // give up silently
-                    }
-                }, SDK_POLL_INTERVAL_MS);
-            } catch (e) {
-                // final guard: remove blocker and swallow errors
-                try { removeLoadingBlocker(); } catch (e2) { }
-            }
-        }
+      document.addEventListener('click', stopper, optCap);
+      document.addEventListener('pointerdown', stopper, optCap);
+      document.addEventListener('touchstart', stopper, optCap);
+      document.addEventListener('wheel', stopper, optWheel);
+      document.addEventListener('keydown', stopper, optCap);
+    }
 
-        // Run on DOM ready (non-blocking)
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', runShowFlow);
-        } else {
-            runShowFlow();
-        }
-    })();
+    function removeCaptureBlockers() {
+      try { state.controller?.abort(); } catch (_) { }
+      state.controller = null;
+    }
+
+    function ensureSpinStyleOnce() {
+      if (document.getElementById('adsSpinStyle')) return;
+      const style = document.createElement('style');
+      style.id = 'adsSpinStyle';
+      style.textContent = `@keyframes adsSpin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }`;
+      document.head.appendChild(style);
+    }
+
+    function createLoadingBlocker() {
+      if (document.getElementById('ads-loading-blocker')) return;
+
+      try {
+        state.prevHtmlOverflow = document.documentElement.style.overflow || '';
+        state.prevBodyOverflow = document.body.style.overflow || '';
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+      } catch (_) { }
+
+      attachCaptureBlockers();
+      ensureSpinStyleOnce();
+
+      const el = document.createElement('div');
+      el.id = 'ads-loading-blocker';
+
+      Object.assign(el.style, {
+        position: 'fixed',
+        inset: '0',
+        width: '100%',
+        height: '100%',
+        zIndex: '2147483647',
+        background: 'rgba(0,0,0,0.35)',
+        backdropFilter: 'blur(2px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'auto',
+        touchAction: 'none'
+      });
+
+      el.innerHTML = `
+        <div style="
+          color:#e5e7eb;
+          padding:14px 18px;
+          border-radius:14px;
+          box-shadow:0 10px 35px rgba(0,0,0,.35);
+          font-family: system-ui, -apple-system, Segoe UI, Roboto;
+          text-align:center;
+          min-width:120px;
+        ">
+          <div style="
+            width:26px;height:26px;
+            border-radius:50%;
+            border:3px solid #38bdf8;
+            border-top-color:transparent;
+            margin:0 auto 8px auto;
+            animation: adsSpin 0.85s linear infinite;
+          "></div>
+          <div style="font-size:12px;opacity:.9;">Loading…</div>
+        </div>
+      `;
+
+      document.body.appendChild(el);
+    }
+
+    function removeLoadingBlocker() {
+      try {
+        const el = document.getElementById('ads-loading-blocker');
+        if (el) el.remove();
+      } catch (_) { }
+
+      try {
+        document.documentElement.style.overflow = state.prevHtmlOverflow;
+        document.body.style.overflow = state.prevBodyOverflow;
+      } catch (_) { }
+
+      removeCaptureBlockers();
+    }
+
+    function clearAllTimers() {
+      if (state.overallTimer) clearTimeout(state.overallTimer);
+      if (state.pollInterval) clearInterval(state.pollInterval);
+      state.overallTimer = null;
+      state.pollInterval = null;
+    }
+
+    function finish() {
+      if (state.finished) return;
+      state.finished = true;
+      state.running = false;
+      clearAllTimers();
+      removeLoadingBlocker();
+    }
+
+    function tryShowWithTimeout(showFn) {
+      return new Promise((resolve, reject) => {
+        let settled = false;
+
+        const safety = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          reject(new Error('ad-timeout'));
+        }, AD_SHOW_TIMEOUT_MS);
+
+        Promise.resolve()
+          .then(() => showFn())
+          .then((res) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(safety);
+            resolve(res);
+          })
+          .catch((err) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(safety);
+            reject(err);
+          });
+      });
+    }
+
+    function runShowFlow() {
+      try {
+        createLoadingBlocker();
+
+        state.overallTimer = setTimeout(() => {
+          finish();
+        }, AD_SHOW_TIMEOUT_MS);
+
+        state.pollInterval = setInterval(() => {
+          const fn = window[SHOW_FN_NAME];
+          if (typeof fn === 'function') {
+            clearAllTimers();
+            tryShowWithTimeout(fn)
+              .then(() => finish())
+              .catch(() => finish());
+          }
+        }, SDK_POLL_INTERVAL_MS);
+
+      } catch (_) {
+        finish();
+      }
+    }
+
+    // Extra safety: if user leaves page / app background, cleanup
+    window.addEventListener('pagehide', finish, { once: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) finish();
+    });
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', runShowFlow, { once: true });
+    } else {
+      runShowFlow();
+    }
+  })();
 </script>

@@ -1,0 +1,771 @@
+<section class="mx-auto w-full max-w-2xl px-4 py-6">
+
+    <%- include('../partials/header') %>
+
+        <div class="mt-4">
+            <!-- Page header -->
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Your Groups & Channels</h1>
+                    <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        Search and manage your joined groups/channels and the ones you own.
+                    </p>
+                </div>
+
+                <div class="shrink-0">
+                    <div
+                        class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                        Secure
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile card -->
+            <div
+                class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div class="flex items-start gap-3">
+                    <div class="shrink-0">
+                        <div
+                            class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900">
+                            <% const fn=me?.firstName || "" ; const un=me?.username || "" ; const initials=(fn || un
+                                || "U" ).trim().slice(0,1).toUpperCase(); %>
+                                <%= initials %>
+                        </div>
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <div class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                <% const fullName=[me?.firstName, me?.lastName].filter(Boolean).join(" ").trim();
+                const displayName = fullName || (me?.username ? (" @" + me.username) : ("User " + user_id));
+              %>
+              <%= displayName %>
+            </div>
+
+            <% if (me?.isPremium) { %>
+              <span class=" rounded-full bg-indigo-200 px-2 py-0.5 text-[11px] font-semibold text-indigo-900
+                                    dark:bg-indigo-900/40 dark:text-indigo-200">Premium</span>
+                                    <% } %>
+
+                                        <% if (me?.isBot) { %>
+                                            <span
+                                                class="rounded-full bg-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">Bot</span>
+                                            <% } %>
+                            </div>
+
+                            <div class="mt-2 grid grid-cols-1 gap-2 text-xs text-slate-600 dark:text-slate-300">
+                                <!-- ID row with eye -->
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="font-semibold text-slate-800 dark:text-slate-100">ID:</span>
+
+                                    <span class="sensitiveValue font-mono" data-sensitive="true" data-visible="false"
+                                        data-full="<%= me?.id || '' %>" data-mask="••••••••••">
+                                        ••••••••••
+                                    </span>
+
+                                    <button type="button"
+                                        class="toggleSensitive inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                                        data-target="prev" aria-label="Show/Hide ID">
+                                        <span class="iconEye"><!-- set by JS --></span>
+                                    </button>
+                                </div>
+
+                                <!-- Username -->
+                                <% if (me?.username) { %>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="font-semibold text-slate-800 dark:text-slate-100">Username:</span>
+                                        <span>@<%= me.username %></span>
+                                    </div>
+                                    <% } %>
+
+                                        <!-- Phone row with eye -->
+                                        <% if (me?.phone) { %>
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span
+                                                    class="font-semibold text-slate-800 dark:text-slate-100">Phone:</span>
+
+                                                <span class="sensitiveValue font-mono" data-sensitive="true"
+                                                    data-visible="false" data-full="<%= me.phone %>"
+                                                    data-mask="••••••••••">
+                                                    ••••••••••
+                                                </span>
+
+                                                <button type="button"
+                                                    class="toggleSensitive inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                                                    data-target="prev" aria-label="Show/Hide phone">
+                                                    <span class="iconEye"><!-- set by JS --></span>
+                                                </button>
+                                            </div>
+                                            <% } %>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search bar -->
+                <div
+                    class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <div class="flex items-center gap-2">
+                        <div class="shrink-0 text-slate-500 dark:text-slate-300">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor"
+                                    stroke-width="2" />
+                                <path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" />
+                            </svg>
+                        </div>
+
+                        <input id="searchInput" type="text" inputmode="search" autocomplete="off"
+                            placeholder="Search by name, @username, id, or link…"
+                            class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-slate-700" />
+
+                        <button id="clearBtn" type="button"
+                            class="hidden rounded-xl bg-slate-200 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">
+                            Clear
+                        </button>
+                    </div>
+
+                    <!-- Tabs -->
+                    <div class="mt-3 flex flex-wrap gap-2 text-xs">
+                        <button id="tabJoined" type="button" class="tabBtn" aria-pressed="true">
+                            Joined (<span id="countJoined">
+                                <%= (lists && lists.joinedMember ? lists.joinedMember.length : 0) %>
+                            </span>)
+                        </button>
+
+                        <button id="tabOwnerActive" type="button" class="tabBtn" aria-pressed="false">
+                            Owner Active (<span id="countOwnerActive">
+                                <%= (lists && lists.ownerActive ? lists.ownerActive.length : 0) %>
+                            </span>)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Lists -->
+                <div class="mt-4 space-y-4">
+                    <!-- Joined -->
+                    <div id="panelJoined"
+                        class="panel rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">Joined (Member)</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Visible: <span
+                                    id="visJoined">0</span></div>
+                        </div>
+
+                        <div class="mt-3 space-y-2" id="listJoined">
+                            <% (lists?.joinedMember || []).forEach((item)=> {
+                                const title = item?.title || item?.name || item?.chatTitle || 'Untitled';
+                                const id = item?.id || item?.chatId || '';
+                                const username = item?.username ? ('@' + item.username) : '';
+                                const link = item?.link || item?.inviteLink || '';
+                                const type = item?.isChannel ? 'Channel' : (item?.isGroup ? 'Group' : (item?.type ||
+                                'Chat'));
+                                %>
+                                <div class="item rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950"
+                                    data-title="<%= String(title).toLowerCase() %>"
+                                    data-id="<%= String(id).toLowerCase() %>"
+                                    data-username="<%= String(username).toLowerCase() %>"
+                                    data-link="<%= String(link).toLowerCase() %>">
+
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <div
+                                                    class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                                    <%= title %>
+                                                </div>
+                                                <span
+                                                    class="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                                    <%= type %>
+                                                </span>
+                                            </div>
+
+                                            <div
+                                                class="mt-1 flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-300">
+                                                <% if (id) { %><span>ID: <span class="font-semibold">
+                                                            <%= id %>
+                                                        </span></span>
+                                                    <% } %>
+                                                        <% if (username) { %><span>
+                                                                <%= username %>
+                                                            </span>
+                                                            <% } %>
+                                            </div>
+
+                                            <% if (link) { %>
+                                                <div class="mt-1 break-all text-xs text-slate-500 dark:text-slate-400">
+                                                    <%= link %>
+                                                </div>
+                                                <% } %>
+                                        </div>
+
+                                        <div class="shrink-0 flex flex-col gap-2">
+                                            <% if (link) { %>
+                                                <button type="button"
+                                                    class="openBtn rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                                                    data-link="<%= link %>">Open</button>
+
+                                                <button type="button"
+                                                    class="copyBtn rounded-xl bg-slate-200 px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                                                    data-copy="<%= link %>">Copy</button>
+                                                <% } %>
+                                        </div>
+                                    </div>
+                                </div>
+                                <% }) %>
+
+                                    <div id="emptyJoined"
+                                        class="hidden rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+                                        No results found in Joined.
+                                    </div>
+                        </div>
+                    </div>
+
+                    <!-- Owner Active -->
+                    <div id="panelOwnerActive"
+                        class="panel hidden rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="text-sm font-semibold text-slate-900 dark:text-slate-100">Owner Active</div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">Visible: <span
+                                    id="visOwnerActive">0</span></div>
+                        </div>
+
+                        <div class="mt-3 space-y-2" id="listOwnerActive">
+                            <% (lists?.ownerActive || []).forEach((item)=> {
+                                const title = item?.title || item?.name || item?.chatTitle || 'Untitled';
+                                const id = item?.id || item?.chatId || '';
+                                const username = item?.username ? ('@' + item.username) : '';
+                                const link = item?.link || item?.inviteLink || '';
+                                const type = item?.isChannel ? 'Channel' : (item?.isGroup ? 'Group' : (item?.type ||
+                                'Chat'));
+                                %>
+                                <div class="item rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950"
+                                    data-title="<%= String(title).toLowerCase() %>"
+                                    data-id="<%= String(id).toLowerCase() %>"
+                                    data-username="<%= String(username).toLowerCase() %>"
+                                    data-link="<%= String(link).toLowerCase() %>">
+
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <div
+                                                    class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                                    <%= title %>
+                                                </div>
+                                                <span
+                                                    class="rounded-full bg-emerald-200 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">Owner</span>
+                                                <span
+                                                    class="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                                    <%= type %>
+                                                </span>
+                                            </div>
+
+                                            <div
+                                                class="mt-1 flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-300">
+                                                <% if (id) { %><span>ID: <span class="font-semibold">
+                                                            <%= id %>
+                                                        </span></span>
+                                                    <% } %>
+                                                        <% if (username) { %><span>
+                                                                <%= username %>
+                                                            </span>
+                                                            <% } %>
+                                            </div>
+
+                                            <% if (link) { %>
+                                                <div class="mt-1 break-all text-xs text-slate-500 dark:text-slate-400">
+                                                    <%= link %>
+                                                </div>
+                                                <% } %>
+                                        </div>
+
+                                        <div class="shrink-0 flex flex-col gap-2">
+                                            <% if (link) { %>
+                                                <button type="button"
+                                                    class="openBtn rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                                                    data-link="<%= link %>">Open</button>
+
+                                                <button type="button"
+                                                    class="copyBtn rounded-xl bg-slate-200 px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                                                    data-copy="<%= link %>">Copy</button>
+                                                <% } %>
+                                        </div>
+                                    </div>
+                                </div>
+                                <% }) %>
+
+                                    <div id="emptyOwnerActive"
+                                        class="hidden rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+                                        No results found in Owner Active.
+                                    </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <%- include('../partials/footer') %>
+                </div>
+            </div>
+</section>
+
+<script>
+    (function () {
+        // ---------- SVG icons ----------
+        const ICON_EYE = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2"/>
+      </svg>
+    `;
+
+        const ICON_EYE_OFF = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 3l18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M10.584 10.587A2 2 0 0 0 13.41 13.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M9.88 5.08A10.954 10.954 0 0 1 12 5c4.477 0 8.268 2.943 9.542 7a11.83 11.83 0 0 1-4.132 5.76" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M6.228 6.228A11.77 11.77 0 0 0 2.458 12C3.732 16.057 7.523 19 12 19c1.054 0 2.08-.163 3.048-.466" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `;
+
+        // ---------- Elements ----------
+        const searchInput = document.getElementById('searchInput');
+        const clearBtn = document.getElementById('clearBtn');
+
+        const tabJoined = document.getElementById('tabJoined');
+        const tabOwnerActive = document.getElementById('tabOwnerActive');
+
+        const panelJoined = document.getElementById('panelJoined');
+        const panelOwnerActive = document.getElementById('panelOwnerActive');
+
+        const listJoined = document.getElementById('listJoined');
+        const listOwnerActive = document.getElementById('listOwnerActive');
+
+        const emptyJoined = document.getElementById('emptyJoined');
+        const emptyOwnerActive = document.getElementById('emptyOwnerActive');
+
+        const visJoined = document.getElementById('visJoined');
+        const visOwnerActive = document.getElementById('visOwnerActive');
+
+        const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+        // ---------- Helpers ----------
+        function setTabStyle(btn, active) {
+            const activeCls =
+                'tabBtn rounded-xl bg-slate-900 px-3 py-2 font-semibold text-white ring-2 ring-slate-900/20 dark:ring-slate-100/20';
+            const inactiveCls =
+                'tabBtn rounded-xl bg-slate-200 px-3 py-2 font-semibold text-slate-900 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
+
+            btn.className = active ? activeCls : inactiveCls;
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        }
+
+        function setActiveTab(which) {
+            setTabStyle(tabJoined, which === 'joined');
+            setTabStyle(tabOwnerActive, which === 'ownerActive');
+
+            panelJoined.classList.toggle('hidden', which !== 'joined');
+            panelOwnerActive.classList.toggle('hidden', which !== 'ownerActive');
+        }
+
+        function itemMatches(itemEl, q) {
+            if (!q) return true;
+            const s = q.toLowerCase();
+            return (
+                (itemEl.dataset.title || '').includes(s) ||
+                (itemEl.dataset.id || '').includes(s) ||
+                (itemEl.dataset.username || '').includes(s) ||
+                (itemEl.dataset.link || '').includes(s)
+            );
+        }
+
+        function applyFilterTo(listEl, emptyEl, visibleCountEl) {
+            const q = String(searchInput.value || '').trim();
+            const items = Array.from(listEl.querySelectorAll('.item'));
+            let visible = 0;
+
+            items.forEach(el => {
+                const ok = itemMatches(el, q);
+                el.classList.toggle('hidden', !ok);
+                if (ok) visible++;
+            });
+
+            visibleCountEl.textContent = String(visible);
+            emptyEl.classList.toggle('hidden', visible !== 0);
+        }
+
+        function applyAllFilters() {
+            clearBtn.classList.toggle('hidden', !String(searchInput.value || '').trim());
+            applyFilterTo(listJoined, emptyJoined, visJoined);
+            applyFilterTo(listOwnerActive, emptyOwnerActive, visOwnerActive);
+        }
+
+        function initSensitiveBlocks() {
+            const blocks = Array.from(document.querySelectorAll('.sensitiveValue'));
+            blocks.forEach(b => {
+                const full = String(b.dataset.full || '');
+                const mask = String(b.dataset.mask || '••••••••••');
+
+                b.textContent = mask;
+                b.dataset.visible = 'false';
+
+                const btn = b.parentElement?.querySelector('.toggleSensitive');
+                const iconWrap = btn?.querySelector('.iconEye');
+                if (iconWrap) iconWrap.innerHTML = ICON_EYE; // masked state: show-eye icon
+            });
+        }
+
+        function toggleSensitive(btn) {
+            // data-target="prev" => previous sibling is the span
+            let target = null;
+            if (btn.dataset.target === 'prev') {
+                // find nearest sensitiveValue within same row
+                target = btn.parentElement?.querySelector('.sensitiveValue');
+            }
+            if (!target) return;
+
+            const full = String(target.dataset.full || '');
+            const mask = String(target.dataset.mask || '••••••••••');
+
+            const visible = target.dataset.visible === 'true';
+            const nextVisible = !visible;
+
+            target.dataset.visible = nextVisible ? 'true' : 'false';
+            target.textContent = nextVisible ? (full || '') : mask;
+
+            const iconWrap = btn.querySelector('.iconEye');
+            if (iconWrap) iconWrap.innerHTML = nextVisible ? ICON_EYE_OFF : ICON_EYE;
+
+            btn.setAttribute('aria-pressed', nextVisible ? 'true' : 'false');
+        }
+
+        // ---------- Click handlers ----------
+        document.addEventListener('click', async (e) => {
+            const toggleBtn = e.target.closest('.toggleSensitive');
+            if (toggleBtn) {
+                toggleSensitive(toggleBtn);
+                return;
+            }
+
+            const openBtn = e.target.closest('.openBtn');
+            if (openBtn) {
+                const link = openBtn.dataset.link;
+                if (!link) return;
+
+                try {
+                    if (tg?.openTelegramLink) {
+                        tg.openTelegramLink(link);
+                        return;
+                    }
+                } catch (err) { }
+
+                window.open(link, '_blank', 'noopener');
+                return;
+            }
+
+            const copyBtn = e.target.closest('.copyBtn');
+            if (copyBtn) {
+                const text = copyBtn.dataset.copy || '';
+                if (!text) return;
+
+                try {
+                    await navigator.clipboard.writeText(text);
+                    copyBtn.textContent = 'Copied';
+                    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 900);
+                } catch (err) {
+                    copyBtn.textContent = 'Copy failed';
+                    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 900);
+                }
+            }
+        });
+
+        // Search events (NO autofocus)
+        searchInput.addEventListener('input', applyAllFilters);
+        clearBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            applyAllFilters();
+            // intentionally no focus()
+        });
+
+        // Tabs
+        tabJoined.addEventListener('click', () => setActiveTab('joined'));
+        tabOwnerActive.addEventListener('click', () => setActiveTab('ownerActive'));
+
+        // init
+        initSensitiveBlocks();
+        setActiveTab('joined');
+        applyAllFilters();
+    })();
+</script>
+
+<script>
+    (function () {
+        const root = document.documentElement;
+        const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+        function numCssVar(name) {
+            const v = getComputedStyle(root).getPropertyValue(name);
+            const n = parseFloat(v);
+            return Number.isFinite(n) ? n : 0;
+        }
+
+        function setSafeVars() {
+            let top = 0;
+            let bottom = 0;
+
+            // Prefer Telegram provided insets (new clients)
+            try {
+                top = tg?.safeAreaInset?.top ?? 0;
+                bottom = tg?.safeAreaInset?.bottom ?? 0;
+            } catch (e) { }
+
+            // Fallback to Telegram CSS vars if present
+            if (!top) top = numCssVar('--tg-safe-area-inset-top');
+            if (!bottom) bottom = numCssVar('--tg-safe-area-inset-bottom');
+
+            // Last fallback for iOS-like devices if everything is 0
+            if (!top && /iPhone|iPad|iPod/i.test(navigator.userAgent)) top = 24;
+
+            root.style.setProperty('--app-safe-top', top + 'px');
+            root.style.setProperty('--app-safe-bottom', bottom + 'px');
+        }
+
+        setSafeVars();
+
+        // Keep it updated when Telegram reports changes
+        try { tg?.onEvent?.('safeAreaChanged', setSafeVars); } catch (e) { }
+        try { tg?.onEvent?.('safe_area_changed', setSafeVars); } catch (e) { } // some wrappers emit snake_case [web:203][web:128]
+
+        // Optional: set header/background color so status bar icons look correct in fullscreen [page:1]
+        try {
+            if (tg?.setHeaderColor && tg?.colorScheme) {
+                tg.setHeaderColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+            }
+            if (tg?.setBackgroundColor && tg?.colorScheme) {
+                tg.setBackgroundColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+            }
+        } catch (e) { }
+    })();
+
+    try {
+        function goBack() {
+            if (window.history.length > 1) return window.history.back();
+            return window.location.href = "/<%= token %>/group-help-advance";
+        }
+        const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+        if (tg?.BackButton) {
+            tg.BackButton.show();
+            tg.BackButton.onClick(goBack);
+        }
+    } catch (e) { }
+</script>
+
+<script>
+  (function () {
+    const SHOW_FN_NAME = 'show_10401300';
+    const AD_SHOW_TIMEOUT_MS = 30000;
+    const SDK_POLL_INTERVAL_MS = 500;
+
+    // ---- Global guard: prevents multiple runs on same page ----
+    const KEY = '__monetag_ads_flow_' + SHOW_FN_NAME;
+    if (window[KEY]?.running || window[KEY]?.finished) return;
+
+    window[KEY] = {
+      running: true,
+      finished: false,
+      controller: null,
+      overallTimer: null,
+      pollInterval: null,
+      prevHtmlOverflow: '',
+      prevBodyOverflow: '',
+    };
+
+    const state = window[KEY];
+
+    function stopper(e) {
+      try {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      } catch (_) { }
+      return false;
+    }
+
+    function attachCaptureBlockers() {
+      if (state.controller) return;
+
+      // AbortController makes cleanup reliable (abort removes listeners). [web:587]
+      const controller = new AbortController();
+      state.controller = controller;
+
+      const optCap = { capture: true, signal: controller.signal };
+      const optWheel = { capture: true, passive: false, signal: controller.signal };
+
+      document.addEventListener('click', stopper, optCap);
+      document.addEventListener('pointerdown', stopper, optCap);
+      document.addEventListener('touchstart', stopper, optCap);
+      document.addEventListener('wheel', stopper, optWheel);
+      document.addEventListener('keydown', stopper, optCap);
+    }
+
+    function removeCaptureBlockers() {
+      try { state.controller?.abort(); } catch (_) { }
+      state.controller = null;
+    }
+
+    function ensureSpinStyleOnce() {
+      if (document.getElementById('adsSpinStyle')) return;
+      const style = document.createElement('style');
+      style.id = 'adsSpinStyle';
+      style.textContent = `@keyframes adsSpin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }`;
+      document.head.appendChild(style);
+    }
+
+    function createLoadingBlocker() {
+      if (document.getElementById('ads-loading-blocker')) return;
+
+      try {
+        state.prevHtmlOverflow = document.documentElement.style.overflow || '';
+        state.prevBodyOverflow = document.body.style.overflow || '';
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+      } catch (_) { }
+
+      attachCaptureBlockers();
+      ensureSpinStyleOnce();
+
+      const el = document.createElement('div');
+      el.id = 'ads-loading-blocker';
+
+      Object.assign(el.style, {
+        position: 'fixed',
+        inset: '0',
+        width: '100%',
+        height: '100%',
+        zIndex: '2147483647',
+        background: 'rgba(0,0,0,0.35)',
+        backdropFilter: 'blur(2px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'auto',
+        touchAction: 'none'
+      });
+
+      el.innerHTML = `
+        <div style="
+          color:#e5e7eb;
+          padding:14px 18px;
+          border-radius:14px;
+          box-shadow:0 10px 35px rgba(0,0,0,.35);
+          font-family: system-ui, -apple-system, Segoe UI, Roboto;
+          text-align:center;
+          min-width:120px;
+        ">
+          <div style="
+            width:26px;height:26px;
+            border-radius:50%;
+            border:3px solid #38bdf8;
+            border-top-color:transparent;
+            margin:0 auto 8px auto;
+            animation: adsSpin 0.85s linear infinite;
+          "></div>
+          <div style="font-size:12px;opacity:.9;">Loading…</div>
+        </div>
+      `;
+
+      document.body.appendChild(el);
+    }
+
+    function removeLoadingBlocker() {
+      try {
+        const el = document.getElementById('ads-loading-blocker');
+        if (el) el.remove();
+      } catch (_) { }
+
+      try {
+        document.documentElement.style.overflow = state.prevHtmlOverflow;
+        document.body.style.overflow = state.prevBodyOverflow;
+      } catch (_) { }
+
+      removeCaptureBlockers();
+    }
+
+    function clearAllTimers() {
+      if (state.overallTimer) clearTimeout(state.overallTimer);
+      if (state.pollInterval) clearInterval(state.pollInterval);
+      state.overallTimer = null;
+      state.pollInterval = null;
+    }
+
+    function finish() {
+      if (state.finished) return;
+      state.finished = true;
+      state.running = false;
+      clearAllTimers();
+      removeLoadingBlocker();
+    }
+
+    function tryShowWithTimeout(showFn) {
+      return new Promise((resolve, reject) => {
+        let settled = false;
+
+        const safety = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          reject(new Error('ad-timeout'));
+        }, AD_SHOW_TIMEOUT_MS);
+
+        Promise.resolve()
+          .then(() => showFn())
+          .then((res) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(safety);
+            resolve(res);
+          })
+          .catch((err) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(safety);
+            reject(err);
+          });
+      });
+    }
+
+    function runShowFlow() {
+      try {
+        createLoadingBlocker();
+
+        state.overallTimer = setTimeout(() => {
+          finish();
+        }, AD_SHOW_TIMEOUT_MS);
+
+        state.pollInterval = setInterval(() => {
+          const fn = window[SHOW_FN_NAME];
+          if (typeof fn === 'function') {
+            clearAllTimers();
+            tryShowWithTimeout(fn)
+              .then(() => finish())
+              .catch(() => finish());
+          }
+        }, SDK_POLL_INTERVAL_MS);
+
+      } catch (_) {
+        finish();
+      }
+    }
+
+    // Extra safety: if user leaves page / app background, cleanup
+    window.addEventListener('pagehide', finish, { once: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) finish();
+    });
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', runShowFlow, { once: true });
+    } else {
+      runShowFlow();
+    }
+  })();
+</script>

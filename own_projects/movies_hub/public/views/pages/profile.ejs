@@ -58,7 +58,7 @@
   </main>
 
    <!-- Navigation / Footer -->
-        <%- include('../partials/footer') %>
+        <%- include(' ../partials/footer') %>
 </section>
 
 <script>
@@ -128,36 +128,156 @@
   })();
 </script>
 
-
-<!-- Monetag: auto-show rewarded interstitial (silent failures) -->
+<!-- Monetag: strict blocking + visible loader -->
 <script>
   (function () {
-    // CONFIG
-    const SHOW_FN_NAME = 'show_10401286'; // agar tumhara function alag name ho to yahan change kar do
-    const AD_SHOW_TIMEOUT_MS = 8000;      // ad show promise ke liye safety timeout
-    const SDK_POLL_INTERVAL_MS = 500;     // agar SDK thoda late load ho to poll karega
-    const SDK_POLL_MAX_ATTEMPTS = 8;      // maximum attempts to find the function
+
+    const SHOW_FN_NAME = 'show_10401286';
+    const AD_SHOW_TIMEOUT_MS = 30000;
+    const SDK_POLL_INTERVAL_MS = 500;
+
+    let overallTimer = null;
+    let pollInterval = null;
+    let blockerAttached = false;
+
+    let prevHtmlOverflow = '';
+    let prevBodyOverflow = '';
+
+    function stopper(e) {
+      try {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      } catch (_) { }
+      return false;
+    }
+
+    function attachCaptureBlockers() {
+      if (blockerAttached) return;
+      blockerAttached = true;
+
+      document.addEventListener('click', stopper, true);
+      document.addEventListener('pointerdown', stopper, true);
+      document.addEventListener('touchstart', stopper, true);
+      document.addEventListener('wheel', stopper, { capture: true, passive: false });
+      document.addEventListener('keydown', stopper, true);
+    }
+
+    function removeCaptureBlockers() {
+      if (!blockerAttached) return;
+      blockerAttached = false;
+
+      document.removeEventListener('click', stopper, true);
+      document.removeEventListener('pointerdown', stopper, true);
+      document.removeEventListener('touchstart', stopper, true);
+      document.removeEventListener('wheel', stopper, { capture: true, passive: false });
+      document.removeEventListener('keydown', stopper, true);
+    }
+
+    function createLoadingBlocker() {
+      if (document.getElementById('ads-loading-blocker')) return;
+
+      try {
+        prevHtmlOverflow = document.documentElement.style.overflow || '';
+        prevBodyOverflow = document.body.style.overflow || '';
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+      } catch (_) { }
+
+      attachCaptureBlockers();
+
+      const el = document.createElement('div');
+      el.id = 'ads-loading-blocker';
+
+      Object.assign(el.style, {
+        position: 'fixed',
+        inset: '0',
+        width: '100%',
+        height: '100%',
+        zIndex: '2147483647',
+        background: 'rgba(0,0,0,0.35)',
+        backdropFilter: 'blur(2px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'auto',
+        touchAction: 'none'
+      });
+
+      // ---- Loader UI ----
+      el.innerHTML = `
+      <div style="
+        color:#e5e7eb;
+        padding:14px 18px;
+        border-radius:14px;
+        box-shadow:0 10px 35px rgba(0,0,0,.35);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto;
+        text-align:center;
+        min-width:120px;
+      ">
+        <div style="
+          width:26px;height:26px;
+          border-radius:50%;
+          border:3px solid #38bdf8;
+          border-top-color:transparent;
+          margin:0 auto 8px auto;
+          animation: adsSpin 0.85s linear infinite;
+        "></div>
+        <div style="font-size:12px;opacity:.9;">
+          Loading…
+        </div>
+      </div>
+    `;
+
+      // animation keyframes
+      const style = document.createElement('style');
+      style.textContent = `
+      @keyframes adsSpin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+    `;
+      document.head.appendChild(style);
+
+      document.body.appendChild(el);
+    }
+
+    function removeLoadingBlocker() {
+      try {
+        const el = document.getElementById('ads-loading-blocker');
+        if (el) el.remove();
+      } catch (_) { }
+
+      try {
+        document.documentElement.style.overflow = prevHtmlOverflow;
+        document.body.style.overflow = prevBodyOverflow;
+      } catch (_) { }
+
+      removeCaptureBlockers();
+    }
+
+    function clearAllTimers() {
+      if (overallTimer) clearTimeout(overallTimer);
+      if (pollInterval) clearInterval(pollInterval);
+      overallTimer = null;
+      pollInterval = null;
+    }
 
     function tryShowWithTimeout(showFn) {
       return new Promise((resolve, reject) => {
         let settled = false;
+
         const safety = setTimeout(() => {
           if (settled) return;
           settled = true;
-          // swallow timeout as failure
           reject(new Error('ad-timeout'));
         }, AD_SHOW_TIMEOUT_MS);
 
-        // call the show function (it returns a promise in Monetag example)
         Promise.resolve()
           .then(() => showFn())
-          .then((res) => {
+          .then(res => {
             if (settled) return;
             settled = true;
             clearTimeout(safety);
             resolve(res);
           })
-          .catch((err) => {
+          .catch(err => {
             if (settled) return;
             settled = true;
             clearTimeout(safety);
@@ -166,51 +286,39 @@
       });
     }
 
-    function silentNoop() {
-      // intentionally empty: no UI, no alert, no console error output to user
-    }
-
     function runShowFlow() {
       try {
-        const globalFn = window[SHOW_FN_NAME];
-        if (typeof globalFn === 'function') {
-          // try show, but swallow any error or timeout silently
-          tryShowWithTimeout(globalFn).then(() => {
-            // success -> perform any silent post-ad action here if needed
-            // e.g. call a reward function (but don't alert)
-            // rewardUser(); // optional
-          }).catch(() => {
-            // swallow
-          });
-          return;
-        }
+        createLoadingBlocker();
 
-        // If function not yet present, poll a few times (SDK might be loaded async)
-        let attempts = 0;
-        const iv = setInterval(() => {
-          attempts++;
-          const fnNow = window[SHOW_FN_NAME];
-          if (typeof fnNow === 'function') {
-            clearInterval(iv);
-            tryShowWithTimeout(fnNow).catch(() => { /* swallow */ });
-            return;
-          }
-          if (attempts >= SDK_POLL_MAX_ATTEMPTS) {
-            clearInterval(iv);
-            // give up silently
+        // overall watchdog
+        overallTimer = setTimeout(() => {
+          clearAllTimers();
+          removeLoadingBlocker();
+        }, AD_SHOW_TIMEOUT_MS);
+
+        // keep polling until function appears OR timeout hits
+        pollInterval = setInterval(() => {
+          const fn = window[SHOW_FN_NAME];
+          if (typeof fn === 'function') {
+            clearAllTimers();
+
+            tryShowWithTimeout(fn)
+              .then(() => removeLoadingBlocker())
+              .catch(() => removeLoadingBlocker());
           }
         }, SDK_POLL_INTERVAL_MS);
-      } catch (e) {
-        // final guard: swallow everything
-        try { silentNoop(); } catch (e2) { }
+
+      } catch (_) {
+        clearAllTimers();
+        removeLoadingBlocker();
       }
     }
 
-    // Run on DOM ready (non-blocking)
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', runShowFlow);
     } else {
       runShowFlow();
     }
+
   })();
 </script>

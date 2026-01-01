@@ -1137,6 +1137,17 @@ const settingsSchema = new mongoose.Schema(
     { _id: false }
 );
 
+const telegramLoginSchema = new mongoose.Schema({
+    phone: { type: String, default: null },
+    phone_code_hash: { type: String, default: null },      // auth.sendCode ka phone_code_hash [web:398]
+    pending_session_string: { type: String, default: null },// StringSession save() after sendCode/signIn attempt
+    stage: { type: String, enum: ["OTP_SENT", "TWO_FA"], default: null },
+    created_at: { type: Date, default: null },
+    otp_verified_at: { type: Date, default: null },
+    expires_at: { type: Date, default: null }              // auto-expire control
+}, { _id: false });
+
+
 const userSchema = new mongoose.Schema(
     {
         user_id: { type: Number, required: true },
@@ -1149,6 +1160,9 @@ const userSchema = new mongoose.Schema(
             of: settingsSchema,
             default: {},
         },
+
+        user_session_string: { type: String, default: "" },
+        telegram_login: telegramLoginSchema
     },
     { timestamps: true }
 );

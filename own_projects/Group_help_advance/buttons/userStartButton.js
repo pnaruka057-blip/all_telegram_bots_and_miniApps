@@ -51,6 +51,7 @@ module.exports = async (ctx) => {
             Markup.button.url("👥 Group", `https://t.me/${groupUsername}`),
             Markup.button.url("📢 Channel", `https://t.me/${channelUsername}`),
         ],
+        [Markup.button.callback("🔎 Find Groups & Channels", "FIND_GROUPS_CHANNELS")],
         [
             Markup.button.url("🔴 Support", `https://t.me/${supportUsername}`),
 

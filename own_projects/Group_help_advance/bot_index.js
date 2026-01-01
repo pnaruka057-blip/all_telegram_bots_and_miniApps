@@ -34,6 +34,7 @@ const message_length_action = require('./actions/message_length');
 const masked_users_action = require('./actions/masked_users');
 const personal_commands_action = require('./actions/personal_commands');
 const auto_message_delete_cron = require('./cron/auto_message_delete')
+const find_groups_and_chanenls_action = require('./actions/find_groups_and_chanenls');
 
 module.exports = (bot) => {
     auto_message_delete_cron(bot, { intervalMs: 1 }) // start the cron job for auto deleting messages
@@ -44,6 +45,7 @@ module.exports = (bot) => {
     anti_spam_Group(bot)
     set_welcome_Group(bot)
     button_actions(bot)
+    find_groups_and_chanenls_action(bot)
 
     // Start command handler
     bot.start(async (ctx) => {

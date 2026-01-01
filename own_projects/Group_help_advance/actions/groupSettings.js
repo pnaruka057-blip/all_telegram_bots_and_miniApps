@@ -1,6 +1,14 @@
 const { Markup } = require("telegraf");
 const safeEditOrSend = require("../helpers/safeEditOrSend");
 const validateOwner = require("../helpers/validateOwner"); // ✅ import helper
+function escapeHtml(s = "") {
+    return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
 
 module.exports = (bot) => {
     bot.action(/^GROUP_SETTINGS_(.+)$/, async (ctx) => {
@@ -13,11 +21,14 @@ module.exports = (bot) => {
             // ✅ Validate with helper (chat info + owner check)
             const chat = await validateOwner(ctx, chatId, chatIdStr, userId);
             if (!chat) return; // agar validation fail hua to stop karo
+            const displayName = escapeHtml(chat.title || "Group");
+            const groupUrl = `https://t.me/c/${String(chat.id).startsWith("-100") ? String(chat.id).substring(4) : String(chat.id)}`;
 
             // ✅ Settings menu
             const keyboard = Markup.inlineKeyboard([
                 [Markup.button.callback("📜 Regulation", `SET_REGULATION_${chatIdStr}`), Markup.button.callback("🧯 Anti-Spam", `SET_ANTISPAM_${chatIdStr}`)],
-                [Markup.button.callback("💬 Welcome", `SET_WELCOME_${chatIdStr}`), Markup.button.callback("✨ More coming soon", `SOON_more_${chatIdStr}`)],
+                [Markup.button.callback("💬 Welcome", `SET_WELCOME_${chatIdStr}`)],
+                [Markup.button.callback("✨ Coming soon", `SOON_more_${chatIdStr}`)],
                 // [Markup.button.callback("💬 Welcome", `SET_WELCOME_${chatIdStr}`), Markup.button.callback("🌊 Anti-Flood", `SET_ANTIFLOOD_${chatIdStr}`)],
                 // [Markup.button.callback("🖐️ Goodbye", `SET_GOODBYE_${chatIdStr}`), Markup.button.callback("🕉 Alphabets", `SET_ALPHABETS_${chatIdStr}`)],
                 // [Markup.button.callback("🧠 Captcha", `SET_CAPTCHA_${chatIdStr}`), Markup.button.callback("🪓 Checks", `SET_CHECKS_${chatIdStr}`)],
@@ -38,7 +49,7 @@ module.exports = (bot) => {
                 [Markup.button.callback("⬅️ Back", "MANAGE_GROUPS")]
             ]);
 
-            const text = `⚙️ <b>SETTINGS</b>\n\nGroup: <code>${chat.title || chatIdStr}</code>\n\n<i>Select one of the settings that you want to change.</i>`;
+            const text = `⚙️ <b>SETTINGS</b>\n\nGroup: <a href="${escapeHtml(groupUrl)}">${displayName}</a>\n\n<i>Select one of the settings that you want to change.</i>`;
 
             await safeEditOrSend(ctx, text, { parse_mode: "HTML", ...keyboard });
         } catch (err) {
