@@ -510,26 +510,49 @@
 </script>
 
 
-<!-- Monetag: auto-show rewarded interstitial (silent failures) -->
+<!-- Monetag: auto-show rewarded interstitial with loading-blocker (silent failures) -->
 <script>
     (function () {
         // CONFIG
-        const SHOW_FN_NAME = 'show_10401300'; // agar tumhara function alag name ho to yahan change kar do
-        const AD_SHOW_TIMEOUT_MS = 8000;      // ad show promise ke liye safety timeout
-        const SDK_POLL_INTERVAL_MS = 500;     // agar SDK thoda late load ho to poll karega
-        const SDK_POLL_MAX_ATTEMPTS = 8;      // maximum attempts to find the function
+        const SHOW_FN_NAME = 'show_10401300'; // change if function name differs
+        const AD_SHOW_TIMEOUT_MS = 8000;      // overall show() promise safety
+        const SDK_POLL_INTERVAL_MS = 500;     // poll for function if SDK loads async
+        const SDK_POLL_MAX_ATTEMPTS = 8;      // max poll attempts
+        const LOAD_BLOCK_MS = 1500;          // block background clicks during initial loading (ms)
 
+        // create a transparent fullscreen blocker to prevent background clicks
+        function createLoadingBlocker() {
+            if (document.getElementById('ads-loading-blocker')) return;
+            const el = document.createElement('div');
+            el.id = 'ads-loading-blocker';
+            Object.assign(el.style, {
+                position: 'fixed',
+                inset: '0',
+                zIndex: '2147483646',    // very high but still below some SDK overlays
+                background: 'rgba(0,0,0,0)', // invisible but blocks clicks
+                cursor: 'wait',
+                pointerEvents: 'auto'
+            });
+            // optional: add small invisible element for accessibility
+            el.setAttribute('aria-hidden', 'true');
+            document.documentElement.appendChild(el);
+        }
+
+        function removeLoadingBlocker() {
+            const el = document.getElementById('ads-loading-blocker');
+            if (el) el.remove();
+        }
+
+        // call the SDK show function with a safety timeout
         function tryShowWithTimeout(showFn) {
             return new Promise((resolve, reject) => {
                 let settled = false;
                 const safety = setTimeout(() => {
                     if (settled) return;
                     settled = true;
-                    // swallow timeout as failure
                     reject(new Error('ad-timeout'));
                 }, AD_SHOW_TIMEOUT_MS);
 
-                // call the show function (it returns a promise in Monetag example)
                 Promise.resolve()
                     .then(() => showFn())
                     .then((res) => {
@@ -547,22 +570,27 @@
             });
         }
 
-        function silentNoop() {
-            // intentionally empty: no UI, no alert, no console error output to user
-        }
-
         function runShowFlow() {
             try {
                 const globalFn = window[SHOW_FN_NAME];
                 if (typeof globalFn === 'function') {
-                    // try show, but swallow any error or timeout silently
-                    tryShowWithTimeout(globalFn).then(() => {
-                        // success -> perform any silent post-ad action here if needed
-                        // e.g. call a reward function (but don't alert)
-                        // rewardUser(); // optional
-                    }).catch(() => {
-                        // swallow
-                    });
+                    // show initial loading blocker for a short window, then call show()
+                    createLoadingBlocker();
+                    // ensure blocker removed after LOAD_BLOCK_MS so ad UI can be interactive
+                    const earlyUnblockTimer = setTimeout(removeLoadingBlocker, LOAD_BLOCK_MS);
+
+                    // call ad; keep final removal on resolution/failure
+                    tryShowWithTimeout(globalFn)
+                        .then(() => {
+                            clearTimeout(earlyUnblockTimer);
+                            removeLoadingBlocker();
+                            // success -> optional silent reward logic can be placed here
+                        })
+                        .catch(() => {
+                            clearTimeout(earlyUnblockTimer);
+                            removeLoadingBlocker();
+                            // swallow errors (silent)
+                        });
                     return;
                 }
 
@@ -573,7 +601,19 @@
                     const fnNow = window[SHOW_FN_NAME];
                     if (typeof fnNow === 'function') {
                         clearInterval(iv);
-                        tryShowWithTimeout(fnNow).catch(() => { /* swallow */ });
+
+                        // same loading-blocker behavior when function appears
+                        createLoadingBlocker();
+                        const earlyUnblockTimer = setTimeout(removeLoadingBlocker, LOAD_BLOCK_MS);
+                        tryShowWithTimeout(fnNow)
+                            .then(() => {
+                                clearTimeout(earlyUnblockTimer);
+                                removeLoadingBlocker();
+                            })
+                            .catch(() => {
+                                clearTimeout(earlyUnblockTimer);
+                                removeLoadingBlocker();
+                            });
                         return;
                     }
                     if (attempts >= SDK_POLL_MAX_ATTEMPTS) {
@@ -582,8 +622,8 @@
                     }
                 }, SDK_POLL_INTERVAL_MS);
             } catch (e) {
-                // final guard: swallow everything
-                try { silentNoop(); } catch (e2) { }
+                // final guard: remove blocker and swallow errors
+                try { removeLoadingBlocker(); } catch (e2) { }
             }
         }
 
