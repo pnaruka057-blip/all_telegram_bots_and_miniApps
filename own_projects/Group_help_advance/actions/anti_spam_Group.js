@@ -522,7 +522,7 @@ module.exports = (bot) => {
                 const tail =
                     strikeNo >= 3
                         ? `Please avoid repeating this.`
-                        : `If this behavior continues, you will be permanently muted.\nPlease avoid repeating this.`;
+                        : `\n<i>If this behavior continues, you will be permanently muted.\nPlease avoid repeating this.</i>`;
 
                 const text =
                     `⚠️ Warning (${escapeHTML(strikeText)})\n` +
@@ -765,7 +765,7 @@ module.exports = (bot) => {
                 if (bad.length) {
                     const reason = usernameAnti
                         ? "Telegram links and usernames are not allowed in this group.\nPlease send a normal message instead."
-                        : "Telegram links are not allowed in this group. Please remove the link and send again.";
+                        : "Telegram links are not allowed in this group. Please remove the link and send message again.";
 
                     if (penalty === "warn") {
                         const warnDurationMs = Number(tgRule.penalty_duration || 0);
@@ -948,7 +948,7 @@ module.exports = (bot) => {
                     const notAllowed = links.filter((l) => !linkMatchesWhitelist(l, lb.whitelist));
                     if (notAllowed.length) {
                         const reason =
-                            "Links are not allowed in this group. Please remove the link and send again.";
+                            "Links are not allowed in this group. Please remove the link and send message again.";
 
                         if (penalty === "warn") {
                             const warnDurationMs = Number(lb.penalty_duration || 0);

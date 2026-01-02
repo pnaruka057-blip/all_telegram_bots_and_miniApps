@@ -18,7 +18,7 @@ module.exports = async (ctx) => {
     const payloadPrivacy = `group-help-advance:privacy-policy`;
     const privacyLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payloadPrivacy)}`;
 
-    const payloadInfo = `group-help-advance:info`;
+    const payloadInfo = `group-help-advance:`;
     const infoLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payloadInfo)}`;
 
     const text =

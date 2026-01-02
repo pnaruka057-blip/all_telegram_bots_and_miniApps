@@ -188,7 +188,7 @@ app.get('/', (req, res) => {
                     return res.redirect(`${basePath}/privacy-policy`);
                 }
 
-                return res.send('✅ Bot is alive! but unknown type');
+                return res.redirect(`${basePath}`);
             }
 
             /* ================= UNKNOWN BOT ================= */
