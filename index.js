@@ -142,7 +142,6 @@ app.get('/', (req, res) => {
         const [miniAppOrBotType] = parts;
 
         switch (miniAppOrBotType) {
-
             /* ================= MOVIES HUB ================= */
             case 'movies-hub': {
                 const basePath = `/${movies_hub_token}/movies-hub`;

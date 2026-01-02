@@ -153,10 +153,10 @@
     async function confirmDelete() {
         const pageLoader = document.getElementById("pageLoader");
 
-        // Show full page loader before running show_9690148
+        // Show full page loader before running show_9678628
         pageLoader.classList.remove("hidden");
 
-        await show_9690148();
+        await show_9678628();
 
         // Hide loader after it finishes
         pageLoader.classList.add("hidden");
@@ -168,10 +168,10 @@
     async function confirmIncrease() {
         const pageLoader = document.getElementById("pageLoader");
 
-        // Show full page loader before running show_9690148
+        // Show full page loader before running show_9678628
         pageLoader.classList.remove("hidden");
 
-        await show_9690148();
+        await show_9678628();
 
         // Hide loader after it finishes
         pageLoader.classList.add("hidden");
@@ -188,7 +188,7 @@
         try {
             const pageLoader = document.getElementById("pageLoader");
             if (selectedAction === 'delete') {
-                // Show full page loader before running show_9690148
+                // Show full page loader before running show_9678628
                 pageLoader.classList.remove("hidden");
 
                 const { data } = await axios.post('/<%= token %>/promox/deletepost', { id: selectedItemId });
@@ -220,7 +220,7 @@
                 }
 
             } else if (selectedAction === 'increase') {
-                // Show full page loader before running show_9690148
+                // Show full page loader before running show_9678628
                 pageLoader.classList.remove("hidden");
 
                 const { data } = await axios.post('/<%= token %>/promox/increaseautodelete', { id: selectedItemId });
@@ -267,10 +267,10 @@
     async function unlockPage() {
         const pageLoader = document.getElementById("pageLoader");
 
-        // Show full page loader before running show_9690148
+        // Show full page loader before running show_9678628
         pageLoader.classList.remove("hidden");
 
-        await show_9690148('pop');
+        await show_9678628('pop');
 
         // Hide loader after it finishes
         pageLoader.classList.add("hidden");
