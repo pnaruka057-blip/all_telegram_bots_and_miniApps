@@ -36,7 +36,7 @@ app.set('views', path.join(__dirname, 'public'));
 // Initialize and launch PromoX bot only if PROMOX_NODE_ENV is not 'development'
 if (process.env.PROMOX_NODE_ENV && process.env.PROMOX_NODE_ENV !== 'development') {
     const promoX_bot = new Telegraf(process.env.BOT_TOKEN_PROMOX);
-    promoX_all_actions(promoX_bot, promoX_token);
+    promoX_all_actions(promoX_bot);
 
     // Webhook binding (specific route)
     app.post('/telegram-webhook-for-promox', promoX_bot.webhookCallback('/telegram-webhook-for-promox'));

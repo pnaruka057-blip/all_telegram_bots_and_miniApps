@@ -74,7 +74,7 @@ const sendMiniAppIntro = async (ctx, promoX_token) => {
 };
 
 // 📦 Main export
-module.exports = (bot, promoX_token) => {
+module.exports = (bot) => {
     // /start command
     bot.start(async (ctx) => {
         const userId = ctx.from.id;
@@ -83,7 +83,7 @@ module.exports = (bot, promoX_token) => {
 
         if (allJoined) {
             await ctx.reply("✅ You're already a member of all channels!");
-            await sendMiniAppIntro(ctx, promoX_token);
+            await sendMiniAppIntro(ctx, process.env.PROMOX_TOKEN);
         } else {
             const firstName = ctx.from.first_name;
             const res = await axios.get("https://media.istockphoto.com/id/1501791585/vector/group-of-diverse-young-men-wave-their-hands-in-welcoming-gesture-happy-persons-hold-greeting.jpg?s=612x612&w=0&k=20&c=AHiu86YNoZsjmDd7wRTHoJnBFl1yxX7lAbnm58r5eHk=", {
