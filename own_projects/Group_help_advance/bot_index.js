@@ -13,6 +13,7 @@ const anti_spam_Group = require('./actions/anti_spam_Group');
 const set_welcome_action = require('./actions/setWelcome');
 const set_welcome_Group = require('./actions/setWelcome_Group');
 const anti_flood_action = require('./actions/anti_flood');
+const anti_flood_Group = require('./actions/anti_flood_Group');
 const good_bye_action = require('./actions/good_bye');
 const alphabets_action = require('./actions/alphabets');
 const captcha_action = require('./actions/captcha')
@@ -41,26 +42,40 @@ module.exports = (bot) => {
 
     // Middleware to handle sessions and scenes
     bot.use(session());
-   
+
+    anti_flood_Group(bot)
     anti_spam_Group(bot)
     set_welcome_Group(bot)
     button_actions(bot)
     find_groups_and_chanenls_action(bot)
 
     // Start command handler
-    bot.start(async (ctx) => {
-        if (ctx.chat.type === 'private') {
-            startButton(ctx)
+    bot.command('start', async (ctx) => {
+        const chatType = ctx.chat?.type;
+        if (chatType === 'private') return startButton(ctx);
+
+        if (chatType !== 'group' && chatType !== 'supergroup') return;
+
+        const text = ctx.message?.text || '';
+        const entities = ctx.message?.entities || [];
+
+        // Find the actual /start command entity
+        const cmdEnt = entities.find(e => e.type === 'bot_command' && e.offset === 0);
+        if (!cmdEnt) return;
+
+        const cmdText = text.slice(cmdEnt.offset, cmdEnt.offset + cmdEnt.length); // like "/start@MyBot" 
+
+        // If user wrote /start without @mention in group, ignore (optional)
+        const expected = String(process.env.BOT_USERNAME_GROUP_HELP_ADVANCE || '').replace(/^@/, '');
+        const m = cmdText.match(/^\/start(?:@([A-Za-z0-9_]+))?$/);
+
+        const mentioned = (m && m[1]) ? m[1] : null;
+        if (!mentioned || mentioned.toLowerCase() !== expected.toLowerCase()) {
+            return; // not targeted to this bot
         }
-        if (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') {
-            const text = ctx.message.text || "";
-            if (text.startsWith("/start") && text.includes("@")) {
-                const commandUsername = text.split("@")[1].trim();
-                if (commandUsername === process.env.BOT_USERNAME_GROUP_HELP_ADVANCE) {
-                    check_then_transfer_group_or_channel(ctx);
-                }
-            }
-        }
+
+        // Now verify bot is admin (your function)
+        return check_then_transfer_group_or_channel(ctx);
     });
 
     // action handlers

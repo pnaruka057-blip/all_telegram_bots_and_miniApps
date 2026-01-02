@@ -3,7 +3,7 @@ const { Markup } = require("telegraf");
 const safeEditOrSend = require("./safeEditOrSend");
 const user_setting_module = require("../models/user_settings_module");
 
-module.exports = async function validateOwner(ctx, chatId, chatIdStr, userId) {
+module.exports = async function validateOwner(ctx, chatId, chatIdStr, userId, isAlert = true) {
     // 1) Fetch chat info
     let chat;
     try {
@@ -51,14 +51,16 @@ module.exports = async function validateOwner(ctx, chatId, chatIdStr, userId) {
 
     if (!isOwner) {
         await ctx.answerCbQuery("Only the chat owner can manage settings.", { show_alert: false });
-        await safeEditOrSend(
-            ctx,
-            `⚠️ You are not the <b>owner</b> of <i>${chat.title || chatIdStr}</i>.\n\nOnly the chat owner (creator) can register and manage this chat with the bot.`,
-            {
-                parse_mode: "HTML",
-                ...Markup.inlineKeyboard([[Markup.button.callback("⬅️ Back", "BACK_TO_HOME")]])
-            }
-        );
+        if (isAlert) {
+            await safeEditOrSend(
+                ctx,
+                `⚠️ You are not the <b>owner</b> of <i>${chat.title || chatIdStr}</i>.\n\nOnly the chat owner (creator) can register and manage this chat with the bot.`,
+                {
+                    parse_mode: "HTML",
+                    ...Markup.inlineKeyboard([[Markup.button.callback("⬅️ Back", "BACK_TO_HOME")]])
+                }
+            );
+        }
         return null;
     }
 

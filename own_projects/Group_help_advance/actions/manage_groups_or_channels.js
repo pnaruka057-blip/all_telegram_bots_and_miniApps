@@ -1,6 +1,7 @@
 const { Markup } = require("telegraf");
 const user_setting_module = require("../models/user_settings_module");
 const safeEditOrSend = require("../helpers/safeEditOrSend");
+const validateOwner = require("../helpers/validateOwner"); // ✅ import helper
 
 module.exports = (bot) => {
     // Reusable handler for Groups
@@ -11,14 +12,47 @@ module.exports = (bot) => {
         let buttons = [];
         let textMsg = `⚙️ <b>Manage Group Settings</b>\n\n👉 <b>Select the group</b> whose settings you want to change.`;
 
-        if (userData && userData.groups_chat_ids.length) {
+        if (userData && userData.groups_chat_ids?.length) {
+            let changed = false;
+
             for (const chatId of userData.groups_chat_ids) {
                 try {
-                    const chat = await ctx.telegram.getChat(chatId);
-                    buttons.push([Markup.button.callback(chat.title, `GROUP_SETTINGS_${chatId}`)]);
+                    const chatIdStr = String(chatId);
+
+                    const isOwner = await validateOwner(ctx, chatId, chatIdStr, userId, false);
+                    if (isOwner) {
+                        const chat = await ctx.telegram.getChat(chatId);
+                        buttons.push([Markup.button.callback(chat.title, `GROUP_SETTINGS_${chatId}`)]);
+                    } else {
+                        // remove from lists
+                        const beforeG = userData.groups_chat_ids.length;
+                        userData.groups_chat_ids = userData.groups_chat_ids.filter(id => String(id) !== chatIdStr);
+
+                        const beforeC = userData.channels_chat_ids?.length || 0;
+                        userData.channels_chat_ids = (userData.channels_chat_ids || []).filter(id => String(id) !== chatIdStr);
+
+                        // remove settings key (proper delete)
+                        if (userData.settings && typeof userData.settings.delete === "function") {
+                            const hadKey = userData.settings.has(chatIdStr);
+                            userData.settings.delete(chatIdStr);
+                            if (hadKey) changed = true;
+                        } else {
+                            // fallback (rare)
+                            userData.settings = userData.settings || {};
+                            if (userData.settings[chatIdStr] !== undefined) changed = true;
+                            delete userData.settings[chatIdStr];
+                        }
+
+                        if (userData.groups_chat_ids.length !== beforeG) changed = true;
+                        if ((userData.channels_chat_ids?.length || 0) !== beforeC) changed = true;
+                    }
                 } catch (err) {
                     console.log(`⚠️ Could not fetch group info for ${chatId}`, err.message);
                 }
+            }
+
+            if (changed) {
+                await userData.save();
             }
         }
 
