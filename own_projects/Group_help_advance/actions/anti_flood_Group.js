@@ -4,6 +4,7 @@
 // Important: blocked attempts are NOT recorded (so window frees gradually as old msgs expire).
 
 const user_setting_module = require("../models/user_settings_module");
+const messages_module = require("../models/messages_module");
 const redis = require("../../../globle_helper/redisConfig");
 
 module.exports = (bot) => {
@@ -22,6 +23,44 @@ module.exports = (bot) => {
         const name = [u?.first_name, u?.last_name].filter(Boolean).join(" ").trim() || "User";
         return `<a href="tg://user?id=${Number(u?.id)}">${escapeHTML(name)}</a>`;
     };
+
+    async function storeBotServiceMessage({ ownerDoc, chatIdStr, chatId, sentMessageId }) {
+        try {
+            const DEFAULT_TTL_MS = 10 * 60 * 1000;
+            if (!ownerDoc?._id || !sentMessageId) return;
+
+            // Punishment/warn messages ki delete timing yaha se lo
+            const delCfg = ownerDoc?.settings?.[chatIdStr]?.delete_settings?.scheduled?.bot_service
+
+            const enabled = (typeof delCfg?.enabled === "boolean") ? delCfg.enabled : true;
+
+            const ttlMs =
+                (typeof delCfg?.time_ms === "number" && delCfg.time_ms > 0) ? delCfg.time_ms : DEFAULT_TTL_MS;
+
+            if (!enabled || ttlMs <= 0) return;
+
+            const now = new Date();
+            const deleteAt = new Date(now.getTime() + ttlMs);
+            const ttlMinutes = Math.round(ttlMs / 60000);
+
+            await messages_module.updateOne(
+                { group_id: Number(chatId), message_id: Number(sentMessageId) },
+                {
+                    $setOnInsert: { userDB_id: ownerDoc._id },
+                    $set: {
+                        sent_at: now,
+                        delete_at: deleteAt,
+                        ttl_minutes: ttlMinutes,
+                        type: "bot_service_message",
+                        status: "pending",
+                    },
+                },
+                { upsert: true }
+            );
+        } catch (e) {
+            console.error("Error storing bot service message:", e);
+        }
+    }
 
     const PERM_UNTIL_MS = Date.now() + 100 * 365 * 24 * 3600 * 1000; // ~100 years
     const ensureArray = (v) => (Array.isArray(v) ? v : []);
@@ -329,7 +368,8 @@ module.exports = (bot) => {
                 const extra = { parse_mode: "HTML", disable_web_page_preview: true };
                 if (!delete_messages && chatId && msgId) extra.reply_to_message_id = msgId;
 
-                await ctx.telegram.sendMessage(chatId, text, extra);
+                const sent = await ctx.telegram.sendMessage(chatId, text, extra);
+                return sent;
             } catch { }
             return;
         }
@@ -407,10 +447,18 @@ module.exports = (bot) => {
 
         // 1st / 2nd warn => warning only
         if (count <= 2) {
-            await applyPenalty(ctx, "warn", 0, delete_messages, {
+            const sent = await applyPenalty(ctx, "warn", 0, delete_messages, {
                 message: `${reason}`,
                 strikeText: `${count}/3`,
             });
+            if (sent?.message_id) {
+                await storeBotServiceMessage({
+                    ownerDoc,
+                    chatIdStr,
+                    chatId: ctx.chat.id,
+                    sentMessageId: sent.message_id,
+                });
+            }
             return true;
         }
 
@@ -418,16 +466,32 @@ module.exports = (bot) => {
         if (delete_messages) await safeDeleteMessage(ctx);
 
         const botAdmin = await isBotAdmin(ctx);
-        await applyPenalty(ctx, "warn", 0, false, {
+        const sent = await applyPenalty(ctx, "warn", 0, false, {
             message: botAdmin
                 ? `${reason}\nAction: permanently muted.`
                 : `${reason}\nAction: permanent mute would be applied, but the bot is not an admin.`,
             strikeText: `3/3`,
         });
+        if (sent?.message_id) {
+            await storeBotServiceMessage({
+                ownerDoc,
+                chatIdStr,
+                chatId: ctx.chat.id,
+                sentMessageId: sent.message_id,
+            });
+        }
 
         if (botAdmin) {
             // enforce permanent mute
-            await applyPenalty(ctx, "mute", 0, false, reason);
+            const sent = await applyPenalty(ctx, "mute", 0, false, reason);
+            if (sent?.message_id) {
+                await storeBotServiceMessage({
+                    ownerDoc,
+                    chatIdStr,
+                    chatId: ctx.chat.id,
+                    sentMessageId: sent.message_id,
+                });
+            }
             await addPunishedUser(ownerDoc, chatIdStr, punishedUsersPath, offenderId, "mute", PERM_UNTIL_MS);
 
             await resetWarnCount(ownerDoc, chatIdStr, warnedUsersPath, offenderId);
@@ -514,7 +578,15 @@ module.exports = (bot) => {
             }
 
             // kick/mute/ban
-            await applyPenalty(ctx, penalty, durationMs, delete_messages, reason);
+            const sent = await applyPenalty(ctx, penalty, durationMs, delete_messages, reason);
+            if (sent?.message_id) {
+                await storeBotServiceMessage({
+                    ownerDoc,
+                    chatIdStr,
+                    chatId: ctx.chat.id,
+                    sentMessageId: sent.message_id,
+                });
+            }
 
             // Track mute/ban in DB
             if (penalty === "mute" || penalty === "ban") {

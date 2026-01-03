@@ -948,8 +948,6 @@ const timedField = new mongoose.Schema({
 }, { _id: false });
 
 const deleteSettingsSchema = new mongoose.Schema({
-    global_silence: { type: Boolean, default: false },
-
     edit_checks: {
         enabled: { type: Boolean, default: false },
         time_ms: { type: Number, default: 10 * 60 * 1000 },
@@ -1164,7 +1162,7 @@ const userSchema = new mongoose.Schema(
         user_session_string: { type: String, default: "" },
         telegram_login: telegramLoginSchema
     },
-    { timestamps: true }
+    { timestamps: true, versionKey: false }
 );
 
 let user_setting_module;

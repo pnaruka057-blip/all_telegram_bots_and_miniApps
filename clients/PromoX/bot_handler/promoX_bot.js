@@ -30,7 +30,7 @@ const checkUserJoinedAllChannels = async (ctx, userId) => {
 };
 
 // 🎁 Send Mini App welcome message
-const sendMiniAppIntro = async (ctx, promoX_token) => {
+const sendMiniAppIntro = async (ctx) => {
     const res = await axios.get("https://res.cloudinary.com/dm8miilli/image/upload/v1754414545/photo_2025-08-05_22-50-34_mg99v5.jpg", {
         responseType: "arraybuffer"
     });
@@ -62,7 +62,7 @@ const sendMiniAppIntro = async (ctx, promoX_token) => {
                         {
                             text: "🌐 Open Mini App",
                             web_app: {
-                                url: `${process.env.GLOBLE_DOMAIN}/${promoX_token}/promox`, // ✅ mini app URL
+                                url: `${process.env.GLOBLE_DOMAIN}/${process.env.PROMOX_TOKEN}/promox`, // ✅ mini app URL
                                 request_full_screen: true
                             },
                         },
@@ -83,7 +83,7 @@ module.exports = (bot) => {
 
         if (allJoined) {
             await ctx.reply("✅ You're already a member of all channels!");
-            await sendMiniAppIntro(ctx, process.env.PROMOX_TOKEN);
+            await sendMiniAppIntro(ctx);
         } else {
             const firstName = ctx.from.first_name;
             const res = await axios.get("https://media.istockphoto.com/id/1501791585/vector/group-of-diverse-young-men-wave-their-hands-in-welcoming-gesture-happy-persons-hold-greeting.jpg?s=612x612&w=0&k=20&c=AHiu86YNoZsjmDd7wRTHoJnBFl1yxX7lAbnm58r5eHk=", {

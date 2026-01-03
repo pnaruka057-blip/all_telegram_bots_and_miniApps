@@ -13,9 +13,9 @@ module.exports = (bot) => {
         return `<a href="tg://user?id=${Number(u?.id)}">${escapeHTML(name)}</a>`;
     };
 
-    const DEFAULT_TTL_MS = 10 * 60 * 1000;
 
     async function storeBotServiceMessage({ ownerDoc, chatIdStr, chatId, sentMessageId }) {
+        const DEFAULT_TTL_MS = 10 * 60 * 1000;
         try {
             if (!ownerDoc?._id || !sentMessageId) return;
 

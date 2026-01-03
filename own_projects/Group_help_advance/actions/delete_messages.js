@@ -25,11 +25,10 @@ async function renderDeleteMenu(ctx, chatIdStr, isOwner) {
     ctx.session = {};
     const text =
         `🗑️ <b>Delete messages</b>\n\n` +
-        `Choose what you want to configure` +
-        `• <b>Global Silence</b>: Delete every message instantly when enabled.\n` +
-        `• <b>Edit Checks</b>: Configure old edit deletions and suggestion message.\n` +
-        `• <b>Service Messages</b>: Service/system events (join, exit, new title/photo, pin, topics, boost, video invites, checklist) will be auto-deleted after the minutes you set for each service (0 means immediately).\n` +
-        `• <b>Scheduled Deletion</b>: Bot-sent messages (Welcome, Goodbye, Regulation, Personal Commands, Punishments, Manual punishments) will be auto-deleted after the time you set per category.\n` +
+        `Choose what you want to configure\n\n` +
+        `• <b>Edit Checks</b>: Configure old edit deletions and suggestion message.\n\n` +
+        `• <b>Service Messages</b>: Service/system events (join, exit, new title/photo, pin, topics, boost, video invites, checklist) will be auto-deleted after the minutes you set for each service (0 means immediately).\n\n` +
+        `• <b>Scheduled Deletion</b>: Bot-sent messages (Welcome, Goodbye, Regulation, Personal Commands, Punishments, Manual punishments) will be auto-deleted after the time you set per category.\n\n` +
         `• <b>Messages self-destruction</b>: All normal messages will be auto-deleted after the delay you select when this feature is enabled.\n\n` +
         `<i>👉 Use the buttons below to control this setting for <b>${(isOwner && isOwner.title) ? isOwner.title : chatIdStr}</b>.</i>`;
 
