@@ -35,7 +35,7 @@ function isBlockedError(err) {
     const code = err?.response?.error_code;
     const desc = (err?.response?.description || "").toLowerCase();
 
-    if (code === 403) return true; // bot blocked
+    if (code === 403) return true;
     if (code === 400 && (desc.includes("chat not found") || desc.includes("user not found")))
         return true;
 
@@ -51,7 +51,6 @@ async function safeCopyMessage(bot, toChatId, fromChatId, messageId, extra = {})
     } catch (err) {
         const code = err?.response?.error_code;
 
-        // Flood wait (429)
         if (code === 429) {
             const retryAfter = Number(err?.response?.parameters?.retry_after || 1);
             await sleep((retryAfter + 1) * 1000);
@@ -65,21 +64,27 @@ async function safeCopyMessage(bot, toChatId, fromChatId, messageId, extra = {})
 module.exports = (bot) => {
     const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD_PROJECT_02 || "";
 
+    // admin flow state
     // key: userId -> { step, fromChatId, messageId }
     const state = new Map();
 
-    // /start => reply immediately + save user (non-blocking) + 50s later second message
+    // prevent FREE ACCESS spam (in-memory)
+    const freeAccessDone = new Set();
+
+    // /start => first message + save user
     bot.start(async (ctx) => {
         const from = ctx.from || {};
         const telegramId = Number(from.id);
 
-        // 1) First CTA (always send)
+        // 1) First CTA message (FREE ACCESS is callback, NOT url)
         await ctx.reply(
             FIRST_CTA_TEXT,
-            Markup.inlineKeyboard([Markup.button.url("FREE ACCESS", CHANNEL_LINK)])
+            Markup.inlineKeyboard([
+                Markup.button.callback("FREE ACCESS", "FREE_ACCESS"),
+            ])
         );
 
-        // 2) Save user (do not block start flow)
+        // 2) Save user (non-blocking)
         user_model
             .updateOne(
                 { telegramId },
@@ -89,30 +94,40 @@ module.exports = (bot) => {
                         firstName: from.first_name,
                         lastName: from.last_name,
                     },
-                    $setOnInsert: {
-                        telegramId,
-                        createdAt: new Date(),
-                    },
+                    $setOnInsert: { telegramId, createdAt: new Date() },
                 },
                 { upsert: true }
             )
             .catch(() => { });
+    });
 
-        // 3) 50 seconds later: second message
-        setTimeout(async () => {
+    // FREE ACCESS click => send 2nd message immediately (NO link open on first button)
+    bot.action("FREE_ACCESS", async (ctx) => {
+        try {
+            await ctx.answerCbQuery(); // stop loading spinner
+
+            const uid = ctx.from?.id;
+            const chatId = ctx.chat?.id;
+
+            if (!uid || !chatId) return;
+
+            // avoid sending again on multiple clicks
+            if (freeAccessDone.has(uid)) return;
+            freeAccessDone.add(uid);
+
+            // optional: remove buttons from first message so user can't click again
             try {
-                await ctx.telegram.sendMessage(
-                    ctx.chat.id,
-                    SECOND_MSG_TEXT,
-                    {
-                        disable_web_page_preview: true,
-                        ...Markup.inlineKeyboard([
-                            Markup.button.url("Join Channel Button ✅", CHANNEL_LINK),
-                        ]),
-                    }
-                );
+                await ctx.editMessageReplyMarkup(undefined);
             } catch (e) { }
-        }, 50 * 1000);
+
+            // Send 2nd message with URL button
+            await ctx.telegram.sendMessage(chatId, SECOND_MSG_TEXT, {
+                disable_web_page_preview: true,
+                ...Markup.inlineKeyboard([
+                    Markup.button.url("Join Channel Button ✅", CHANNEL_LINK),
+                ]),
+            });
+        } catch (e) { }
     });
 
     // /send => ask password (anyone can do)
@@ -137,7 +152,7 @@ module.exports = (bot) => {
 
             if (!ADMIN_PASSWORD) {
                 state.delete(ctx.from.id);
-                await ctx.reply("Server me ADMIN_PASSWORD_PROJECT_02 set nahi hai. /send dubara try mat karo.");
+                await ctx.reply("Server me ADMIN_PASSWORD_PROJECT_02 set nahi hai.");
                 return;
             }
 
@@ -165,7 +180,7 @@ module.exports = (bot) => {
             const fromChatId = ctx.chat.id;
             const messageId = ctx.message.message_id;
 
-            // Preview back to same user
+            // Preview back to sender
             await safeCopyMessage(bot, fromChatId, fromChatId, messageId);
 
             state.set(ctx.from.id, { step: "confirm", fromChatId, messageId });
@@ -180,7 +195,6 @@ module.exports = (bot) => {
             return;
         }
 
-        // Step 3: waiting for button click
         if (st.step === "confirm") {
             await ctx.reply("Confirm ke liye Yes/No button dabao.");
             return;
@@ -227,14 +241,10 @@ module.exports = (bot) => {
                 });
                 sent += 1;
             } catch (err) {
-                if (isBlockedError(err)) {
-                    blockedIds.push(chatId);
-                } else {
-                    otherFailed += 1;
-                }
+                if (isBlockedError(err)) blockedIds.push(chatId);
+                else otherFailed += 1;
             }
 
-            // tiny delay (avoid flood)
             await sleep(80);
         }
 
