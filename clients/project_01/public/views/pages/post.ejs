@@ -1,0 +1,256 @@
+<!-- Main Wrapper -->
+<section class="w-full max-w-sm bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col min-h-[100svh]">
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-gray-50 animate-background">
+
+        <form id="postForm" class="space-y-4">
+
+            <!-- Type Selection -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <div class="flex items-center space-x-4">
+                    <label class="flex items-center space-x-2">
+                        <input type="radio" name="type" value="group" class="text-blue-500" checked>
+                        <span>Group</span>
+                    </label>
+                    <label class="flex items-center space-x-2">
+                        <input type="radio" name="type" value="channel" class="text-blue-500">
+                        <span>Channel</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Name -->
+            <div>
+                <label id="nameLabel" class="block text-sm font-medium text-gray-700 mb-1">Group Name</label>
+                <input type="text" name="name" id="nameInput" placeholder="Enter group name" required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Username -->
+            <div>
+                <label id="usernameLabel" class="block text-sm font-medium text-gray-700 mb-1">Group Username</label>
+                <input type="text" name="username" id="usernameInput" placeholder="@groupusername" required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- Custom Dropdown for Category -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <div class="relative" id="customDropdown">
+                    <button type="button" id="dropdownBtn"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white flex justify-between items-center">
+                        <span>Select Category</span>
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <ul id="dropdownList"
+                        class="absolute w-full bg-white border border-gray-300 rounded-lg mt-1 hidden z-10 max-h-60 overflow-y-auto">
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Technology</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Education</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Entertainment</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Business</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">News</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Sports</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Gaming</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Mod Games</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Mod Apps</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Movies</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Web Series</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Music</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Books & PDFs</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Study Material</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Jobs & Careers</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Shopping Deals</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Crypto & Trading</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Earning</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Stock Market</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Adult 18+</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Memes</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Quotes & Motivation</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Fashion & Lifestyle</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Health & Fitness</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Travel</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Photography</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">Food & Recipes</li>
+                        <li class="px-3 py-2 hover:bg-gray-100 cursor-pointer">DIY & Hobbies</li>
+                    </ul>
+                </div>
+                <input type="hidden" name="category" id="categoryInput">
+            </div>
+
+            <!-- Short Description -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Short Description (Max 150 chars)</label>
+                <textarea name="description" maxlength="150" placeholder="Write a short description..."
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+
+            <!-- Logo Upload -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Logo (Square JPG/JPEG, Max 200KB)</label>
+                <input type="file" name="logo" id="logoInput" accept=".jpg,.jpeg"
+                    class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:border file:border-gray-300 file:rounded-lg file:bg-white file:text-gray-700 hover:file:bg-gray-100">
+            </div>
+
+            <!-- Buttons -->
+            <div class="flex items-center justify-between space-x-3">
+                <!-- Reset Button -->
+                <button type="reset" class="flex-1 bg-gray-300 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-400">
+                    Reset
+                </button>
+
+                <!-- Submit Button -->
+                <button id="submitBtn" type="submit"
+                    class="flex-1 flex items-center justify-center space-x-2 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600">
+                    <span>Submit</span>
+                    <svg id="submitLoader" class="w-5 h-5 animate-spin text-white hidden"
+                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                </button>
+            </div>
+        </form>
+
+    </main>
+
+    <%- include('../partials/footer') %>
+        <!-- Full Page Loader -->
+        <div id="pageLoader" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="flex flex-col items-center space-y-4">
+                <svg class="animate-spin h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
+                    viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                <span class="text-white text-lg">Loading...</span>
+            </div>
+        </div>
+</section>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        show_9678628()
+        const typeRadios = document.querySelectorAll('input[name="type"]');
+        const nameLabel = document.getElementById("nameLabel");
+        const usernameLabel = document.getElementById("usernameLabel");
+        const nameInput = document.getElementById("nameInput");
+        const usernameInput = document.getElementById("usernameInput");
+
+        // Change labels and placeholders based on type
+        typeRadios.forEach(radio => {
+            radio.addEventListener("change", () => {
+                if (radio.checked) {
+                    if (radio.value === "group") {
+                        nameLabel.textContent = "Group Name";
+                        nameInput.placeholder = "Enter group name";
+                        usernameLabel.textContent = "Group Username";
+                        usernameInput.placeholder = "@groupusername";
+                    } else {
+                        nameLabel.textContent = "Channel Name";
+                        nameInput.placeholder = "Enter channel name";
+                        usernameLabel.textContent = "Channel Username";
+                        usernameInput.placeholder = "@channelusername";
+                    }
+                }
+            });
+        });
+
+        // Custom Dropdown Logic
+        const dropdownBtn = document.getElementById("dropdownBtn");
+        const dropdownList = document.getElementById("dropdownList");
+        const categoryInput = document.getElementById("categoryInput");
+
+        dropdownBtn.addEventListener("click", () => {
+            dropdownList.classList.toggle("hidden");
+        });
+
+        dropdownList.querySelectorAll("li").forEach(item => {
+            item.addEventListener("click", () => {
+                dropdownBtn.querySelector("span").textContent = item.textContent;
+                categoryInput.value = item.textContent;
+                dropdownList.classList.add("hidden");
+            });
+        });
+
+        // Logo Validation
+        document.getElementById("logoInput").addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!["image/jpeg", "image/jpg"].includes(file.type)) {
+                alert("Only JPG/JPEG files are allowed!");
+                e.target.value = "";
+                return;
+            }
+            if (file.size > 200 * 1024) {
+                alert("Max file size is 200KB!");
+                e.target.value = "";
+                return;
+            }
+        });
+
+        // API Call on Submit + Extra Validation
+        document.getElementById("postForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const pageLoader = document.getElementById("pageLoader");
+
+            // Show full page loader before running show_9690148
+            pageLoader.classList.remove("hidden");
+
+            await show_9690148();
+
+            // Hide loader after it finishes
+            pageLoader.classList.add("hidden");
+
+            // Confirmation before submit
+            if (!confirm("Are you sure you want to submit?")) {
+                return; // User cancelled
+            }
+
+            const nameValue = nameInput.value.trim();
+            const usernameValue = usernameInput.value.trim();
+            const logoInput = document.getElementById("logoInput");
+            const submitBtn = document.getElementById("submitBtn");
+            const submitLoader = document.getElementById("submitLoader");
+
+            // Name validation: only letters & spaces
+            if (!/^[A-Za-z\s]+$/.test(nameValue)) {
+                alert("Name can only contain letters and spaces (no numbers or special characters).");
+                return;
+            }
+
+            // Username validation: Telegram style (no @, no spaces, only a-z 0-9 _)
+            if (!/^[a-zA-Z0-9_]{5,32}$/.test(usernameValue)) {
+                alert("Username must be 5-32 characters long, only letters, numbers, and underscores allowed (no @, spaces, or links).");
+                return;
+            }
+
+            const formData = new FormData(e.target);
+
+            // Disable button + show loader
+            submitBtn.disabled = true;
+            submitBtn.classList.add("opacity-70", "cursor-not-allowed");
+            submitLoader.classList.remove("hidden");
+
+            try {
+                const { data } = await axios.post("/<%= token %>/promox/post", formData);
+                if (!data.success) {
+                    alert(data.msg)
+                } else {
+                    alert(data.msg || "Posted successfully!");
+                }
+            } catch (err) {
+                alert("Error: " + err.msg);
+            } finally {
+                // Enable button + hide loader
+                submitBtn.disabled = false;
+                submitBtn.classList.remove("opacity-70", "cursor-not-allowed");
+                submitLoader.classList.add("hidden");
+            }
+        });
+    });
+</script>

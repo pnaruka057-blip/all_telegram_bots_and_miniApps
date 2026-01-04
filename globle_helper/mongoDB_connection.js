@@ -45,18 +45,33 @@ if (process.env.GROUP_HELP_ADVANCE_NODE_ENV && process.env.GROUP_HELP_ADVANCE_NO
   });
 }
 
-let checker_gai_dep_connection;
-// Checker Gái Đẹp
-if (process.env.CHECKER_GAI_DEP_NODE_ENV && process.env.CHECKER_GAI_DEP_NODE_ENV !== 'development') {
-  checker_gai_dep_connection = mongoose.createConnection(process.env.MONGO_URL_CHECKER_GAI_DEP, {
+let project_01_connection;
+// Project 01
+if (process.env.PROJECT_01_NODE_ENV && process.env.PROJECT_01_NODE_ENV !== 'development') {
+  project_01_connection = mongoose.createConnection(process.env.MONGO_URL_PROJECT_01, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   });
-  checker_gai_dep_connection.on("connected", () => {
-    console.log(`📦 Checker Gái Đẹp Connected to MongoDB: ${process.env.MONGO_URL_CHECKER_GAI_DEP}`);
+  project_01_connection.on("connected", () => {
+    console.log(`📦 Project 01 Connected to MongoDB: ${process.env.MONGO_URL_PROJECT_01}`);
   });
-  checker_gai_dep_connection.on("error", (err) => {
-    console.error(`❌ Checker Gái Đẹp MongoDB connection error: ${err}`);
+  project_01_connection.on("error", (err) => {
+    console.error(`❌ Project 01 MongoDB connection error: ${err}`);
+  });
+}
+
+let project_02_connection;
+// Project 01
+if (process.env.PROJECT_02_NODE_ENV && process.env.PROJECT_02_NODE_ENV !== 'development') {
+  project_02_connection = mongoose.createConnection(process.env.MONGO_URL_PROJECT_02, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+  project_02_connection.on("connected", () => {
+    console.log(`📦 Project 02 Connected to MongoDB: ${process.env.MONGO_URL_PROJECT_02}`);
+  });
+  project_02_connection.on("error", (err) => {
+    console.error(`❌ Project 02 MongoDB connection error: ${err}`);
   });
 }
 
@@ -75,4 +90,4 @@ if (process.env.TECHBOOST_IT_SERVICES_NODE_ENV && process.env.TECHBOOST_IT_SERVI
   });
 }
 
-module.exports = { promoX_connection, Movies_hub_connection, group_help_advance_connection, checker_gai_dep_connection, TechBoost_it_services_connection }
+module.exports = { promoX_connection, Movies_hub_connection, group_help_advance_connection, project_01_connection, project_02_connection, TechBoost_it_services_connection }

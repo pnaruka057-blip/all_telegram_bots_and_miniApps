@@ -1,0 +1,304 @@
+<!-- Main Wrapper -->
+<section class="w-full max-w-sm bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col min-h-[100svh] pb-10">
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto px-6 py-6 space-y-6 bg-gray-50 animate-background">
+
+        <!-- Profile Section -->
+        <div class="flex flex-col items-center text-center space-y-2">
+            <img src="<%= user.photo_url %>" alt="Profile Picture" class="w-24 h-24 rounded-full shadow-lg border">
+            <h2 class="text-lg font-bold">
+                <%= user.first_name %>
+                    <%= user.last_name %>
+            </h2>
+            <p class="text-gray-500">@<%= user.username %>
+            </p>
+            <span class="text-sm text-gray-400">ID: <%= user.user_id %></span>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="grid grid-cols-2 gap-4">
+            <button id="channelBtn"
+                class="bg-blue-100 hover:bg-blue-200 rounded-lg p-4 flex flex-col items-center space-y-1">
+                <span class="text-xl font-bold text-blue-600">
+                    <%= totalStats.channels %>
+                </span>
+                <span class="text-gray-600 text-sm">Channels</span>
+            </button>
+            <button id="groupBtn"
+                class="bg-green-100 hover:bg-green-200 rounded-lg p-4 flex flex-col items-center space-y-1">
+                <span class="text-xl font-bold text-green-600">
+                    <%= totalStats.groups %>
+                </span>
+                <span class="text-gray-600 text-sm">Groups</span>
+            </button>
+        </div>
+
+        <!-- List Section -->
+        <div id="listContainer" class="space-y-3 hidden">
+        </div>
+    </main>
+
+    <!-- Unlock Overlay -->
+    <div id="unlock-section"
+        class="flex flex-col items-center justify-center fixed top-0 left-0 right-0 bottom-12 bg-white/30 backdrop-blur-sm z-50">
+        <p onclick="unlockPage()"
+            class="px-6 py-3 text-sm font-semibold bg-yellow-500 text-white rounded-lg shadow hover:bg-yellow-600 transition">
+            🔓 Unlock Profile
+        </p>
+        <p class="mt-2 text-xs text-gray-500 text-center">
+            Click to view all promoted Telegram profile.
+        </p>
+    </div>
+
+    <!-- Footer -->
+    <%- include('../partials/footer') %>
+        <!-- Action Modal -->
+        <div id="actionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+            <div class="bg-white rounded-lg shadow-lg w-80 p-6 space-y-4">
+                <h2 class="text-lg font-bold" id="modalTitle">Actions</h2>
+                <div class="space-y-2">
+                    <button onclick="confirmDelete()"
+                        class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg">Delete</button>
+                    <button onclick="confirmIncrease()"
+                        class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-lg">Increase Time By 1
+                        Hours</button>
+                </div>
+                <button onclick="closeActionModal()"
+                    class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 rounded-lg">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Confirmation Modal -->
+        <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+            <div class="bg-white rounded-lg shadow-lg w-80 p-6 space-y-4">
+                <h2 class="text-lg font-bold" id="confirmText">Are you sure?</h2>
+                <div class="flex space-x-2">
+                    <button id="confirmYesBtn"
+                        class="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg">Yes</button>
+                    <button onclick="closeConfirmModal()"
+                        class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 rounded-lg">No</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Full Page Loader -->
+        <div id="pageLoader" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="flex flex-col items-center space-y-4">
+                <svg class="animate-spin h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
+                    viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                </svg>
+                <span class="text-white text-lg">Loading...</span>
+            </div>
+        </div>
+</section>
+
+<script>
+    let selectedItemId = null;
+    let selectedAction = null;
+    let currentListType = null; // track kaunsa list abhi render ho raha hai
+
+    const channelsList = JSON.parse(`<%- JSON.stringify(channelsList) %>`);
+    const groupsList = JSON.parse(`<%- JSON.stringify(groupsList) %>`);
+    const totalStats = JSON.parse(`<%- JSON.stringify(totalStats) %>`);
+    const listContainer = document.getElementById('listContainer');
+
+    function renderList(data, type) {
+        currentListType = type; // save current type
+        listContainer.innerHTML = "";
+        if (data.length === 0) {
+            listContainer.innerHTML = `<p class="text-center text-gray-500">No ${type} found.</p>`;
+            return;
+        }
+        data.forEach(item => {
+            listContainer.innerHTML += `
+        <div class="bg-white shadow p-3 rounded-lg flex justify-between items-center" data-id="${item._id}">
+            <div>
+                <h3 class="font-semibold">${item.username || item.name || "Unnamed"}</h3>
+                <p class="text-xs text-gray-500 auto-delete-time">
+                    Auto delete: ${new Date(item.auto_delete_time).toLocaleString()}
+                </p>
+            </div>
+            <button onclick="openActionModal('${item._id}', '${item.username || item.name || "Unnamed"}')" 
+                class="bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded-lg text-sm">
+                Actions
+            </button>
+        </div>
+    `;
+        });
+    }
+
+    document.getElementById('channelBtn').addEventListener('click', () => {
+        listContainer.classList.remove('hidden');
+        renderList(channelsList, "channels");
+    });
+
+    document.getElementById('groupBtn').addEventListener('click', () => {
+        listContainer.classList.remove('hidden');
+        renderList(groupsList, "groups");
+    });
+
+    function openActionModal(id, name) {
+        selectedItemId = id;
+        document.getElementById('modalTitle').innerText = `Actions for ${name}`;
+        document.getElementById('actionModal').classList.remove('hidden');
+    }
+
+    function closeActionModal() {
+        document.getElementById('actionModal').classList.add('hidden');
+    }
+
+    async function confirmDelete() {
+        const pageLoader = document.getElementById("pageLoader");
+
+        // Show full page loader before running show_9678628
+        pageLoader.classList.remove("hidden");
+
+        await show_9678628();
+
+        // Hide loader after it finishes
+        pageLoader.classList.add("hidden");
+        selectedAction = 'delete';
+        document.getElementById('confirmText').innerText = 'Are you sure you want to delete this?';
+        document.getElementById('confirmModal').classList.remove('hidden');
+    }
+
+    async function confirmIncrease() {
+        const pageLoader = document.getElementById("pageLoader");
+
+        // Show full page loader before running show_9678628
+        pageLoader.classList.remove("hidden");
+
+        await show_9678628();
+
+        // Hide loader after it finishes
+        pageLoader.classList.add("hidden");
+        selectedAction = 'increase';
+        document.getElementById('confirmText').innerText = 'Are you sure you want to increase auto delete time?';
+        document.getElementById('confirmModal').classList.remove('hidden');
+    }
+
+    function closeConfirmModal() {
+        document.getElementById('confirmModal').classList.add('hidden');
+    }
+
+    document.getElementById('confirmYesBtn').addEventListener('click', async () => {
+        try {
+            const pageLoader = document.getElementById("pageLoader");
+            if (selectedAction === 'delete') {
+                // Show full page loader before running show_9678628
+                pageLoader.classList.remove("hidden");
+
+                const { data } = await axios.post('/<%= token %>/promox/deletepost', { id: selectedItemId });
+                if (data.success) {
+                    alert('Post deleted successfully');
+
+                    // remove from correct list
+                    if (currentListType === "channels") {
+                        const index = channelsList.findIndex(item => item._id === selectedItemId);
+                        if (index !== -1) {
+                            channelsList.splice(index, 1);
+                            totalStats.channels--;
+                            document.querySelector('#channelBtn span.text-xl').textContent = totalStats.channels;
+                        }
+                        renderList(channelsList, "channels");
+                    } else if (currentListType === "groups") {
+                        const index = groupsList.findIndex(item => item._id === selectedItemId);
+                        if (index !== -1) {
+                            groupsList.splice(index, 1);
+                            totalStats.groups--;
+                            document.querySelector('#groupBtn span.text-xl').textContent = totalStats.groups;
+                        }
+                        renderList(groupsList, "groups");
+                    }
+                    // Hide loader after it finishes
+                    pageLoader.classList.add("hidden");
+                } else {
+                    alert(data.msg || 'Failed to delete post');
+                }
+
+            } else if (selectedAction === 'increase') {
+                // Show full page loader before running show_9678628
+                pageLoader.classList.remove("hidden");
+
+                const { data } = await axios.post('/<%= token %>/promox/increaseautodelete', { id: selectedItemId });
+                if (data.success) {
+                    alert('Auto delete time increased successfully');
+
+                    const list = currentListType === "channels" ? channelsList : groupsList;
+                    const item = list.find(i => i._id === selectedItemId);
+                    if (item) {
+                        const newTime = new Date(item.auto_delete_time).getTime() + (1 * 60 * 60 * 1000);
+                        item.auto_delete_time = new Date(newTime).toISOString();
+
+                        // DOM me turant update karo
+                        const timeElement = document.querySelector(
+                            `[data-id="${selectedItemId}"] .auto-delete-time`
+                        );
+                        if (timeElement) {
+                            timeElement.textContent = `Auto delete: ${new Date(item.auto_delete_time).toLocaleString()}`;
+                        }
+                    }
+                    // Hide loader after it finishes
+                    pageLoader.classList.add("hidden");
+                } else {
+                    alert(data.msg || 'Failed to increase time');
+                }
+            }
+        } catch (err) {
+            console.error('API Error:', err.response?.data || err.message);
+            alert(err.response?.data?.msg || err.message || 'Something went wrong');
+        }
+
+        closeConfirmModal();
+        closeActionModal();
+    });
+
+    function lockScroll() {
+        document.body.style.overflow = 'hidden';
+    }
+
+    function unlockScroll() {
+        document.body.style.overflow = '';
+    }
+
+    async function unlockPage() {
+        const pageLoader = document.getElementById("pageLoader");
+
+        // Show full page loader before running show_9678628
+        pageLoader.classList.remove("hidden");
+
+        await show_9678628('pop');
+
+        // Hide loader after it finishes
+        pageLoader.classList.add("hidden");
+
+        // Confirmation before unlock
+        if (!confirm("Are you sure you want to Unlock?")) {
+            return; // User cancelled
+        }
+
+        axios.get('/<%= token %>/promox/unlock/profile')
+            .then(res => {
+                const data = res.data;
+                if (data.success) {
+                    document.getElementById('unlock-section').classList.add('hidden');
+                    unlockScroll();
+                    alert("Successfully unlocked for 24 hours");
+                }
+            })
+            .catch(err => alert('Server Error please Contact Admin'));
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const isUnlocked = '<%= is_profile_page_locked %>' === 'true';
+        if (isUnlocked) {
+            lockScroll();
+        } else {
+            document.getElementById('unlock-section').classList.add('hidden');
+            unlockScroll();
+        }
+    });
+</script>
