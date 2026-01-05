@@ -16,10 +16,10 @@ const inviteSchema = new mongoose.Schema(
             default: null
         },
         level: { type: Number, required: true, min: 1 },
-        direct_commission_by_invite_to: { type: Number, default: 0, min: 0 },
-        
+        earned_commission: { type: Number, default: 0, min: 0 },
+        created_at: { type: Date, default: Date.now },
     },
-    { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
+    { versionKey: false }
 );
 
 inviteSchema.index({ owner_user_id: 1, created_at: -1 });

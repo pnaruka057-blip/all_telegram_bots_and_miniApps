@@ -8,24 +8,19 @@ const FIRST_CTA_TEXT =
     "CLICK ON FREE ACCESS TO JOIN OUR TODAY'S COMPOUNDING SESSION NON MTG";
 
 const SECOND_MSG_TEXT =
-    `Hello👋, TRADER! Welcome To My Trading Success Roadmap 🚀
+    `🔥 THE MOST POWERFUL COMPOUNDING SESSION IS LIVE TODAY! 🔥
+📈 Join the No.1 Professional Telegram Channel – YQT💼🚀
 
-📊Daily FREE USD/BRL 🇧🇷 OTC Market Session 🚀 
+👇TAP FAST & JOIN NOW 👇
+💥 Only 20 VIP Entries Accepted💥
 
-🚀10-15 NON - Martingale Insights📊
+🔗${CHANNEL_LINK}
+🔗${CHANNEL_LINK}
+🔗${CHANNEL_LINK}
+🔗${CHANNEL_LINK}
 
-🚀Join USD/BRL🇧🇷OTC Session 👇
-${CHANNEL_LINK}
-${CHANNEL_LINK}
-${CHANNEL_LINK}
-${CHANNEL_LINK}
-
-📣 Only 15 Seats Available 🎯 | Book Your Now👆👆👆
-
-🔊Disclaimer :- Educational content only - not a financial advice
-
-👇Tap On Join Channel Button ✅
-              👇 👇 👇👇👇👇`;
+💣 LIMITED SEATS – ONLY FOR FAST ACTION TAKERS!
+📲via 👆👆👆Send your request NOW before it’s GONE! ✅🎯`;
 
 function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
