@@ -1,34 +1,47 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full dark">
 
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src='//libtl.com/sdk.js' data-zone='9678628' data-sdk='show_9678628'></script>
+    <script src='//libtl.com/sdk.js' data-zone='10401300' data-sdk='show_10401300'></script>
+
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Tailwind CDN: force class-based dark mode (very important) [web:532]
+        tailwind.config = { darkMode: 'class' };
+    </script>
+
     <script async src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script>
-        window.addEventListener("DOMContentLoaded", async () => {
-            const tg = window.Telegram.WebApp;
 
-            tg.ready();
-            tg.expand();
-            const initDataUnsafe = tg.initDataUnsafe;
-            const user = initDataUnsafe.user;
-
-            if (!user) {
-                document.body.innerHTML = '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
-                return;
-            }
-            try {
-                await axios.post("/<%= token %>/promox/verify-telegram-user", user);
-            } catch (error) {
-                console.error("❌ Error verifying Telegram user:", error.response?.data || error.message);
-            }
-        });
-    </script>
     <style>
+        /* Lock dark UI, even if some 3rd-party CSS tries to change it */
+        :root {
+            color-scheme: dark;
+            /* dark native controls/scrollbars [web:540] */
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #020617;
+            /* slate-950 */
+            color: #e2e8f0;
+            /* slate-200 */
+        }
+
+        /* Telegram exposes viewport height var */
+        body {
+            min-height: var(--tg-viewport-height, 100vh);
+            height: var(--tg-viewport-height, 100vh);
+            overflow-x: hidden;
+        }
+
+        /* Keep your util */
         .hidden {
             display: none;
         }
@@ -48,14 +61,113 @@
         }
 
         .animate-background {
-            background: linear-gradient(-45deg, #e6faff, #5da6ff, #e6faff, #5da6ff);
+            background: linear-gradient(-45deg, #0f0f0f, #1a1a40, #3d0000, #1a1a40);
             background-size: 400% 400%;
-            animation: gradientShift 4s ease infinite;
+            animation: gradientShift 8s ease infinite;
+            color: #f5f5f5;
+        }
+
+        .animate-background h1,
+        .animate-background p {
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+        }
+
+        .animate-background label {
+            color: white;
+        }
+
+        /* Avoid forcing inputs to black text globally (this can look like light mode) */
+        /* If you need specific forms, apply a class locally instead of global rule. */
+
+        .truncate-3-lines {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        @keyframes verticalScroll {
+            0% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20%);
+            }
+
+            100% {
+                transform: translateY(0);
+            }
+        }
+
+        .animate-verticalScroll {
+            animation: verticalScroll 8s ease-in-out infinite;
         }
     </style>
+
+    <script>
+        // Always keep dark forced (ads/other scripts shouldn't flip it)
+        (function () {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+        })();
+    </script>
+
+    <script>
+        window.addEventListener("DOMContentLoaded", async () => {
+            const waitForTelegram = async (timeoutMs = 700) => {
+                const start = Date.now();
+                while (!(window.Telegram && window.Telegram.WebApp) && (Date.now() - start) < timeoutMs) {
+                    await new Promise(r => setTimeout(r, 50));
+                }
+                return !!(window.Telegram && window.Telegram.WebApp);
+            };
+
+            const tgAvailable = await waitForTelegram(700);
+            if (!tgAvailable) {
+                document.body.innerHTML =
+                    '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
+                return;
+            }
+
+            const tg = window.Telegram.WebApp;
+
+            try { tg.ready?.(); } catch (e) { }
+            try { tg.expand?.(); } catch (e) { }
+            try { tg.requestFullscreen?.(); } catch (e) { }
+
+            // Force dark Telegram chrome as well (optional but helps)
+            try {
+                if (tg.setHeaderColor) tg.setHeaderColor('#020617');
+                if (tg.setBackgroundColor) tg.setBackgroundColor('#020617');
+            } catch (e) { }
+
+            const syncVh = () => {
+                try {
+                    if (typeof tg.viewportHeight === "number") {
+                        document.documentElement.style.setProperty("--tg-viewport-height", tg.viewportHeight + "px");
+                    }
+                } catch (e) { }
+            };
+
+            try {
+                tg.onEvent?.("viewportChanged", syncVh);
+                syncVh();
+            } catch (e) { }
+
+            const initDataUnsafe = tg.initDataUnsafe || {};
+            const user = initDataUnsafe.user;
+
+            if (!user) {
+                document.body.innerHTML =
+                    '<div class="text-center mt-10 text-red-600 text-lg">Please open this in Telegram</div>';
+                return;
+            }
+        });
+    </script>
 </head>
 
-<body class="bg-gray-800 flex justify-center items-center select-none">
+<body class="w-full select-none pt-20 bg-slate-950 text-slate-200">
     <!-- Page Loader -->
     <div id="pageLoader"
         class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center hidden">
@@ -66,12 +178,14 @@
         </div>
     </div>
 
-    <%- body %> <!-- dynamic page content -->
+    <%- body %>
 
         <script>
-            // Show loader on every internal anchor tag click
-            document.querySelectorAll("a").forEach(link => {
-                link.addEventListener("click", function (e) {
+            document.addEventListener("DOMContentLoaded", () => {
+                document.body.addEventListener("click", function (e) {
+                    const link = e.target.closest("a");
+                    if (!link) return;
+
                     const href = link.getAttribute("href");
                     if (href && !href.startsWith("http") && !href.startsWith("#") && !link.hasAttribute("target")) {
                         document.getElementById("pageLoader").classList.remove("hidden");
@@ -80,8 +194,5 @@
             });
         </script>
 </body>
-<script>
-
-</script>
 
 </html>

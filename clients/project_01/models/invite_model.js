@@ -15,7 +15,6 @@ const inviteSchema = new mongoose.Schema(
             ref: "Telegram_user",
             default: null
         },
-        level: { type: Number, required: true, min: 1 },
         earned_commission: { type: Number, default: 0, min: 0 },
         created_at: { type: Date, default: Date.now },
     },

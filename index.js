@@ -2,26 +2,23 @@ require('dotenv').config()
 let promoX_token = process.env.PROMOX_TOKEN
 let movies_hub_token = process.env.MOVIES_HUB_TOKEN
 let group_help_advance_token = process.env.GROUP_HELP_ADVANCE_TOKEN
+let project_01_token = process.env.PROJECT_01_TOKEN
 const express = require('express')
 const app = express()
 const { Telegraf } = require('telegraf');
 const path = require('path')
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const promoX_routes = require('./clients/PromoX/routes/all_routes')
+const promoX_routes = require('./own_projects/PromoX/routes/all_routes')
 const movies_hub_routes = require('./own_projects/movies_hub/routes/all_routes')
-const promoX_all_actions = require('./clients/PromoX/bot_handler/promoX_bot')
+const promoX_all_actions = require('./own_projects/PromoX/promoX_bot')
 const movies_hub_all_actions = require('./own_projects/movies_hub/bot_index')
 const group_help_advance_routes = require('./own_projects/Group_help_advance/routes/all_routes')
+const project_01_routes = require('./clients/project_01/routes/all_routes')
 const group_help_advance_all_actions = require('./own_projects/Group_help_advance/bot_index')
 const project_01 = require('./clients/project_01/bot_index')
 const project_02 = require('./clients/project_02/bot_index')
-const message_auto_save_and_post = require('./clients/rv_saini/Message_auto_save_and_post/message_auto_save_and_post')
-const crypto_news_all_actions = require('./clients/mr_akash/Crypto_news/crypto_news_bot')
-const Whatsapp_group_message_auto_save_and_post = require('./clients/rv_saini/Whatsapp_group_message_auto_save_and_post/Whatsapp_group_message_auto_save_and_post')
-const techboost_it_services = require('./own_projects/Techboost_it_services/Reciept_genrator')
 const globle_domain = process.env.GLOBLE_DOMAIN
-const crypto = require("crypto");
 
 // all system middleware
 app.use(cors())
@@ -89,49 +86,6 @@ if (process.env.PROJECT_02_NODE_ENV && process.env.PROJECT_02_NODE_ENV !== 'deve
     );
 }
 
-
-
-// if (process.env.CRYPTO_NEWS_NODE_ENV && process.env.CRYPTO_NEWS_NODE_ENV !== 'development') {
-//     const crypto_news_bot = new Telegraf(process.env.BOT_TOKEN_CRYPTO_NEWS);
-//     crypto_news_all_actions(crypto_news_bot);
-
-//     // Webhook binding (specific route)
-//     app.post('/telegram-webhook-for-crypto-news', crypto_news_bot.webhookCallback('/telegram-webhook-for-crypto-news'));
-//     crypto_news_bot.telegram.setWebhook(
-//         `${globle_domain}/telegram-webhook-for-crypto-news`
-//     );
-// }
-// if (process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.env.MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV !== 'development') {
-//     const message_auto_save_and_post_bot = new Telegraf(process.env.BOT_TOKEN_MESSAGE_AUTO_SAVE_AND_POST);
-//     message_auto_save_and_post(message_auto_save_and_post_bot);
-
-//     // Webhook binding (specific route)
-//     app.post('/telegram-webhook-for-message-auto-save-and-post', message_auto_save_and_post_bot.webhookCallback('/telegram-webhook-for-message-auto-save-and-post'));
-//     message_auto_save_and_post_bot.telegram.setWebhook(
-//         `${globle_domain}/telegram-webhook-for-message-auto-save-and-post`
-//     );
-// }
-// if (process.env.WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV && process.env.WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST_NODE_ENV !== 'development') {
-//     const Whatsapp_group_message_auto_save_and_post_bot = new Telegraf(process.env.BOT_TOKEN_WHATSAPP_GROUP_MESSAGE_AUTO_SAVE_AND_POST);
-//     Whatsapp_group_message_auto_save_and_post(Whatsapp_group_message_auto_save_and_post_bot)
-
-//     // Webhook binding (specific route)
-//     app.post('/telegram-webhook-for-Whatsapp-group-message-auto-save-and-post', Whatsapp_group_message_auto_save_and_post_bot.webhookCallback('/telegram-webhook-for-Whatsapp-group-message-auto-save-and-post'));
-//     Whatsapp_group_message_auto_save_and_post_bot.telegram.setWebhook(
-//         `${globle_domain}/telegram-webhook-for-Whatsapp-group-message-auto-save-and-post`
-//     );
-// }
-// if (process.env.TECHBOOST_IT_SERVICES_NODE_ENV && process.env.TECHBOOST_IT_SERVICES_NODE_ENV !== 'development') {
-//     const techboost_it_services_bot = new Telegraf(process.env.BOT_TOKEN_TECHBOOST_IT_SERVICES);
-//     techboost_it_services(techboost_it_services_bot)
-
-//     // Webhook binding (specific route)
-//     app.post('/telegram-webhook-for-techboost-it-services', techboost_it_services_bot.webhookCallback('/telegram-webhook-for-techboost-it-services'));
-//     techboost_it_services_bot.telegram.setWebhook(
-//         `${globle_domain}/telegram-webhook-for-techboost-it-services`
-//     );
-// }
-
 app.get('/', (req, res) => {
     try {
         const param = req.query?.tgWebAppStartParam;
@@ -143,6 +97,7 @@ app.get('/', (req, res) => {
         const decodedParam = atob(param);
         const parts = decodedParam.split(':');
         const [miniAppOrBotType] = parts;
+
 
         switch (miniAppOrBotType) {
             /* ================= MOVIES HUB ================= */
@@ -193,6 +148,21 @@ app.get('/', (req, res) => {
                 return res.redirect(`${basePath}`);
             }
 
+            /* ================= GROUP HELP ADVANCE ================= */
+            case 'project-01': {
+                const basePath = `/${project_01_token}/project-01`;
+                const [_, type, userDB_id] = parts;
+                if (type === 'team-report') {
+                    return res.redirect(`${basePath}/team-report?userDB_id=${userDB_id}`);
+                }
+
+                if (type === 'transactions-report') {
+                    return res.redirect(`${basePath}/transactions-report?userDB_id=${userDB_id}`);
+                }
+
+                return res.redirect(`${basePath}`);
+            }
+
             /* ================= UNKNOWN BOT ================= */
             default:
                 return res.send('✅ Bot is alive! but unknown mini app or bot type');
@@ -209,7 +179,8 @@ app.use('/:token', (req, res, next) => {
     let token_array = [
         promoX_token,
         movies_hub_token,
-        group_help_advance_token
+        group_help_advance_token,
+        project_01_token
     ]
     if (!token_array.includes(tokenName)) {
         res.render('404', { error_message: 'You are not allowed' });
@@ -221,6 +192,7 @@ app.use('/:token', (req, res, next) => {
 app.use(`/${promoX_token}`, promoX_routes)
 app.use(`/${movies_hub_token}`, movies_hub_routes)
 app.use(`/${group_help_advance_token}`, group_help_advance_routes)
+app.use(`/${project_01_token}`, project_01_routes)
 
 // Express app to keep server alive
 const PORT = process.env.PORT || 3000;

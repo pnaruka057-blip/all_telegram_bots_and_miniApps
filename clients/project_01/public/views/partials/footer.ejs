@@ -1,7 +1,10 @@
 <!-- Developed By Section -->
-<footer class="mt-2 text-center text-gray-500 text-sm flex items-center justify-center space-x-2 pb-4 select-none">
-    <svg fill="#000000" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg"
-        xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" xml:space="preserve" width="24px" height="24px">
+<footer class="mt-2 text-center text-sm flex items-center justify-center space-x-2 mb-[40px] select-none
+         text-gray-600 dark:text-gray-400">
+    <!-- Icon color now follows theme via currentColor -->
+    <svg class="w-6 h-6 text-gray-800 dark:text-gray-200" fill="currentColor" version="1.1" id="Layer_1"
+        xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24"
+        xml:space="preserve" aria-hidden="true" focusable="false">
         <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
         <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
         <g id="SVGRepo_iconCarrier">
@@ -10,67 +13,19 @@
                     fill: none;
                 }
             </style>
+
             <path
                 d="M19.2,4.4L2.9,10.7c-1.1,0.4-1.1,1.1-0.2,1.3l4.1,1.3l1.6,4.8c0.2,0.5,0.1,0.7,0.6,0.7c0.4,0,0.6-0.2,0.8-0.4 c0.1-0.1,1-1,2-2l4.2,3.1c0.8,0.4,1.3,0.2,1.5-0.7l2.8-13.1C20.6,4.6,19.9,4,19.2,4.4z M17.1,7.4l-7.8,7.1L9,17.8L7.4,13l9.2-5.8 C17,6.9,17.4,7.1,17.1,7.4z">
             </path>
             <rect y="0" class="st0" width="24" height="24"></rect>
         </g>
     </svg>
+
     <span>
         Developed By
-        <a href="https://t.me/<%= developer_telegram_username %>" target="_blank" class="text-blue-600 hover:underline">
+        <a href="https://t.me/<%= developer_telegram_username %>" target="_blank" rel="noopener noreferrer"
+            class="text-blue-600 dark:text-blue-400 hover:underline">
             Bots & Mini App Creater
         </a>
     </span>
-</footer>
-<!-- Bottom Navigation -->
-<footer class="bg-[#1f1f1f] shadow-inner border-t border-gray-700 fixed bottom-0 left-0 right-0">
-    <div class="flex justify-between items-center text-white">
-
-        <!-- Menu -->
-        <a href="/<%= token %>/promox"
-            class="flex-1 text-center py-3 <%= currentPath === '/' ? 'text-blue-300 bg-gray-600' : '' %>">
-            <svg class="mx-auto w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-        </a>
-
-        <!-- Channels -->
-        <a href="/<%= token %>/promox/channels"
-            class="flex-1 text-center py-3 <%= currentPath === '/channels' ? 'text-blue-300 bg-gray-600' : '' %>">
-            <svg class="mx-auto w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                <path
-                    d="M9.036 16.182l-.406 4.219c.58 0 .831-.25 1.135-.548l2.719-2.582 5.633 4.125c1.033.57 1.773.27 2.03-.956l3.672-17.25c.34-1.598-.579-2.221-1.617-1.839L1.58 9.298c-1.57.609-1.553 1.484-.27 1.88l4.688 1.466 10.875-6.875c.512-.327.982-.146.597.21L9.036 16.182z" />
-            </svg>
-        </a>
-
-        <!-- Groups -->
-        <a href="/<%= token %>/promox/groups"
-            class="flex-1 text-center py-3 <%= currentPath === '/groups' ? 'text-blue-300 bg-gray-600' : '' %>">
-            <svg class="mx-auto w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-                <circle cx="8.5" cy="7" r="4" />
-                <path d="M20 8v6M23 11h-6" />
-            </svg>
-        </a>
-
-        <!-- Post -->
-        <a href="/<%= token %>/promox/post"
-            class="flex-1 text-center py-3 <%= currentPath === '/post' ? 'text-blue-300 bg-gray-600' : '' %>">
-            <svg class="mx-auto w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
-            </svg>
-        </a>
-
-        <!-- Profile -->
-        <a href="/<%= token %>/promox/profile"
-            class="flex-1 text-center py-3 <%= currentPath === '/profile' ? 'text-blue-300 bg-gray-600' : '' %>">
-            <svg class="mx-auto w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-                <circle cx="8.5" cy="7" r="4" />
-            </svg>
-        </a>
-
-    </div>
 </footer>

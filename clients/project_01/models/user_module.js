@@ -19,6 +19,7 @@ const telegramUserSchema = new mongoose.Schema(
         },
         wallet_balance: { type: Number, default: 0, min: 0 },
         created_at: { type: Date, default: Date.now },
+        upi_id: { type: String, default: "" }
     },
     { versionKey: false }
 );

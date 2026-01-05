@@ -1,0 +1,228 @@
+<%- include('../partials/header') %>
+
+    <section class="max-w-4xl mx-auto px-4 py-8">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 shadow-xl">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+                <!-- Left Section -->
+                <div class="min-w-0">
+                    <h1 class="text-2xl font-semibold leading-tight">
+                        Transactions Report
+                    </h1>
+
+                    <p class="text-slate-300 text-sm mt-1 truncate">
+                        @<%= (user && user.username) ? user.username : '—' %>
+                    </p>
+                </div>
+
+                <!-- Right Button -->
+                <div class="w-full sm:w-auto sm:flex-none">
+                    <a href="/<%= token %>/project-01/team-report?userDB_id=<%= user ? user._id : '' %>" class="w-full inline-flex items-center justify-center px-4 py-2 rounded-xl
+            border border-slate-600 text-slate-100
+            bg-slate-700/60 hover:bg-slate-700 transition">
+                        Back to Team Report
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                <div class="text-sm text-slate-400">Total Withdrawals</div>
+                <div class="text-2xl font-bold mt-1">
+                    ₹<%= tx && tx.total_withdrawn ? tx.total_withdrawn.toFixed(2) : '0.00' %>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                <div class="text-sm text-slate-400">Total Commission</div>
+                <div class="text-2xl font-bold mt-1">
+                    ₹<%= tx && tx.total_commission ? tx.total_commission.toFixed(2) : '0.00' %>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                <div class="text-sm text-slate-400">Wallet Balance</div>
+                <div class="text-2xl font-bold mt-1">
+                    ₹<%= (user && user.wallet_balance) ? user.wallet_balance.toFixed(2) : '0.00' %>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Transactions list -->
+        <div class="mt-6 bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden">
+
+            <div class="px-4 py-3 border-b border-slate-700 flex justify-between">
+                <h2 class="text-lg font-semibold">All Transactions</h2>
+                <span class="text-slate-400 text-sm">
+                    <%= (tx && tx.transactions) ? tx.transactions.length : 0 %> records
+                </span>
+            </div>
+
+            <% if (tx && tx.transactions && tx.transactions.length) { %>
+
+                <div class="divide-y divide-slate-800">
+                    <% tx.transactions.forEach(function(t){ %>
+                        <div class="px-4 py-3 flex items-center justify-between">
+
+                            <!-- Left -->
+                            <div class="min-w-0">
+
+                                <div class="font-medium">
+                                    <% if (t.type==="D" ) { %>
+                                        Deposit
+                                        <% } else if (t.type==="W" ) { %>
+                                            Withdrawal
+                                            <% } else if (t.type==="I" ) { %>
+                                                Commission
+                                                <% } else { %>
+                                                    Transaction
+                                                    <% } %>
+                                </div>
+
+                                <div class="text-xs text-slate-400 truncate max-w-sm">
+                                    <%= t.note || '' %>
+                                </div>
+
+                                <div class="text-xs text-slate-400 mt-1">
+                                    <%= new Date(t.created_at).toLocaleString() %>
+                                </div>
+
+                            </div>
+
+                            <!-- Right -->
+                            <div class="text-right">
+
+                                <div class="text-lg font-bold
+                <%= t.type === 'D' ? 'text-green-400' :
+                    t.type === 'W' ? 'text-red-400' :
+                    'text-sky-300' %>">
+
+                                    ₹<%= Number(t.amount || 0).toFixed(2) %>
+                                </div>
+
+                                <div class="mt-1 text-xs">
+                                    <% if (t.status==="S" ) { %>
+                                        <span
+                                            class="px-2 py-0.5 rounded bg-green-900/40 text-green-300 border border-green-700/40">
+                                            Success
+                                        </span>
+                                        <% } else if (t.status==="P" ) { %>
+                                            <span
+                                                class="px-2 py-0.5 rounded bg-yellow-900/40 text-yellow-300 border border-yellow-700/40">
+                                                Pending
+                                            </span>
+                                            <% } else { %>
+                                                <span
+                                                    class="px-2 py-0.5 rounded bg-red-900/40 text-red-300 border border-red-700/40">
+                                                    Failed
+                                                </span>
+                                                <% } %>
+                                </div>
+
+                            </div>
+
+                        </div>
+                        <% }) %>
+                </div>
+
+                <% } else { %>
+
+                    <div class="px-4 py-10 text-center text-slate-400">
+                        No transactions found yet.
+                    </div>
+
+                    <% } %>
+
+        </div>
+
+        <div class="mt-8">
+            <%- include('../partials/footer') %>
+        </div>
+
+    </section>
+
+    <script>
+        (function () {
+            const root = document.documentElement;
+            const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+            function numCssVar(name) {
+                const v = getComputedStyle(root).getPropertyValue(name);
+                const n = parseFloat(v);
+                return Number.isFinite(n) ? n : 0;
+            }
+
+            function setSafeVars() {
+                let top = 0, bottom = 0;
+                try {
+                    top = tg?.safeAreaInset?.top ?? 0;
+                    bottom = tg?.safeAreaInset?.bottom ?? 0;
+                } catch (e) { }
+
+                if (!top) top = numCssVar('--tg-safe-area-inset-top');
+                if (!bottom) bottom = numCssVar('--tg-safe-area-inset-bottom');
+
+                root.style.setProperty('--app-safe-top', top + 'px');
+                root.style.setProperty('--app-safe-bottom', bottom + 'px');
+            }
+
+            setSafeVars();
+            try { tg?.onEvent?.('safeAreaChanged', setSafeVars); } catch (e) { }
+        })();
+    </script>
+
+    <script>
+        (function () {
+            const root = document.documentElement;
+            const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+            function numCssVar(name) {
+                const v = getComputedStyle(root).getPropertyValue(name);
+                const n = parseFloat(v);
+                return Number.isFinite(n) ? n : 0;
+            }
+
+            function setSafeVars() {
+                let top = 0;
+                let bottom = 0;
+
+                // Prefer Telegram provided insets (new clients)
+                try {
+                    top = tg?.safeAreaInset?.top ?? 0;
+                    bottom = tg?.safeAreaInset?.bottom ?? 0;
+                } catch (e) { }
+
+                // Fallback to Telegram CSS vars if present
+                if (!top) top = numCssVar('--tg-safe-area-inset-top');
+                if (!bottom) bottom = numCssVar('--tg-safe-area-inset-bottom');
+
+                // Last fallback for iOS-like devices if everything is 0
+                if (!top && /iPhone|iPad|iPod/i.test(navigator.userAgent)) top = 24;
+
+                root.style.setProperty('--app-safe-top', top + 'px');
+                root.style.setProperty('--app-safe-bottom', bottom + 'px');
+            }
+
+            setSafeVars();
+
+            // Keep it updated when Telegram reports changes
+            try { tg?.onEvent?.('safeAreaChanged', setSafeVars); } catch (e) { }
+            try { tg?.onEvent?.('safe_area_changed', setSafeVars); } catch (e) { } // some wrappers emit snake_case [web:203][web:128]
+
+            // Optional: set header/background color so status bar icons look correct in fullscreen [page:1]
+            try {
+                if (tg?.setHeaderColor && tg?.colorScheme) {
+                    tg.setHeaderColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+                }
+                if (tg?.setBackgroundColor && tg?.colorScheme) {
+                    tg.setBackgroundColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+                }
+            } catch (e) { }
+        })();
+    </script>

@@ -1,0 +1,253 @@
+<%- include('../partials/header') %>
+
+    <section class="max-w-4xl mx-auto px-4 py-8">
+
+        <!-- HERO -->
+        <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 shadow-xl">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+
+                <!-- Left: Avatar + Name -->
+                <div class="flex items-center gap-4 min-w-0">
+
+                    <div class="w-16 h-16 rounded-xl bg-slate-700 flex items-center justify-center
+              text-2xl font-semibold text-white">
+                        <%= (user && user.first_name) ? (user.first_name.charAt(0) || 'U' ) : 'U' %>
+                    </div>
+
+                    <div class="min-w-0">
+
+                        <!-- Full Name -->
+                        <h1 class="text-2xl font-semibold leading-tight truncate">
+                            <%= user ? (user.first_name + (user.last_name ? ' ' + user.last_name : '' )) : 'User' %>
+                        </h1>
+
+                        <!-- Username (truncate if long) -->
+                        <p class="text-sm text-slate-300 mt-1 truncate">
+                            @<%= (user && user.username) ? user.username : '—' %>
+                        </p>
+
+                        <!-- Joined At (separate line) -->
+                        <p class="text-xs text-slate-400 mt-0.5">
+                            Joined:
+                            <%= (user && user.created_at) ? new Date(user.created_at).toLocaleDateString() : '—' %>
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Right: Support Button -->
+                <div class="w-full sm:w-auto sm:flex-none">
+                    <a href="https://t.me/<%= support_telegram_username %>" target="_blank" class="w-full inline-flex items-center justify-center px-4 py-2 rounded-xl
+            bg-slate-700/70 hover:bg-slate-700
+            border border-slate-600 text-sm text-sky-300 transition">
+                        Help Support
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                <div class="text-sm text-slate-400">Direct Referrals</div>
+                <div class="text-2xl font-bold mt-1">
+                    <%= team?.total_directs || 0 %>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                <div class="text-sm text-slate-400">Team Size</div>
+                <div class="text-2xl font-bold mt-1">
+                    <%= team?.total_team || 0 %>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+                <div class="text-sm text-slate-400">Wallet Balance</div>
+                <div class="text-2xl font-bold mt-1">₹<%= user?.wallet_balance || 0 %>
+                </div>
+            </div>
+
+            <!-- Invite Code + Copy -->
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+
+                <div class="text-sm text-slate-400">Invite Code</div>
+
+                <div class="mt-1 flex items-center gap-3">
+
+                    <div class="text-2xl font-bold truncate">
+                        <%= user?.invite_code || '—' %>
+                    </div>
+
+                    <% if (user?.invite_code) { %>
+                        <button id="copyInvite" class="p-2 rounded-lg border border-slate-600 hover:bg-slate-700"
+                            title="Copy invite link">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-100" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4
+                     a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                        </button>
+                        <% } %>
+
+                </div>
+
+            </div>
+        </div>
+
+        <!-- LEVEL BREAKDOWN -->
+        <div class="mt-6">
+
+            <h2 class="text-lg font-semibold mb-2">Level Breakdown</h2>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+
+                <% if (team?.levels?.length) { %>
+
+                    <% team.levels.forEach(l=> { %>
+                        <div class="p-4 bg-slate-800/70 rounded-xl border border-slate-700">
+
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-xs text-slate-400">Level <%= l.level %>
+                                    </div>
+                                    <div class="text-xl font-semibold">
+                                        <%= l.users %> users
+                                    </div>
+                                </div>
+
+                                <div class="text-right">
+                                    <div class="text-xs text-slate-400">Earnings</div>
+                                    <div class="text-lg font-bold">₹<%= l.earnings %>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                        <% }) %>
+
+                            <div class="col-span-full p-4 bg-slate-900 rounded-xl border border-slate-700">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-sm text-slate-400">Total Team Members</div>
+                                        <div class="text-2xl font-bold">
+                                            <%= team.total_team %>
+                                        </div>
+                                    </div>
+
+                                    <div class="text-right">
+                                        <div class="text-sm text-slate-400">Total Level Earnings</div>
+                                        <div class="text-2xl font-bold">₹<%= team.total_earnings %>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <% } else { %>
+
+                                <div class="col-span-full p-4 bg-slate-800/70 rounded-xl border border-slate-700">
+                                    <p class="text-sm text-slate-400">
+                                        No team yet. Share your invite code to start building.
+                                    </p>
+                                </div>
+
+                                <% } %>
+
+            </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="mt-6 flex flex-col sm:flex-row gap-3">
+
+            <% if (user?.invite_code) { const
+                inviteLink=`https://t.me/${process.env.BOT_USERNAME_PROJECT_01}?start=${encodeURIComponent(user.invite_code)}`;
+                const shareText=encodeURIComponent(`Join using my invite link`); %>
+                <a href="https://t.me/share/url?url=<%= encodeURIComponent(inviteLink) %>&text=<%= shareText %>"
+                    class="flex-1 px-4 py-3 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-semibold text-center">
+                    Share Invite via Telegram
+                </a>
+                <% } %>
+
+                    <a href="/<%= token %>/project-01/transactions-report?userDB_id=<%= user?._id %>"
+                        class="flex-1 px-4 py-3 rounded-xl border border-slate-700 text-slate-200 hover:bg-slate-800 text-center">
+                        See all Transactions
+                    </a>
+
+        </div>
+
+        <div class="mt-8">
+            <%- include('../partials/footer') %>
+        </div>
+
+    </section>
+
+    <script>
+        (function () {
+
+            // COPY INVITE LINK — silent copy
+            const btn = document.getElementById("copyInvite");
+            if (btn) {
+                btn.addEventListener("click", async () => {
+                    const code = `<%= user?.invite_code || '' %>`;
+                    const bot = `<%= process.env.BOT_USERNAME_PROJECT_01 %>`;
+                    const url = `https://t.me/${bot}?start=${encodeURIComponent(code)}`;
+                    try { await navigator.clipboard.writeText(url); } catch { }
+                });
+            }
+
+        })();
+    </script>
+
+    <script>
+        (function () {
+            const root = document.documentElement;
+            const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+            function numCssVar(name) {
+                const v = getComputedStyle(root).getPropertyValue(name);
+                const n = parseFloat(v);
+                return Number.isFinite(n) ? n : 0;
+            }
+
+            function setSafeVars() {
+                let top = 0;
+                let bottom = 0;
+
+                // Prefer Telegram provided insets (new clients)
+                try {
+                    top = tg?.safeAreaInset?.top ?? 0;
+                    bottom = tg?.safeAreaInset?.bottom ?? 0;
+                } catch (e) { }
+
+                // Fallback to Telegram CSS vars if present
+                if (!top) top = numCssVar('--tg-safe-area-inset-top');
+                if (!bottom) bottom = numCssVar('--tg-safe-area-inset-bottom');
+
+                // Last fallback for iOS-like devices if everything is 0
+                if (!top && /iPhone|iPad|iPod/i.test(navigator.userAgent)) top = 24;
+
+                root.style.setProperty('--app-safe-top', top + 'px');
+                root.style.setProperty('--app-safe-bottom', bottom + 'px');
+            }
+
+            setSafeVars();
+
+            // Keep it updated when Telegram reports changes
+            try { tg?.onEvent?.('safeAreaChanged', setSafeVars); } catch (e) { }
+            try { tg?.onEvent?.('safe_area_changed', setSafeVars); } catch (e) { } // some wrappers emit snake_case [web:203][web:128]
+
+            // Optional: set header/background color so status bar icons look correct in fullscreen [page:1]
+            try {
+                if (tg?.setHeaderColor && tg?.colorScheme) {
+                    tg.setHeaderColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+                }
+                if (tg?.setBackgroundColor && tg?.colorScheme) {
+                    tg.setBackgroundColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+                }
+            } catch (e) { }
+        })();
+    </script>
