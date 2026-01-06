@@ -4,7 +4,7 @@ const { project_01_connection } = require("../../../globle_helper/mongoDB_connec
 
 const inviteSchema = new mongoose.Schema(
     {
-        code: { type: String, required: true, unique: true, index: true },
+        code: { type: String, required: true, index: true },
         invited_by_userDB_id: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Telegram_user",

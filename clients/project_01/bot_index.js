@@ -79,7 +79,7 @@ function pendingMenu() {
 
 function activeMenu() {
     return Markup.keyboard([
-        ["Check Balance", "Invite"],
+        ["Check Balance", "Invite", "Daily Bonus"],
         ["Team Report", "Transactions Report"],
         ["Withdraw", "Add Payment Details"],
     ])
@@ -529,6 +529,31 @@ module.exports = (bot) => {
             );
         } catch (err) {
             console.error("invite error:", err);
+            ctx.reply("Something went wrong. Please try again.");
+        }
+    });
+
+    // ------------------------
+    // ACTIVE: Daily Bonus -> mini app
+    // ------------------------
+    bot.hears("Daily Bonus", async (ctx) => {
+        try {
+            const user = await ensureActive(ctx);
+            if (!user) return;
+
+            // Generate mini-app link for daily bonus (tap-tap)
+            const link = getMiniAppLink("daily-bonus", user._id.toString());
+
+            // Explain that only the tapping user will receive the bonus
+            const msg =
+                "Daily Bonus: Tap the button below to open the app. Only you will earn the bonus when you tap inside the mini-app.";
+
+            await ctx.reply(
+                msg,
+                Markup.inlineKeyboard([[Markup.button.url("Open Daily Bonus", link)]])
+            );
+        } catch (err) {
+            console.error("daily bonus error:", err);
             ctx.reply("Something went wrong. Please try again.");
         }
     });

@@ -1,0 +1,370 @@
+<%- include('../partials/header') %>
+
+    <section class="max-w-4xl mx-auto px-4 py-8">
+        <div class="max-w-lg mx-auto">
+
+            <div class="mb-4">
+
+                <!-- Top: Title + Username -->
+                <div class="min-w-0 mb-3">
+                    <h1 class="text-2xl font-semibold leading-tight truncate">
+                        Daily Bonus
+                    </h1>
+
+                    <p class="text-sm text-slate-400 mt-1 truncate">
+                        @<%= (user && user.username) ? user.username : '—' %>
+                    </p>
+                </div>
+                <div class="w-full sm:w-auto sm:flex-none">
+                    <a href="https://t.me/<%= support_telegram_username %>" target="_blank" class="w-full inline-flex items-center justify-center px-4 py-2 rounded-xl
+            bg-slate-700/70 hover:bg-slate-700
+            border border-slate-600 text-sm text-sky-300 transition">
+                        Help Support
+                    </a>
+                </div>
+            </div>
+
+
+            <% if (typeof error !=='undefined' && error) { %>
+                <div class="p-3 rounded-md bg-red-900/40 text-red-200 mb-4">
+                    <%= error %>
+                </div>
+                <% } %>
+
+                    <p class="text-sm text-slate-400 mb-3">
+                        Tap to earn. You must have <strong>5 direct active referrals</strong> to play.
+                        Tab fills at <strong>₹100</strong> — when reached, ₹100 is credited to your wallet (once)
+                        and logged.
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="p-3 bg-slate-800 rounded-lg">
+                            <div class="text-xs text-slate-400">Direct Active Referrals</div>
+                            <div id="directCount" class="text-xl font-bold">
+                                <%= typeof direct_active_count !=='undefined' ? direct_active_count : 0 %>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-slate-800 rounded-lg">
+                            <div class="text-xs text-slate-400">Per Tap</div>
+                            <div id="perTap" class="text-xl font-bold">₹<%= typeof per_tap_amount !=='undefined' ?
+                                    Number(per_tap_amount).toFixed(2) : '0.01' %>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-slate-800 rounded-lg">
+                            <div class="text-xs text-slate-400">Tab Count</div>
+                            <div id="tabCount" class="text-xl font-bold">
+                                <%= typeof tab_count !=='undefined' ? tab_count : 0 %>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-slate-800 rounded-lg">
+                            <div class="text-xs text-slate-400">Tab Balance</div>
+                            <div id="tabBalance" class="text-xl font-bold">₹<%= typeof tab_balance !=='undefined' ?
+                                    Number(tab_balance).toFixed(2) : '0.00' %>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-slate-800 rounded-lg col-span-2">
+                            <div class="text-xs text-slate-400">Wallet (withdrawable)</div>
+                            <div id="walletBalance" class="text-xl font-bold">₹<%= typeof withdrawable_balance
+                                    !=='undefined' ? Number(withdrawable_balance).toFixed(2) : '0.00' %>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="eligibility"
+                        class="mb-4 text-sm <%= (typeof eligible_for_directs !== 'undefined' && eligible_for_directs) ? 'text-emerald-300' : 'text-yellow-300' %>">
+                        <% if (typeof eligible_for_directs !=='undefined' && eligible_for_directs) { %>
+                            You are eligible to tap (have <strong>
+                                <%= direct_active_count %>
+                            </strong> active directs).
+                            <% } else { %>
+                                Not eligible. You have <strong>
+                                    <%= direct_active_count %>
+                                </strong> active directs. You need <strong>
+                                    <%= Math.max(0, 5 - (direct_active_count || 0)) %>
+                                </strong> more to unlock tapping.
+                                <% } %>
+                    </div>
+
+                    <% if (typeof auto_credited_amount !=='undefined' && auto_credited_amount> 0) { %>
+                        <div id="autoCreditNotice" class="mb-4 p-3 rounded-md bg-green-900/40 text-green-200">
+                            Auto credited ₹<%= Number(auto_credited_amount).toFixed(2) %> to your wallet.
+                        </div>
+                        <% } %>
+
+                            <button id="tapBtn"
+                                class="w-full px-4 py-3 rounded-lg bg-amber-500 text-slate-900 font-semibold shadow transform transition-transform">
+                                Tap!
+                            </button>
+
+                            <div id="message" class="mt-4 text-sm text-slate-300"></div>
+
+                            <!-- animation container (fixed on viewport) -->
+                            <div id="anim" class="fixed left-0 top-0 w-full h-full pointer-events-none"></div>
+
+
+                            <div class="text-center mt-6 text-xs text-slate-500">
+                                Note: Tab balance is not withdrawable until it reaches ₹100. When eligible, it will be
+                                auto-added to
+                                your wallet and logged in transactions.
+                            </div>
+        </div>
+    </section>
+
+    <script>
+        (function () {
+            // constants
+            const userDB_id = '<%= (user && user._id) ? user._id : "" %>';
+            const PER_TAP = Number('<%= typeof per_tap_amount !== "undefined" ? Number(per_tap_amount).toFixed(2) : 0.01 %>');
+            const REQUIRED_DIRECTS = 5;
+            const DAILY_CAP = 100;
+
+            // DOM refs
+            const directCountEl = document.getElementById('directCount');
+            const tabCountEl = document.getElementById('tabCount');
+            const tabBalanceEl = document.getElementById('tabBalance');
+            const walletEl = document.getElementById('walletBalance');
+            const eligibilityEl = document.getElementById('eligibility');
+            const tapBtn = document.getElementById('tapBtn');
+            const messageEl = document.getElementById('message');
+            const animRoot = document.getElementById('anim');
+
+            if (!userDB_id) {
+                messageEl.textContent = "Missing user id. Open the game from the bot (Daily Bonus).";
+                tapBtn.disabled = true;
+            }
+
+            // Pulse effect for click
+            function pulseButton() {
+                tapBtn.style.transform = 'scale(0.96)';
+                setTimeout(() => tapBtn.style.transform = '', 120);
+            }
+
+            // single float animation originating from button center
+            function showIncrementFromButton(text) {
+                try {
+                    const rect = tapBtn.getBoundingClientRect();
+                    const el = document.createElement('div');
+                    el.className = "px-3 py-1 rounded-md bg-amber-400 text-slate-900 font-semibold shadow-lg";
+                    el.style.position = 'fixed';
+                    const left = rect.left + rect.width / 2;
+                    el.style.left = (left - 40) + 'px';
+                    const startTop = rect.top - 8;
+                    el.style.top = (startTop) + 'px';
+                    el.style.zIndex = 9999;
+                    el.style.pointerEvents = 'none';
+                    el.textContent = text;
+                    animRoot.appendChild(el);
+
+                    el.animate([
+                        { transform: 'translateY(0px) scale(1)', opacity: 1 },
+                        { transform: 'translateY(-80px) scale(0.95)', opacity: 0 }
+                    ], {
+                        duration: 900,
+                        easing: 'cubic-bezier(.2,.9,.2,1)'
+                    });
+
+                    setTimeout(() => el.remove(), 950);
+                } catch (e) { console.error(e); }
+            }
+
+            function showToast(txt) {
+                messageEl.textContent = txt;
+                setTimeout(() => { if (messageEl.textContent === txt) messageEl.textContent = ''; }, 3500);
+            }
+
+            // API calls using axios
+            async function apiTap() {
+                try {
+                    const res = await axios.post('/<%= token %>/project-01/daily-bonus/tap', { userDB_id }, { timeout: 8000 });
+                    return res.data || {};
+                } catch (err) {
+                    if (err.response) {
+                        const ct = (err.response.headers['content-type'] || '').toLowerCase();
+                        if (ct.includes('text/html')) return { error: 'Server unavailable — please try again.' };
+                        if (ct.includes('application/json')) return { error: err.response.data?.error || 'Tap failed — try again.' };
+                        return { error: 'Tap failed — server error.' };
+                    }
+                    if (err.request) return { error: 'Network issue — please try again.' };
+                    return { error: 'Unexpected error — try again.' };
+                }
+            }
+
+            async function apiStatus() {
+                try {
+                    const res = await axios.get('/<%= token %>/project-01/daily-bonus', {
+                        params: { userDB_id },
+                        headers: { Accept: 'application/json' },
+                        timeout: 8000
+                    });
+                    return res.data || null;
+                } catch (err) {
+                    if (err.response) {
+                        const ct = (err.response.headers['content-type'] || '').toLowerCase();
+                        if (ct.includes('text/html')) return null;
+                        if (ct.includes('application/json')) return err.response.data || null;
+                        return null;
+                    }
+                    console.error('status network error', err);
+                    return null;
+                }
+            }
+
+            // APPLY AUTHORITATIVE DATA TO UI
+            function applyData(data) {
+                if (!data) return;
+                if (typeof data.direct_active_count !== 'undefined') directCountEl.textContent = data.direct_active_count;
+                if (typeof data.tab_count !== 'undefined') tabCountEl.textContent = data.tab_count;
+                if (typeof data.tab_balance !== 'undefined') tabBalanceEl.textContent = `₹${Number(data.tab_balance).toFixed(2)}`;
+                if (typeof data.withdrawable_balance !== 'undefined') walletEl.textContent = `₹${Number(data.withdrawable_balance).toFixed(2)}`;
+
+                const directs = Number(data.direct_active_count || directCountEl.textContent || 0);
+                const tabBal = Number((data.tab_balance !== undefined ? data.tab_balance : (parseFloat((tabBalanceEl.textContent || '₹0').replace(/[^\d.]/g, '')) || 0)));
+
+                const autoCredited = Boolean(data.auto_credited || data.auto_credited_flag || (Number(data.auto_credited_amount || 0) > 0));
+                if (tabBal >= DAILY_CAP || autoCredited) {
+                    tapBtn.disabled = true;
+                } else {
+                    tapBtn.disabled = !(directs >= REQUIRED_DIRECTS);
+                }
+
+                if (directs >= REQUIRED_DIRECTS) {
+                    eligibilityEl.classList.remove('text-yellow-300');
+                    eligibilityEl.classList.add('text-emerald-300');
+                    eligibilityEl.innerHTML = `You are eligible to tap (have <strong>${directs}</strong> active directs).`;
+                } else {
+                    eligibilityEl.classList.remove('text-emerald-300');
+                    eligibilityEl.classList.add('text-yellow-300');
+                    eligibilityEl.innerHTML = `Not eligible. You have <strong>${directs}</strong> active directs. Need <strong>${Math.max(0, REQUIRED_DIRECTS - directs)}</strong> more.`;
+                }
+
+                if (data.auto_credited && Number(data.auto_credited_amount) > 0) {
+                    showToast(`Auto credited ₹${Number(data.auto_credited_amount).toFixed(2)} to wallet`);
+                }
+            }
+
+            // initial load: try JSON status (quiet), otherwise rely on server-rendered values
+            (async function init() {
+                try {
+                    const st = await apiStatus();
+                    if (st) applyData(st);
+                    else {
+                        const currentTab = parseFloat((tabBalanceEl.textContent || '₹0').replace(/[^\d.]/g, '')) || 0;
+                        if (currentTab >= DAILY_CAP) tapBtn.disabled = true;
+                        else tapBtn.disabled = !(Number(directCountEl.textContent || 0) >= REQUIRED_DIRECTS);
+                    }
+                } catch (e) { /* ignore */ }
+            })();
+
+            // TAP handler: client guards, send request, show exactly one animation per successful tap,
+            // update UI with authoritative server values, and disable when cap reached.
+            tapBtn.addEventListener('click', async function (ev) {
+                // client guard
+                const currentTab = parseFloat((tabBalanceEl.textContent || '₹0').replace(/[^\d.]/g, '')) || 0;
+                if (tapBtn.disabled) {
+                    showToast('Tapping disabled.');
+                    return;
+                }
+                if (currentTab >= DAILY_CAP) {
+                    tapBtn.disabled = true;
+                    showToast('Daily tab reached ₹100. Please wait for auto-credit.');
+                    return;
+                }
+
+                // immediate micro-feedback
+                pulseButton();
+
+                // record prev count so we show animation only if server confirms an increment
+                const prevCount = Number(tabCountEl.textContent || 0);
+
+                // call API
+                const result = await apiTap();
+
+                if (!result || result.error) {
+                    showToast(result && result.error ? result.error : 'Tap failed. Try again.');
+                    // try to refresh authoritative state
+                    const s = await apiStatus();
+                    if (s) applyData(s);
+                    else setTimeout(() => window.location.reload(), 700);
+                    return;
+                }
+
+                // If the server indicates tab_count increased vs prevCount -> we consider this tap succeeded.
+                const serverCount = Number(result.tab_count || 0);
+                if (serverCount > prevCount) {
+                    // show a single animation (one per successful tap)
+                    showIncrementFromButton(`+₹${PER_TAP.toFixed(2)}`);
+                }
+
+                // apply authoritative data returned by server
+                applyData(result);
+
+                // ensure displayed values are authoritative
+                if (typeof result.tab_balance !== 'undefined') tabBalanceEl.textContent = `₹${Number(result.tab_balance).toFixed(2)}`;
+                if (typeof result.tab_count !== 'undefined') tabCountEl.textContent = result.tab_count;
+                if (typeof result.withdrawable_balance !== 'undefined') walletEl.textContent = `₹${Number(result.withdrawable_balance).toFixed(2)}`;
+
+                // final guard: disable if cap reached after this tap
+                const afterBal = Number(result.tab_balance || parseFloat((tabBalanceEl.textContent || '₹0').replace(/[^\d.]/g, '')) || 0);
+                if (afterBal >= DAILY_CAP || result.auto_credited) {
+                    tapBtn.disabled = true;
+                    if (result.auto_credited) showToast(`Auto credited ₹${Number(result.auto_credited_amount || 0).toFixed(2)} to wallet`);
+                    else showToast('Daily tab reached ₹100. Waiting for auto-credit.');
+                }
+            });
+
+        })();
+    </script>
+
+    <script>
+        (function () {
+            const root = document.documentElement;
+            const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+            function numCssVar(name) {
+                const v = getComputedStyle(root).getPropertyValue(name);
+                const n = parseFloat(v);
+                return Number.isFinite(n) ? n : 0;
+            }
+
+            function setSafeVars() {
+                let top = 0;
+                let bottom = 0;
+
+                // Prefer Telegram provided insets (new clients)
+                try {
+                    top = tg?.safeAreaInset?.top ?? 0;
+                    bottom = tg?.safeAreaInset?.bottom ?? 0;
+                } catch (e) { }
+
+                // Fallback to Telegram CSS vars if present
+                if (!top) top = numCssVar('--tg-safe-area-inset-top');
+                if (!bottom) bottom = numCssVar('--tg-safe-area-inset-bottom');
+
+                // Last fallback for iOS-like devices if everything is 0
+                if (!top && /iPhone|iPad|iPod/i.test(navigator.userAgent)) top = 24;
+
+                root.style.setProperty('--app-safe-top', top + 'px');
+                root.style.setProperty('--app-safe-bottom', bottom + 'px');
+            }
+
+            setSafeVars();
+
+            // Keep it updated when Telegram reports changes
+            try { tg?.onEvent?.('safeAreaChanged', setSafeVars); } catch (e) { }
+            try { tg?.onEvent?.('safe_area_changed', setSafeVars); } catch (e) { } // some wrappers emit snake_case [web:203][web:128]
+
+            // Optional: set header/background color so status bar icons look correct in fullscreen [page:1]
+            try {
+                if (tg?.setHeaderColor && tg?.colorScheme) {
+                    tg.setHeaderColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+                }
+                if (tg?.setBackgroundColor && tg?.colorScheme) {
+                    tg.setBackgroundColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+                }
+            } catch (e) { }
+        })();
+    </script>

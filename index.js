@@ -148,7 +148,7 @@ app.get('/', (req, res) => {
                 return res.redirect(`${basePath}`);
             }
 
-            /* ================= GROUP HELP ADVANCE ================= */
+            /* ================= Project 01 ================= */
             case 'project-01': {
                 const basePath = `/${project_01_token}/project-01`;
                 const [_, type, userDB_id] = parts;
@@ -158,6 +158,10 @@ app.get('/', (req, res) => {
 
                 if (type === 'transactions-report') {
                     return res.redirect(`${basePath}/transactions-report?userDB_id=${userDB_id}`);
+                }
+
+                if (type === 'daily-bonus') {
+                    return res.redirect(`${basePath}/daily-bonus?userDB_id=${userDB_id}`);
                 }
 
                 return res.redirect(`${basePath}`);
