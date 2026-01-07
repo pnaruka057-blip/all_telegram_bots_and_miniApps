@@ -3,114 +3,119 @@
     <section class="max-w-4xl mx-auto px-4 py-8">
         <div class="max-w-lg mx-auto">
 
-            <div class="mb-4">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-lg p-4 shadow-xl">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
-                <!-- Top: Title + Username -->
-                <div class="min-w-0 mb-3">
-                    <h1 class="text-2xl font-semibold leading-tight truncate">
-                        Daily Bonus
-                    </h1>
+                    <!-- Left Section -->
+                    <div class="min-w-0">
+                        <h1 class="text-2xl font-semibold leading-tight truncate">
+                            Daily Bonus
+                        </h1>
 
-                    <p class="text-sm text-slate-400 mt-1 truncate">
-                        @<%= (user && user.username) ? user.username : '—' %>
-                    </p>
-                </div>
-                <div class="w-full sm:w-auto sm:flex-none">
-                    <a href="https://t.me/<%= support_telegram_username %>" target="_blank" class="w-full inline-flex items-center justify-center px-4 py-2 rounded-xl
+                        <p class="text-slate-300 text-sm mt-1 truncate">
+                            @<%= (user && user.username) ? user.username : '—' %>
+                        </p>
+                    </div>
+
+                    <!-- Right Button -->
+                    <div class="w-full sm:w-auto sm:flex-none">
+                        <a href="https://t.me/<%= support_telegram_username %>" target="_blank" class="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg
             bg-slate-700/70 hover:bg-slate-700
             border border-slate-600 text-sm text-sky-300 transition">
-                        Help Support
-                    </a>
+                            Help Support
+                        </a>
+                    </div>
                 </div>
             </div>
 
-
-            <% if (typeof error !=='undefined' && error) { %>
-                <div class="p-3 rounded-md bg-red-900/40 text-red-200 mb-4">
-                    <%= error %>
-                </div>
-                <% } %>
-
-                    <p class="text-sm text-slate-400 mb-3">
-                        Tap to earn. You must have <strong>5 direct active referrals</strong> to play.
-                        Tab fills at <strong>₹100</strong> — when reached, ₹100 is credited to your wallet (once)
-                        and logged.
-                    </p>
-
-                    <div class="grid grid-cols-2 gap-3 mb-4">
-                        <div class="p-3 bg-slate-800 rounded-lg">
-                            <div class="text-xs text-slate-400">Direct Active Referrals</div>
-                            <div id="directCount" class="text-xl font-bold">
-                                <%= typeof direct_active_count !=='undefined' ? direct_active_count : 0 %>
-                            </div>
-                        </div>
-
-                        <div class="p-3 bg-slate-800 rounded-lg">
-                            <div class="text-xs text-slate-400">Per Tap</div>
-                            <div id="perTap" class="text-xl font-bold">₹<%= typeof per_tap_amount !=='undefined' ?
-                                    Number(per_tap_amount).toFixed(2) : '0.01' %>
-                            </div>
-                        </div>
-
-                        <div class="p-3 bg-slate-800 rounded-lg">
-                            <div class="text-xs text-slate-400">Tab Count</div>
-                            <div id="tabCount" class="text-xl font-bold">
-                                <%= typeof tab_count !=='undefined' ? tab_count : 0 %>
-                            </div>
-                        </div>
-
-                        <div class="p-3 bg-slate-800 rounded-lg">
-                            <div class="text-xs text-slate-400">Tab Balance</div>
-                            <div id="tabBalance" class="text-xl font-bold">₹<%= typeof tab_balance !=='undefined' ?
-                                    Number(tab_balance).toFixed(2) : '0.00' %>
-                            </div>
-                        </div>
-
-                        <div class="p-3 bg-slate-800 rounded-lg col-span-2">
-                            <div class="text-xs text-slate-400">Wallet (withdrawable)</div>
-                            <div id="walletBalance" class="text-xl font-bold">₹<%= typeof withdrawable_balance
-                                    !=='undefined' ? Number(withdrawable_balance).toFixed(2) : '0.00' %>
-                            </div>
-                        </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 mt-6">
+                <% if (typeof error !=='undefined' && error) { %>
+                    <div class="p-3 rounded-md bg-red-900/40 text-red-200 mb-4">
+                        <%= error %>
                     </div>
+                    <% } %>
 
-                    <div id="eligibility"
-                        class="mb-4 text-sm <%= (typeof eligible_for_directs !== 'undefined' && eligible_for_directs) ? 'text-emerald-300' : 'text-yellow-300' %>">
-                        <% if (typeof eligible_for_directs !=='undefined' && eligible_for_directs) { %>
-                            You are eligible to tap (have <strong>
-                                <%= direct_active_count %>
-                            </strong> active directs).
-                            <% } else { %>
-                                Not eligible. You have <strong>
+                        <p class="text-sm text-slate-400 mb-3">
+                            Tap to earn. You must have <strong>5 direct active referrals</strong> to play.
+                            Tab fills at <strong>₹100</strong> — when reached, ₹100 is credited to your wallet (once)
+                            and logged.
+                        </p>
+
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div class="p-3 bg-slate-800 rounded-lg">
+                                <div class="text-xs text-slate-400">Direct Active Referrals</div>
+                                <div id="directCount" class="text-xl font-bold">
+                                    <%= typeof direct_active_count !=='undefined' ? direct_active_count : 0 %>
+                                </div>
+                            </div>
+
+                            <div class="p-3 bg-slate-800 rounded-lg">
+                                <div class="text-xs text-slate-400">Per Tap</div>
+                                <div id="perTap" class="text-xl font-bold">₹<%= typeof per_tap_amount !=='undefined' ?
+                                        Number(per_tap_amount).toFixed(2) : '0.01' %>
+                                </div>
+                            </div>
+
+                            <div class="p-3 bg-slate-800 rounded-lg">
+                                <div class="text-xs text-slate-400">Tab Count</div>
+                                <div id="tabCount" class="text-xl font-bold">
+                                    <%= typeof tab_count !=='undefined' ? tab_count : 0 %>
+                                </div>
+                            </div>
+
+                            <div class="p-3 bg-slate-800 rounded-lg">
+                                <div class="text-xs text-slate-400">Tab Balance</div>
+                                <div id="tabBalance" class="text-xl font-bold">₹<%= typeof tab_balance !=='undefined' ?
+                                        Number(tab_balance).toFixed(2) : '0.00' %>
+                                </div>
+                            </div>
+
+                            <div class="p-3 bg-slate-800 rounded-lg col-span-2">
+                                <div class="text-xs text-slate-400">Wallet (withdrawable)</div>
+                                <div id="walletBalance" class="text-xl font-bold">₹<%= typeof withdrawable_balance
+                                        !=='undefined' ? Number(withdrawable_balance).toFixed(2) : '0.00' %>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="eligibility"
+                            class="mb-4 text-sm <%= (typeof eligible_for_directs !== 'undefined' && eligible_for_directs) ? 'text-emerald-300' : 'text-yellow-300' %>">
+                            <% if (typeof eligible_for_directs !=='undefined' && eligible_for_directs) { %>
+                                You are eligible to tap (have <strong>
                                     <%= direct_active_count %>
-                                </strong> active directs. You need <strong>
-                                    <%= Math.max(0, 5 - (direct_active_count || 0)) %>
-                                </strong> more to unlock tapping.
-                                <% } %>
-                    </div>
-
-                    <% if (typeof auto_credited_amount !=='undefined' && auto_credited_amount> 0) { %>
-                        <div id="autoCreditNotice" class="mb-4 p-3 rounded-md bg-green-900/40 text-green-200">
-                            Auto credited ₹<%= Number(auto_credited_amount).toFixed(2) %> to your wallet.
+                                </strong> active directs).
+                                <% } else { %>
+                                    Not eligible. You have <strong>
+                                        <%= direct_active_count %>
+                                    </strong> active directs. You need <strong>
+                                        <%= Math.max(0, 5 - (direct_active_count || 0)) %>
+                                    </strong> more to unlock tapping.
+                                    <% } %>
                         </div>
-                        <% } %>
 
-                            <button id="tapBtn"
-                                class="w-full px-4 py-3 rounded-lg bg-amber-500 text-slate-900 font-semibold shadow transform transition-transform">
-                                Tap!
-                            </button>
-
-                            <div id="message" class="mt-4 text-sm text-slate-300"></div>
-
-                            <!-- animation container (fixed on viewport) -->
-                            <div id="anim" class="fixed left-0 top-0 w-full h-full pointer-events-none"></div>
-
-
-                            <div class="text-center mt-6 text-xs text-slate-500">
-                                Note: Tab balance is not withdrawable until it reaches ₹100. When eligible, it will be
-                                auto-added to
-                                your wallet and logged in transactions.
+                        <% if (typeof auto_credited_amount !=='undefined' && auto_credited_amount> 0) { %>
+                            <div id="autoCreditNotice" class="mb-4 p-3 rounded-md bg-green-900/40 text-green-200">
+                                Auto credited ₹<%= Number(auto_credited_amount).toFixed(2) %> to your wallet.
                             </div>
+                            <% } %>
+
+                                <button id="tapBtn"
+                                    class="w-full px-4 py-3 rounded-lg bg-amber-500 text-slate-900 font-semibold shadow transform transition-transform">
+                                    Tap!
+                                </button>
+
+                                <div id="message" class="mt-4 text-sm text-slate-300"></div>
+
+                                <!-- animation container (fixed on viewport) -->
+                                <div id="anim" class="fixed left-0 top-0 w-full h-full pointer-events-none"></div>
+                                <div class="text-center mt-6 text-xs text-slate-500">
+                                    Note: Tab balance is not withdrawable until it reaches ₹100. When eligible, it will
+                                    be
+                                    auto-added to
+                                    your wallet and logged in transactions.
+                                </div>
+            </div>
         </div>
     </section>
 

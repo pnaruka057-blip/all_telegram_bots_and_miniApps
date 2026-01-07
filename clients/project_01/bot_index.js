@@ -1,6 +1,7 @@
 // clients/project_01/bot_index.js
 const crypto = require("crypto");
 const { Markup } = require("telegraf");
+const { project_01_connection } = require("../../globle_helper/mongoDB_connection");
 
 const user_model = require("./models/user_module");
 const invite_model = require("./models/invite_model");
@@ -8,8 +9,10 @@ const transactions_model = require("./models/transactions_model");
 const other_model = require("./models/other_model"); // <-- commission rates
 const encode_payload = require("./helpers/encode_payload");
 
+
 // In-memory user flow state (use Redis/session in production)
 const userState = new Map(); // telegram_user_id -> { step, data }
+
 
 function setState(tgUserId, step, data = {}) {
     userState.set(tgUserId, { step, data });
@@ -21,14 +24,17 @@ function clearState(tgUserId) {
     userState.delete(tgUserId);
 }
 
+
 function normalizeStr(s) {
     return (s || "").toString().trim();
 }
+
 
 function getUpiString(v) {
     if (typeof v !== "string") return "";
     return v.trim();
 }
+
 
 function isValidUpi(upi) {
     const u = (upi || "").trim();
@@ -36,11 +42,13 @@ function isValidUpi(upi) {
     return /^[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}$/i.test(u);
 }
 
+
 function parseAmount(text) {
     const n = Number(String(text || "").replace(/[^\d.]/g, ""));
     if (!Number.isFinite(n)) return null;
     return Math.floor(n * 100) / 100;
 }
+
 
 /**
  * Generate a unique invite code.
@@ -65,39 +73,58 @@ async function generateUniqueInviteCode(maxAttempts = 200) {
     throw new Error("Failed to generate unique invite code after many attempts");
 }
 
-function introText() {
-    return (
-        "Welcome to Project 01.\n\n" +
-        "You can manage your balance, invites, withdrawals, and reports using the menu.\n" +
-        "To activate your account, please complete the first deposit."
-    );
+
+function introText(first_name, is_active) {
+    if (is_active) {
+        return (
+            `Hello ${first_name}\n` +
+            `Thanks for trusting our services. We truly appreciate your support and confidence in NetWorth Rewards. We're committed to helping you succeed in your trading profit journey with integrity and experience.\n\n` +
+            `Your account is already active. You can select options from the bottom menu to continue.`
+        );
+    } else {
+        return (
+            `Hello ${first_name}\n` +
+            `Thanks for trusting our services. We truly appreciate your support and confidence in NetWorth Rewards. We're committed to helping you succeed in your trading profit journey with integrity and experience.\n\n` +
+            `To activate your account, you need to complete a first deposit of ₹1000. After the deposit, your ID will be activated.`
+        );
+    }
 }
 
+
 function pendingMenu() {
-    return Markup.keyboard([["First Deposit ₹1000"]]).resize().persistent();
+    return Markup.keyboard([["💳 First Deposit ₹1000 ✅"]])
+        .resize()
+        .persistent();
 }
+
 
 function activeMenu() {
     return Markup.keyboard([
-        ["Check Balance", "Invite", "Daily Bonus"],
-        ["Team Report", "Transactions Report"],
-        ["Withdraw", "Add Payment Details"],
+        ["🔗 Invite", "🎁 Daily Bonus"],
+        ["💰 Check Balance"],
+        ["🧾 Transactions Report"],
+        ["💳 Add Payment Details"],
+        ["👥 Team Report", "🏧 Withdraw"],
     ])
         .resize()
         .persistent();
 }
 
+
 async function sendMenu(ctx, userDoc) {
+    const tg = ctx.from;
     if (!userDoc || userDoc.registration_status !== "ACTIVE") {
-        return ctx.reply("Menu (Activation required):", pendingMenu());
+        return ctx.reply(introText(tg?.first_name, false), pendingMenu());
     }
-    return ctx.reply("Menu:", activeMenu());
+    return ctx.reply(introText(tg?.first_name, true), activeMenu());
 }
+
 
 function getInviteBotLink(inviteCode) {
     const botUsername = process.env.BOT_USERNAME_PROJECT_01;
     return `https://t.me/${botUsername}?start=${encodeURIComponent(inviteCode)}`;
 }
+
 
 function getMiniAppLink(type, userDB_id) {
     const payload = `project-01:${type}:${userDB_id}`;
@@ -105,6 +132,7 @@ function getMiniAppLink(type, userDB_id) {
         payload
     )}`;
 }
+
 
 /**
  * Distribute registration commission up to 7 levels.
@@ -115,184 +143,242 @@ function getMiniAppLink(type, userDB_id) {
  * @param {Object} newUserDoc - The Mongoose document of the newly activated user
  * @param {Number} amount - deposit amount (number)
  */
-async function distributeRegistrationCommission(bot, newUserDoc, amount) {
+async function distributeRegistrationCommission(bot, newUserDoc, amount, session = null) {
     if (!newUserDoc || !newUserDoc._id) return;
     if (!amount || amount <= 0) return;
 
-    // Load commission rates (explicitly look for a config doc named commission_rates)
-    const ratesDoc = await other_model.findOne({ document_name: "commission_rates" }) || null;
-    if (!ratesDoc) {
-        // No rates configured - nothing to distribute
-        return;
+    let ownSession = false;
+    if (!session) {
+        session = await project_01_connection.startSession();
+        session.startTransaction();
+        ownSession = true;
     }
 
-    // Helper to fetch rate for level n
-    const getRateForLevel = (n) => {
-        const key = `level_${n}_rate`;
-        const val = ratesDoc[key];
-        return typeof val === "number" && !Number.isNaN(val) ? Number(val) : 0;
-    };
-
-    // Walk the invite chain upwards: start by taking the relation where invite_to_userDB_id = newUserDoc._id
-    // At each step, find the invited_by_userDB_id (the inviter). Continue up to 7 levels or until no inviter found.
-    let currentInviteToId = newUserDoc._id;
-    for (let level = 1; level <= 7; level++) {
-        // Find the direct invite document where invite_to_userDB_id = currentInviteToId
-        // This gives us who invited the current node
-        const inviteRel = await invite_model.findOne({
-            invite_to_userDB_id: currentInviteToId,
-        }).select("invited_by_userDB_id invite_to_userDB_id code earned_commission").lean();
-
-        if (!inviteRel || !inviteRel.invited_by_userDB_id) {
-            // no further inviter
-            break;
+    try {
+        // Load commission rates (explicitly look for a config doc named commission_rates)
+        const ratesDoc = await other_model.findOne({ document_name: "commission_rates" }).session(session) || null;
+        if (!ratesDoc) {
+            // No rates configured - nothing to distribute
+            if (ownSession) {
+                await session.commitTransaction();
+                session.endSession();
+            }
+            return;
         }
 
-        const inviterId = inviteRel.invited_by_userDB_id;
-        const rate = getRateForLevel(level);
-        if (rate > 0) {
-            // compute commission amount (2 decimal places)
-            const commission = Number(((amount * rate) / 100).toFixed(2));
+        // Helper to fetch rate for level n
+        const getRateForLevel = (n) => {
+            const key = `level_${n}_rate`;
+            const val = ratesDoc[key];
+            return typeof val === "number" && !Number.isNaN(val) ? Number(val) : 0;
+        };
 
-            if (commission > 0) {
-                // Credit inviter's wallet (atomic $inc)
-                await user_model.updateOne({ _id: inviterId }, { $inc: { wallet_balance: commission } });
+        // Walk the invite chain upwards: start by taking the relation where invite_to_userDB_id = newUserDoc._id
+        // At each step, find the invited_by_userDB_id (the inviter). Continue up to 7 levels or until no inviter found.
+        let currentInviteToId = newUserDoc._id;
+        for (let level = 1; level <= 7; level++) {
+            // Find the direct invite document where invite_to_userDB_id = currentInviteToId
+            // This gives us who invited the current node
+            const inviteRel = await invite_model.findOne({
+                invite_to_userDB_id: currentInviteToId,
+            }).select("invited_by_userDB_id invite_to_userDB_id code earned_commission").session(session).lean();
 
-                // Create a transaction record for this commission
-                const note = `Invite commission: Level ${level} (${rate}%)`;
-                await transactions_model.create({
-                    userDB_id: inviterId,
-                    type: "I",
-                    amount: commission,
-                    status: "S", // success (credited)
-                    note,
-                    created_at: new Date(),
-                });
+            if (!inviteRel || !inviteRel.invited_by_userDB_id) {
+                // no further inviter
+                break;
+            }
 
-                // Update the earned_commission on the invite relation between inviter -> invitee (if that relation exists)
-                await invite_model.updateOne(
-                    { invited_by_userDB_id: inviterId, invite_to_userDB_id: currentInviteToId },
-                    { $inc: { earned_commission: commission } }
-                );
+            const inviterId = inviteRel.invited_by_userDB_id;
+            const rate = getRateForLevel(level);
+            if (rate > 0) {
+                // compute commission amount (2 decimal places)
+                const commission = Number(((amount * rate) / 100).toFixed(2));
 
-                // Fetch inviter user data to send message
-                const inviterDoc = await user_model.findById(inviterId).select("user_id first_name username wallet_balance").lean();
-                if (inviterDoc && inviterDoc.user_id) {
-                    // get updated balance
-                    const freshInviter = await user_model.findById(inviterId).select("wallet_balance").lean();
-                    const newBalance = (freshInviter && freshInviter.wallet_balance) ? freshInviter.wallet_balance : 0;
+                if (commission > 0) {
+                    // Credit inviter's wallet (atomic $inc)
+                    await user_model.updateOne(
+                        { _id: inviterId },
+                        { $inc: { wallet_balance: commission } },
+                        { session }
+                    );
 
-                    // Compose message (formal).
-                    const fromUserRef = newUserDoc.username ? `@${newUserDoc.username}` : (newUserDoc.user_id || String(newUserDoc._id));
-                    const message = [
-                        `A commission has been credited to your account.`,
-                        ``,
-                        `Amount: ₹${commission}`,
-                        `Level: ${level}`,
-                        `Rate: ${rate}%`,
-                        `From: ${fromUserRef}`,
-                        `Your updated wallet balance is: ₹${newBalance}`,
-                        ``,
-                        `Note: This is an invite commission for a user's first deposit.`
-                    ].join("\n");
+                    // Create a transaction record for this commission
+                    const note = `Invite commission: Level ${level} (${rate}%)`;
+                    await transactions_model.create([{
+                        userDB_id: inviterId,
+                        type: "I",
+                        amount: commission,
+                        status: "S", // success (credited)
+                        note,
+                        created_at: new Date(),
+                    }], { session });
 
-                    // Send message; swallow errors (user may have blocked bot)
-                    try {
-                        await bot.telegram.sendMessage(inviterDoc.user_id, message);
-                    } catch (sendErr) {
-                        console.error(`Failed to send commission message to user ${inviterDoc.user_id}:`, sendErr);
-                        // continue distributing to other levels
+                    // Update the earned_commission on the invite relation between inviter -> invitee (if that relation exists)
+                    await invite_model.updateOne(
+                        { invited_by_userDB_id: inviterId, invite_to_userDB_id: currentInviteToId },
+                        { $inc: { earned_commission: commission } },
+                        { session }
+                    );
+
+                    // Fetch inviter user data to send message
+                    const inviterDoc = await user_model.findById(inviterId).select("user_id first_name username wallet_balance").session(session).lean();
+                    if (inviterDoc && inviterDoc.user_id) {
+                        // get updated balance
+                        const freshInviter = await user_model.findById(inviterId).select("wallet_balance").session(session).lean();
+                        const newBalance = (freshInviter && freshInviter.wallet_balance) ? freshInviter.wallet_balance : 0;
+
+                        // Compose message (formal).
+                        const fromUserRef = newUserDoc.username ? `@${newUserDoc.username}` : (newUserDoc.user_id || String(newUserDoc._id));
+                        const message = [
+                            `A commission has been credited to your account.`,
+                            ``,
+                            `Amount: ₹${commission}`,
+                            `Level: ${level}`,
+                            `Rate: ${rate}%`,
+                            `From: ${fromUserRef}`,
+                            `Your updated wallet balance is: ₹${newBalance}`,
+                            ``,
+                            `Note: This is an invite commission for a user's first deposit.`
+                        ].join("\n");
+
+                        // Send message; swallow errors (user may have blocked bot)
+                        try {
+                            await bot.telegram.sendMessage(inviterDoc.user_id, message);
+                        } catch (sendErr) {
+                            console.error(`Failed to send commission message to user ${inviterDoc.user_id}:`, sendErr);
+                            // continue distributing to other levels
+                        }
                     }
                 }
             }
+
+            // Move up the chain: now consider who invited this inviter
+            currentInviteToId = inviterId;
         }
 
-        // Move up the chain: now consider who invited this inviter
-        currentInviteToId = inviterId;
+        if (ownSession) {
+            await session.commitTransaction();
+            session.endSession();
+        }
+    } catch (err) {
+        if (ownSession) {
+            try { await session.abortTransaction(); } catch (e) { /* ignore */ }
+            session.endSession();
+        }
+        throw err;
     }
 }
 
-async function upsertUserFromCtx(ctx) {
+
+async function upsertUserFromCtx(ctx, session = null) {
     const tg = ctx.from;
     const telegramUserId = tg?.id;
 
-    let user = await user_model.findOne({ user_id: telegramUserId });
+    let ownSession = false;
+    if (!session) {
+        session = await project_01_connection.startSession();
+        session.startTransaction();
+        ownSession = true;
+    }
 
-    if (!user) {
-        // generate a unique code
-        const invite_code = await generateUniqueInviteCode();
-        user = await user_model.create({
-            user_id: telegramUserId,
-            first_name: normalizeStr(tg.first_name),
-            last_name: normalizeStr(tg.last_name),
-            username: normalizeStr(tg.username),
-            allows_write_to_pm: Boolean(tg.allows_write_to_pm),
-            invite_code,
-            registration_status: "PENDING",
-            wallet_balance: 0,
-            created_at: new Date(),
-        });
+    try {
+        let user = await user_model.findOne({ user_id: telegramUserId }).session(session);
 
-        // DOUBLE-CHECK uniqueness (rare race) and fix if conflict exists
-        let safetyAttempts = 0;
-        while (safetyAttempts < 20) {
-            const conflict = await user_model.findOne({
-                invite_code: user.invite_code,
-                _id: { $ne: user._id },
-            }).select("_id").lean();
-            if (!conflict) break; // unique
-            // conflict found - regenerate and update user record
-            const newCode = await generateUniqueInviteCode();
-            await user_model.updateOne({ _id: user._id }, { $set: { invite_code: newCode } });
-            user = await user_model.findById(user._id);
-            safetyAttempts++;
-        }
-        if (safetyAttempts >= 20) {
-            console.error("Warning: high number of invite_code conflicts while creating user:", user._id);
-        }
-    } else {
-        await user_model.updateOne(
-            { _id: user._id },
-            {
-                $set: {
-                    first_name: normalizeStr(tg.first_name),
-                    last_name: normalizeStr(tg.last_name),
-                    username: normalizeStr(tg.username),
-                    allows_write_to_pm: Boolean(tg.allows_write_to_pm),
-                },
+        if (!user) {
+            // generate a unique code
+            const invite_code = await generateUniqueInviteCode();
+            user = await user_model.create([{
+                user_id: telegramUserId,
+                first_name: normalizeStr(tg.first_name),
+                last_name: normalizeStr(tg.last_name),
+                username: normalizeStr(tg.username),
+                allows_write_to_pm: Boolean(tg.allows_write_to_pm),
+                invite_code,
+                registration_status: "PENDING",
+                wallet_balance: 0,
+                created_at: new Date(),
+            }], { session });
+
+            user = user && user[0] ? user[0] : null;
+
+            // DOUBLE-CHECK uniqueness (rare race) and fix if conflict exists
+            let safetyAttempts = 0;
+            while (safetyAttempts < 20) {
+                const conflict = await user_model.findOne({
+                    invite_code: user.invite_code,
+                    _id: { $ne: user._id },
+                }).select("_id").session(session).lean();
+
+                if (!conflict) break; // unique
+
+                // conflict found - regenerate and update user record
+                const newCode = await generateUniqueInviteCode();
+                await user_model.updateOne({ _id: user._id }, { $set: { invite_code: newCode } }, { session });
+                user = await user_model.findById(user._id).session(session);
+                safetyAttempts++;
             }
-        );
-        user = await user_model.findById(user._id);
-    }
-
-    // If user existed but somehow has no invite_code, create one and ensure uniqueness
-    if (!user.invite_code) {
-        const invite_code = await generateUniqueInviteCode();
-        await user_model.updateOne({ _id: user._id }, { $set: { invite_code } });
-        user = await user_model.findById(user._id);
-
-        // Double-check uniqueness again
-        let safetyAttempts = 0;
-        while (safetyAttempts < 20) {
-            const conflict = await user_model.findOne({
-                invite_code: user.invite_code,
-                _id: { $ne: user._id },
-            }).select("_id").lean();
-            if (!conflict) break;
-            const newCode = await generateUniqueInviteCode();
-            await user_model.updateOne({ _id: user._id }, { $set: { invite_code: newCode } });
-            user = await user_model.findById(user._id);
-            safetyAttempts++;
+            if (safetyAttempts >= 20) {
+                console.error("Warning: high number of invite_code conflicts while creating user:", user._id);
+            }
+        } else {
+            await user_model.updateOne(
+                { _id: user._id },
+                {
+                    $set: {
+                        first_name: normalizeStr(tg.first_name),
+                        last_name: normalizeStr(tg.last_name),
+                        username: normalizeStr(tg.username),
+                        allows_write_to_pm: Boolean(tg.allows_write_to_pm),
+                    },
+                },
+                { session }
+            );
+            user = await user_model.findById(user._id).session(session);
         }
-        if (safetyAttempts >= 20) {
-            console.error("Warning: high number of invite_code conflicts while ensuring invite_code:", user._id);
-        }
-    }
 
-    return user;
+        // If user existed but somehow has no invite_code, create one and ensure uniqueness
+        if (!user.invite_code) {
+            const invite_code = await generateUniqueInviteCode();
+            await user_model.updateOne({ _id: user._id }, { $set: { invite_code } }, { session });
+            user = await user_model.findById(user._id).session(session);
+
+            // Double-check uniqueness again
+            let safetyAttempts = 0;
+            while (safetyAttempts < 20) {
+                const conflict = await user_model.findOne({
+                    invite_code: user.invite_code,
+                    _id: { $ne: user._id },
+                }).select("_id").session(session).lean();
+
+                if (!conflict) break;
+
+                const newCode = await generateUniqueInviteCode();
+                await user_model.updateOne({ _id: user._id }, { $set: { invite_code: newCode } }, { session });
+                user = await user_model.findById(user._id).session(session);
+                safetyAttempts++;
+            }
+            if (safetyAttempts >= 20) {
+                console.error("Warning: high number of invite_code conflicts while ensuring invite_code:", user._id);
+            }
+        }
+
+        if (ownSession) {
+            await session.commitTransaction();
+            session.endSession();
+        }
+
+        return user;
+    } catch (err) {
+        if (ownSession) {
+            try { await session.abortTransaction(); } catch (e) { /* ignore */ }
+            session.endSession();
+        }
+        throw err;
+    }
 }
 
-async function handleStartPayload(payload, newUserDoc) {
+
+async function handleStartPayload(payload, newUserDoc, session = null) {
     const code = (payload || "").trim();
     if (!code) return;
     if (!newUserDoc) return;
@@ -300,48 +386,87 @@ async function handleStartPayload(payload, newUserDoc) {
     // Ignore self-invite
     if (code === newUserDoc.invite_code) return;
 
-    const inviter = await user_model.findOne({ invite_code: code }).select("_id").lean();
-    if (!inviter) return;
+    let ownSession = false;
+    if (!session) {
+        session = await project_01_connection.startSession();
+        session.startTransaction();
+        ownSession = true;
+    }
 
-    // Save direct invite relation once 
-    const exists = await invite_model.findOne({
-        invited_by_userDB_id: inviter._id,
-        invite_to_userDB_id: newUserDoc._id,
-    }).lean();
+    try {
+        const inviter = await user_model.findOne({ invite_code: code }).select("_id").session(session).lean();
+        if (!inviter) {
+            if (ownSession) {
+                await session.commitTransaction();
+                session.endSession();
+            }
+            return;
+        }
 
-    if (!exists) {
-        await invite_model.create({
-            code,
+        // Save direct invite relation once
+        const exists = await invite_model.findOne({
             invited_by_userDB_id: inviter._id,
             invite_to_userDB_id: newUserDoc._id,
-            earned_commission: 0,
-            created_at: new Date(),
-        });
+        }).session(session).lean();
+
+        if (!exists) {
+            await invite_model.create([{
+                code,
+                invited_by_userDB_id: inviter._id,
+                invite_to_userDB_id: newUserDoc._id,
+                earned_commission: 0,
+                created_at: new Date(),
+            }], { session });
+        }
+
+        if (ownSession) {
+            await session.commitTransaction();
+            session.endSession();
+        }
+    } catch (err) {
+        if (ownSession) {
+            try { await session.abortTransaction(); } catch (e) { /* ignore */ }
+            session.endSession();
+        }
+        throw err;
     }
 }
+
 
 module.exports = (bot) => {
     // /start
     bot.start(async (ctx) => {
+        let session = null;
         try {
             clearState(ctx.from.id);
 
-            const user = await upsertUserFromCtx(ctx);
+            session = await project_01_connection.startSession();
+            session.startTransaction();
+
+            const user = await upsertUserFromCtx(ctx, session);
 
             const payload =
                 ctx.startPayload ||
                 ctx.message?.text?.split(" ")?.slice(1)?.join(" ") ||
                 "";
 
-            await handleStartPayload(payload, user);
+            await handleStartPayload(payload, user, session);
 
-            await ctx.reply(introText());
+            await session.commitTransaction();
+            session.endSession();
+            session = null;
+
             await sendMenu(ctx, user);
         } catch (err) {
             console.error("start error:", err);
+            if (session) {
+                try { await session.abortTransaction(); } catch (e) { /* ignore */ }
+                session.endSession();
+            }
             ctx.reply("Something went wrong. Please try again.");
         }
     });
+
 
     async function ensureUser(ctx) {
         const user = await user_model.findOne({ user_id: ctx.from.id });
@@ -351,6 +476,7 @@ module.exports = (bot) => {
         }
         return user;
     }
+
 
     async function ensureActive(ctx) {
         const user = await ensureUser(ctx);
@@ -366,10 +492,11 @@ module.exports = (bot) => {
         return user;
     }
 
+
     // ------------------------
     // PENDING: First deposit
     // ------------------------
-    bot.hears("First Deposit ₹1000", async (ctx) => {
+    bot.hears("💳 First Deposit ₹1000 ✅", async (ctx) => {
         try {
             const user = await ensureUser(ctx);
             if (!user) return;
@@ -398,6 +525,7 @@ module.exports = (bot) => {
         }
     });
 
+
     // Helper: create and start verifying spinner (edits a message every 500ms with ., .., ...)
     async function sendVerifyingSpinner(ctx) {
         try {
@@ -422,9 +550,11 @@ module.exports = (bot) => {
         }
     }
 
+
     // Demo payment success -> Activate account
     bot.action("P01_PAY_DONE_DEMO", async (ctx) => {
         let spinner = null;
+        let session = null;
         try {
             await ctx.answerCbQuery();
 
@@ -436,27 +566,36 @@ module.exports = (bot) => {
                 return;
             }
 
-            // Set active (mark immediately so other flows see change)
-            await user_model.updateOne(
-                { _id: user._id },
-                { $set: { registration_status: "ACTIVE" } }
-            );
-
             // For demo, deposit amount is 1000. If you have real amount, pass that value here.
             const depositAmount = 1000;
-
-            // Refresh user doc
-            const fresh = await user_model.findById(user._id);
 
             // Send verifying spinner and start editing every 500ms
             spinner = await sendVerifyingSpinner(ctx);
 
+            session = await project_01_connection.startSession();
+            session.startTransaction();
+
+            // Set active (mark immediately so other flows see change)
+            await user_model.updateOne(
+                { _id: user._id },
+                { $set: { registration_status: "ACTIVE" } },
+                { session }
+            );
+
+            // Refresh user doc
+            const fresh = await user_model.findById(user._id).session(session);
+
             // Distribute commission up to 7 levels — pass bot so messages can be sent
             try {
-                await distributeRegistrationCommission(bot, fresh, depositAmount);
+                await distributeRegistrationCommission(bot, fresh, depositAmount, session);
             } catch (distErr) {
                 console.error("Commission distribution error:", distErr);
+                throw distErr;
             }
+
+            await session.commitTransaction();
+            session.endSession();
+            session = null;
 
             // Stop spinner and delete verifying message
             if (spinner && spinner.interval) {
@@ -474,6 +613,12 @@ module.exports = (bot) => {
             await sendMenu(ctx, fresh);
         } catch (err) {
             console.error("pay demo error:", err);
+
+            if (session) {
+                try { await session.abortTransaction(); } catch (e) { /* ignore */ }
+                session.endSession();
+            }
+
             // ensure spinner cleared if error
             if (spinner && spinner.interval) clearInterval(spinner.interval);
             if (spinner && spinner.chatId && spinner.messageId) {
@@ -484,6 +629,7 @@ module.exports = (bot) => {
             ctx.reply("Something went wrong. Please try again.");
         }
     });
+
 
     bot.action("P01_MENU", async (ctx) => {
         try {
@@ -497,10 +643,11 @@ module.exports = (bot) => {
         }
     });
 
+
     // ------------------------
-    // ACTIVE: Check balance
+    // ACTIVE: Check Balance
     // ------------------------
-    bot.hears("Check Balance", async (ctx) => {
+    bot.hears("💰 Check Balance", async (ctx) => {
         try {
             const user = await ensureActive(ctx);
             if (!user) return;
@@ -515,10 +662,11 @@ module.exports = (bot) => {
         }
     });
 
+
     // ------------------------
     // ACTIVE: Invite link
     // ------------------------
-    bot.hears("Invite", async (ctx) => {
+    bot.hears("🔗 Invite", async (ctx) => {
         try {
             const user = await ensureActive(ctx);
             if (!user) return;
@@ -533,10 +681,11 @@ module.exports = (bot) => {
         }
     });
 
+
     // ------------------------
     // ACTIVE: Daily Bonus -> mini app
     // ------------------------
-    bot.hears("Daily Bonus", async (ctx) => {
+    bot.hears("🎁 Daily Bonus", async (ctx) => {
         try {
             const user = await ensureActive(ctx);
             if (!user) return;
@@ -558,10 +707,11 @@ module.exports = (bot) => {
         }
     });
 
+
     // ------------------------
     // ACTIVE: Team Report -> mini app
     // ------------------------
-    bot.hears("Team Report", async (ctx) => {
+    bot.hears("👥 Team Report", async (ctx) => {
         try {
             const user = await ensureActive(ctx);
             if (!user) return;
@@ -577,10 +727,11 @@ module.exports = (bot) => {
         }
     });
 
+
     // ------------------------
     // ACTIVE: Transactions Report -> mini app
     // ------------------------
-    bot.hears("Transactions Report", async (ctx) => {
+    bot.hears("🧾 Transactions Report", async (ctx) => {
         try {
             const user = await ensureActive(ctx);
             if (!user) return;
@@ -598,10 +749,11 @@ module.exports = (bot) => {
         }
     });
 
+
     // ------------------------
     // ACTIVE: Withdraw flow
     // ------------------------
-    bot.hears("Withdraw", async (ctx) => {
+    bot.hears("🏧 Withdraw", async (ctx) => {
         try {
             const user = await ensureActive(ctx);
             if (!user) return;
@@ -627,10 +779,11 @@ module.exports = (bot) => {
         }
     });
 
+
     // ------------------------
     // ACTIVE: Add Payment Details flow
     // ------------------------
-    bot.hears("Add Payment Details", async (ctx) => {
+    bot.hears("💳 Add Payment Details", async (ctx) => {
         try {
             const user = await ensureActive(ctx);
             if (!user) return;
@@ -657,6 +810,7 @@ module.exports = (bot) => {
         }
     });
 
+
     bot.action("P01_UPI_UPDATE_YES", async (ctx) => {
         try {
             await ctx.answerCbQuery();
@@ -667,6 +821,7 @@ module.exports = (bot) => {
             ctx.reply("Something went wrong. Please try again.");
         }
     });
+
 
     bot.action("P01_UPI_UPDATE_NO", async (ctx) => {
         try {
@@ -681,10 +836,12 @@ module.exports = (bot) => {
         }
     });
 
+
     // ------------------------
     // Withdraw confirm callbacks
     // ------------------------
     bot.action("P01_WITHDRAW_CONFIRM_YES", async (ctx) => {
+        let session = null;
         try {
             await ctx.answerCbQuery();
 
@@ -701,27 +858,39 @@ module.exports = (bot) => {
                 return;
             }
 
-            const fresh = await user_model.findById(user._id);
+            session = await project_01_connection.startSession();
+            session.startTransaction();
+
+            const fresh = await user_model.findById(user._id).session(session);
             if ((fresh.wallet_balance || 0) < amount) {
+                await session.abortTransaction();
+                session.endSession();
+                session = null;
+
                 clearState(ctx.from.id);
                 await ctx.reply("Insufficient wallet balance.", activeMenu());
                 return;
             }
 
-            await transactions_model.create({
+            await transactions_model.create([{
                 userDB_id: fresh._id,
                 type: "W",
                 amount,
                 status: "P",
                 note: `Withdraw request to UPI: ${upi_id}`,
                 created_at: new Date(),
-            });
+            }], { session });
 
             // Deduct immediately (simple). Alternative: deduct after admin approval.
             await user_model.updateOne(
                 { _id: fresh._id },
-                { $inc: { wallet_balance: -amount } }
+                { $inc: { wallet_balance: -amount } },
+                { session }
             );
+
+            await session.commitTransaction();
+            session.endSession();
+            session = null;
 
             clearState(ctx.from.id);
             await ctx.reply(
@@ -730,9 +899,14 @@ module.exports = (bot) => {
             );
         } catch (err) {
             console.error("withdraw confirm yes error:", err);
+            if (session) {
+                try { await session.abortTransaction(); } catch (e) { /* ignore */ }
+                session.endSession();
+            }
             ctx.reply("Something went wrong. Please try again.");
         }
     });
+
 
     bot.action("P01_WITHDRAW_CONFIRM_NO", async (ctx) => {
         try {
@@ -746,6 +920,7 @@ module.exports = (bot) => {
             ctx.reply("Something went wrong. Please try again.");
         }
     });
+
 
     // ------------------------
     // Text steps handler (UPI / Amount)
@@ -837,6 +1012,7 @@ module.exports = (bot) => {
             ctx.reply("Something went wrong. Please try again.");
         }
     });
+
 
     // Optional: /menu
     bot.command("menu", async (ctx) => {

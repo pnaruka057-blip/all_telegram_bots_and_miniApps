@@ -164,6 +164,10 @@ app.get('/', (req, res) => {
                     return res.redirect(`${basePath}/daily-bonus?userDB_id=${userDB_id}`);
                 }
 
+                if (type === 'admin') {
+                    return res.redirect(`${basePath}/admin`);
+                }
+
                 return res.redirect(`${basePath}`);
             }
 
