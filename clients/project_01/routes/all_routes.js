@@ -15,6 +15,7 @@ const transactions_model = require("../models/transactions_model");
 const other_model = require("../models/other_model");
 const { Telegraf } = require('telegraf');
 const mongoose = require("mongoose")
+const { verifyCallback } = require("../helpers/watchpay");
 
 app.use(express.static(path.join(__dirname, '..', "public")))
 app.use(expressEjsLayouts);
@@ -35,6 +36,59 @@ let project_01_bot;
 if (process.env.PROJECT_01_NODE_ENV && process.env.PROJECT_01_NODE_ENV !== "development") {
     project_01_bot = new Telegraf(process.env.BOT_TOKEN_PROJECT_01);
 }
+
+// WatchPay deposit notify (x-www-form-urlencoded)
+app.post("/project-01/watchpay/notify/deposit", express.urlencoded({ extended: false }), async (req, res) => {
+    try {
+        const paymentKey = process.env.WATCHPAY_PAYMENT_KEY_TEST;
+        console.log(paymentKey);
+        if (!paymentKey) return res.status(500).send("fail");
+
+        const body = req.body || {};
+
+        // verify sign
+        const ok = verifyCallback(body, paymentKey);
+        if (!ok) return res.status(401).send("fail");
+
+        const mchOrderNo = body.mchOrderNo || body.mch_order_no || "";
+        const tradeResult = String(body.tradeResult || "");
+
+        if (!mchOrderNo) return res.status(400).send("fail");
+
+        // tradeResult=1 => success (as per your doc text)
+        if (tradeResult === "1") {
+            await transactions_model.updateOne(
+                { gateway: "WATCHPAY", mch_order_no: mchOrderNo, type: "D" },
+                {
+                    $set: {
+                        status: "S",
+                        trade_result: tradeResult,
+                        gateway_order_no: body.orderNo || "",
+                        raw_callback: body,
+                    },
+                }
+            );
+        } else {
+            await transactions_model.updateOne(
+                { gateway: "WATCHPAY", mch_order_no: mchOrderNo, type: "D" },
+                {
+                    $set: {
+                        status: "R",
+                        trade_result: tradeResult,
+                        raw_callback: body,
+                        note: "Deposit failed/rejected (WatchPay)",
+                    },
+                }
+            );
+        }
+
+        // IMPORTANT: must return "success" to stop retries
+        return res.send("success");
+    } catch (err) {
+        console.error("watchpay notify error:", err);
+        return res.status(500).send("fail");
+    }
+});
 
 /**
  * USER

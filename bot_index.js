@@ -8,7 +8,7 @@ const invite_model = require("./models/invite_model");
 const transactions_model = require("./models/transactions_model");
 const other_model = require("./models/other_model"); // <-- commission rates
 const encode_payload = require("./helpers/encode_payload");
-const { createDepositOrder } = require("./helpers/watchpay");
+
 
 // In-memory user flow state (use Redis/session in production)
 const userState = new Map(); // telegram_user_id -> { step, data }
@@ -497,7 +497,6 @@ module.exports = (bot) => {
     // PENDING: First deposit
     // ------------------------
     bot.hears("💳 First Deposit ₹1000 ✅", async (ctx) => {
-        let session = null;
         try {
             const user = await ensureUser(ctx);
             if (!user) return;
@@ -507,101 +506,25 @@ module.exports = (bot) => {
                 return;
             }
 
-            // ---- config (India-only) ----
-            const WATCHPAY_BASE_URL = process.env.WATCHPAY_BASE_URL || "https://api.watchglb.com";
-            const WATCHPAY_MCH_ID = process.env.WATCHPAY_MCH_ID; // e.g. 222887002 (test)
-            const WATCHPAY_PAYMENT_KEY = process.env.WATCHPAY_PAYMENT_KEY_TEST; // test key (put in .env)
-            const WATCHPAY_PAY_TYPE = process.env.WATCHPAY_PAY_TYPE || "101"; // India collection
-
-            const GLOBLE_DOMAIN = process.env.GLOBLE_DOMAIN; // e.g. https://your-domain.com
-            const notify_url = `${GLOBLE_DOMAIN}/${process.env.PROJECT_01_TOKEN}/project-01/watchpay/notify/deposit`;
-            const page_url = process.env.WATCHPAY_PAGE_URL || "https://example.com";
-
-            if (!WATCHPAY_MCH_ID || !WATCHPAY_PAYMENT_KEY || !GLOBLE_DOMAIN) {
-                await ctx.reply(
-                    "Deposit is not configured. Missing env vars: WATCHPAY_MCH_ID, WATCHPAY_PAYMENT_KEY_TEST, GLOBLE_DOMAIN"
-                );
-                return;
-            }
-
-            const depositAmount = 1000;
-
-            // unique order id (keep it short & unique)
-            const mch_order_no = `FD${Date.now()}${String(ctx.from.id).slice(-4)}`;
-
-            session = await project_01_connection.startSession();
-            session.startTransaction();
-
-            // create pending deposit txn first
-            const created = await transactions_model.create(
-                [
-                    {
-                        userDB_id: user._id,
-                        type: "D",
-                        amount: depositAmount,
-                        status: "P",
-                        note: "First deposit ₹1000 (WatchPay)",
-                        gateway: "WATCHPAY",
-                        mch_order_no,
-                        created_at: new Date(),
-                    },
-                ],
-                { session }
-            );
-            const tx = created && created[0] ? created[0] : null;
-
-            await session.commitTransaction();
-            session.endSession();
-            session = null;
-
-            // Create order on WatchPay (server-to-server)
-            const resp = await createDepositOrder({
-                baseUrl: WATCHPAY_BASE_URL,
-                mch_id: WATCHPAY_MCH_ID,
-                paymentKey: WATCHPAY_PAYMENT_KEY,
-                notify_url,
-                page_url,
-                mch_order_no,
-                pay_type: WATCHPAY_PAY_TYPE,
-                trade_amount: depositAmount,
-                goods_name: "First Deposit",
-                mch_return_msg: String(user._id), // optional: pass userId
-            });
-
-            if (!resp || resp.respCode !== "SUCCESS") {
-                // mark rejected (optional)
-                await transactions_model.updateOne(
-                    { _id: tx._id },
-                    { $set: { status: "R", note: `Deposit create failed: ${resp?.tradeMsg || "unknown"}` } }
-                );
-
-                await ctx.reply(`Deposit init failed: ${resp?.tradeMsg || "unknown error"}`);
-                return;
-            }
-
-            const payInfo = resp.payInfo;
-            if (!payInfo) {
-                await ctx.reply("Deposit init failed: payInfo missing.");
-                return;
-            }
+            const demoPayUrl =
+                process.env.DEMO_PAYMENT_URL || "https://example.com/pay?amount=1000";
 
             await ctx.reply(
-                `First Deposit: ₹${depositAmount}\n\nPay using the link below:\n${payInfo}\n\nAfter payment, tap “I have paid” to check status.`,
+                "First Deposit: ₹1000\n\nPayment link (demo):\n" +
+                demoPayUrl +
+                "\n\nAfter payment, tap: “I have paid (demo)”",
                 Markup.inlineKeyboard([
-                    [Markup.button.url("Pay Now", payInfo)],
-                    [Markup.button.callback("I have paid ₹1000", `P01_PAY_DONE:${tx._id.toString()}`)],
+                    [Markup.button.url("Pay Now (Demo)", demoPayUrl)],
+                    [Markup.button.callback("I have paid (demo)", "P01_PAY_DONE_DEMO")],
                     [Markup.button.callback("Back to Menu", "P01_MENU")],
                 ])
             );
         } catch (err) {
-            console.error("deposit start error:", err);
-            if (session) {
-                try { await session.abortTransaction(); } catch (e) { }
-                session.endSession();
-            }
+            console.error("deposit error:", err);
             ctx.reply("Something went wrong. Please try again.");
         }
     });
+
 
     // Helper: create and start verifying spinner (edits a message every 500ms with ., .., ...)
     async function sendVerifyingSpinner(ctx) {
@@ -629,104 +552,83 @@ module.exports = (bot) => {
 
 
     // Demo payment success -> Activate account
-    bot.action(/P01_PAY_DONE:(.+)/, async (ctx) => {
+    bot.action("P01_PAY_DONE_DEMO", async (ctx) => {
         let spinner = null;
         let session = null;
-
         try {
             await ctx.answerCbQuery();
 
             const user = await ensureUser(ctx);
             if (!user) return;
 
-            const txId = (ctx.match && ctx.match[1]) ? String(ctx.match[1]) : "";
-            if (!txId) {
-                await ctx.reply("Invalid request. Please try again.");
-                return;
-            }
-
-            spinner = await sendVerifyingSpinner(ctx);
-
-            const tx = await transactions_model.findById(txId).lean();
-            if (!tx || String(tx.userDB_id) !== String(user._id) || tx.type !== "D") {
-                if (spinner?.interval) clearInterval(spinner.interval);
-                if (spinner?.chatId && spinner?.messageId) {
-                    try { await ctx.telegram.deleteMessage(spinner.chatId, spinner.messageId); } catch (e) { }
-                }
-                await ctx.reply("Deposit record not found.", pendingMenu());
-                return;
-            }
-
-            // If callback already confirmed -> activate now
-            if (tx.status !== "S") {
-                if (spinner?.interval) clearInterval(spinner.interval);
-                if (spinner?.chatId && spinner?.messageId) {
-                    try { await ctx.telegram.deleteMessage(spinner.chatId, spinner.messageId); } catch (e) { }
-                }
-
-                await ctx.reply(
-                    "Payment is not confirmed yet.\nIf you have just paid, please wait 1-2 minutes and tap again.",
-                    Markup.inlineKeyboard([
-                        [Markup.button.callback("Check again", `P01_PAY_DONE:${txId}`)],
-                        [Markup.button.callback("Back to Menu", "P01_MENU")],
-                    ])
-                );
-                return;
-            }
-
-            // already active?
             if (user.registration_status === "ACTIVE") {
-                if (spinner?.interval) clearInterval(spinner.interval);
-                if (spinner?.chatId && spinner?.messageId) {
-                    try { await ctx.telegram.deleteMessage(spinner.chatId, spinner.messageId); } catch (e) { }
-                }
                 await ctx.reply("Your account is already active.", activeMenu());
                 return;
             }
 
-            // Activate + distribute commission in one DB transaction
+            // For demo, deposit amount is 1000. If you have real amount, pass that value here.
+            const depositAmount = 1000;
+
+            // Send verifying spinner and start editing every 500ms
+            spinner = await sendVerifyingSpinner(ctx);
+
             session = await project_01_connection.startSession();
             session.startTransaction();
 
+            // Set active (mark immediately so other flows see change)
             await user_model.updateOne(
                 { _id: user._id },
                 { $set: { registration_status: "ACTIVE" } },
                 { session }
             );
 
+            // Refresh user doc
             const fresh = await user_model.findById(user._id).session(session);
 
-            // deposit amount fixed 1000 for first activation
-            await distributeRegistrationCommission(bot, fresh, 1000, session);
+            // Distribute commission up to 7 levels — pass bot so messages can be sent
+            try {
+                await distributeRegistrationCommission(bot, fresh, depositAmount, session);
+            } catch (distErr) {
+                console.error("Commission distribution error:", distErr);
+                throw distErr;
+            }
 
             await session.commitTransaction();
             session.endSession();
             session = null;
 
-            if (spinner?.interval) clearInterval(spinner.interval);
-            if (spinner?.chatId && spinner?.messageId) {
-                try { await ctx.telegram.deleteMessage(spinner.chatId, spinner.messageId); } catch (e) { }
+            // Stop spinner and delete verifying message
+            if (spinner && spinner.interval) {
+                clearInterval(spinner.interval);
+            }
+            if (spinner && spinner.chatId && spinner.messageId) {
+                try {
+                    await ctx.telegram.deleteMessage(spinner.chatId, spinner.messageId);
+                } catch (delErr) {
+                    // ignore deletion errors
+                }
             }
 
-            await ctx.reply("Payment confirmed. Your account is now active.");
+            await ctx.reply("Payment received (demo). Your account is now active.");
             await sendMenu(ctx, fresh);
         } catch (err) {
-            console.error("deposit verify click error:", err);
+            console.error("pay demo error:", err);
 
             if (session) {
-                try { await session.abortTransaction(); } catch (e) { }
+                try { await session.abortTransaction(); } catch (e) { /* ignore */ }
                 session.endSession();
             }
 
-            if (spinner?.interval) clearInterval(spinner.interval);
-            if (spinner?.chatId && spinner?.messageId) {
-                try { await ctx.telegram.deleteMessage(spinner.chatId, spinner.messageId); } catch (e) { }
+            // ensure spinner cleared if error
+            if (spinner && spinner.interval) clearInterval(spinner.interval);
+            if (spinner && spinner.chatId && spinner.messageId) {
+                try {
+                    await ctx.telegram.deleteMessage(spinner.chatId, spinner.messageId);
+                } catch (e) { /* ignore */ }
             }
-
             ctx.reply("Something went wrong. Please try again.");
         }
     });
-
 
 
     bot.action("P01_MENU", async (ctx) => {
