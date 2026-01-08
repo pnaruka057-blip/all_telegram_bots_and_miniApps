@@ -515,6 +515,7 @@ module.exports = (bot) => {
 
             const GLOBLE_DOMAIN = process.env.GLOBLE_DOMAIN; // e.g. https://your-domain.com
             const notify_url = `${GLOBLE_DOMAIN}/${process.env.PROJECT_01_TOKEN}/project-01/watchpay/notify/deposit`;
+            console.log(notify_url);
             const page_url = process.env.WATCHPAY_PAGE_URL || "https://example.com";
 
             if (!WATCHPAY_MCH_ID || !WATCHPAY_PAYMENT_KEY || !GLOBLE_DOMAIN) {
