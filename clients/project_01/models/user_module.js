@@ -22,7 +22,7 @@ const telegramUserSchema = new mongoose.Schema(
         tab_tab_game: {
             balance: { type: Number, default: 0 },
             count: { type: Number, default: 0 },
-            auto_credited_flag: { type: Boolean, default: false }
+            auto_credited_flag: { type: Boolean, default: false } // false = kar sakta ha aaj & true = nahi kar sakta ha tap tap
         },
         bank_details: {
             holder_name: { type: String, default: "", trim: true },

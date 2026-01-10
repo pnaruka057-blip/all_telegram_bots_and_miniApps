@@ -16,7 +16,7 @@ const other_model = require("../models/other_model");
 const { Telegraf, Markup } = require('telegraf');
 const mongoose = require("mongoose")
 const { verifyCallback } = require("../helpers/watchpay");
-const depositAmount = 100;
+const depositAmount = 1000;
 app.use(express.static(path.join(__dirname, '..', "public")))
 app.use(expressEjsLayouts);
 

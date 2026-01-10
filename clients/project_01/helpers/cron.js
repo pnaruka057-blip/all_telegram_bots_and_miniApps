@@ -18,12 +18,33 @@ const { queryTransferOrder } = require("../helpers/watchpay");
 
 function startCron() {
     // Doc suggests every 5 minutes. (If you want 30 min: "*/30 * * * *")
-    cron.schedule("*/4 * * * *", () => {
-        console.log("run cron for payment");
-        runJob().catch(() => { });
-    });
+    // cron.schedule("*/4 * * * *", () => {
+    //     console.log("run cron for payment");
+    //     runJob().catch(() => { });
+    // });
 
-    runJob().catch(() => { });
+    cron.schedule(
+        "0 0 * * *",
+        async () => {
+            try {
+                const result = await user_model.updateMany(
+                    {}, // sabhi users
+                    {
+                        $set: {
+                            "tab_tab_game.balance": 0,
+                            "tab_tab_game.count": 0,
+                            "tab_tab_game.auto_credited_flag": false
+                        }
+                    }
+                );
+            } catch (error) {
+                console.error("❌ Error while resetting tab_tab_game:", error);
+            }
+        },
+        {
+            timezone: "Asia/Kolkata" // IMPORTANT for India
+        }
+    );
 }
 
 // ------------------------- Job Runner -------------------------
