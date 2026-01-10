@@ -14,14 +14,14 @@ const encode_payload = require("./helpers/encode_payload");
 const { createDepositOrder, createWithdrawOrder } = require("./helpers/watchpay");
 const { startCron } = require("./helpers/cron");
 
-const depositAmount = 1000;
+const depositAmount = 100;
 
 // startCron()
 
 // ==============================
 // CONFIG
 // ==============================
-const MIN_WITHDRAW_AMOUNT = 1000;
+const MIN_WITHDRAW_AMOUNT = 100;
 
 // ------------------------------
 // In-memory user flow state
