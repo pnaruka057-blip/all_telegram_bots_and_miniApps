@@ -36,9 +36,9 @@ function pickFirstDefined(obj, keys, fallback = undefined) {
 }
 
 async function runJob() {
-    const WATCHPAYBASEURL = process.env.WATCHPAY_BASE_URL;
-    const WATCHPAYMCHID = process.env.WATCHPAY_MCH_ID;
-    const WATCHPAYPAYMENTKEY = process.env.WATCHPAY_PAYMENT_KEY;
+    const WATCHPAYBASEURL = process.env.PROJECT_01_WATCHPAY_BASE_URL;
+    const WATCHPAYMCHID = process.env.PROJECT_01_WATCHPAY_MCH_ID;
+    const WATCHPAYPAYMENTKEY = process.env.PROJECT_01_WATCHPAY_PAYMENT_KEY;
 
     if (!WATCHPAYBASEURL || !WATCHPAYMCHID || !WATCHPAYPAYMENTKEY) return;
 

@@ -463,17 +463,17 @@ module.exports = (bot) => {
                 return;
             }
 
-            const WATCHPAY_BASE_URL = process.env.WATCHPAY_BASE_URL || "https://api.watchglb.com";
-            const WATCHPAY_MCH_ID = process.env.WATCHPAY_MCH_ID;
-            const WATCHPAY_PAYMENT_KEY = process.env.WATCHPAY_PAYMENT_KEY;
-            const WATCHPAY_PAY_TYPE = process.env.WATCHPAY_PAY_TYPE || "101";
+            const PROJECT_01_WATCHPAY_BASE_URL = process.env.PROJECT_01_WATCHPAY_BASE_URL || "https://api.watchglb.com";
+            const PROJECT_01_WATCHPAY_MCH_ID = process.env.PROJECT_01_WATCHPAY_MCH_ID;
+            const PROJECT_01_WATCHPAY_PAYMENT_KEY = process.env.PROJECT_01_WATCHPAY_PAYMENT_KEY;
+            const PROJECT_01_WATCHPAY_PAY_TYPE = process.env.PROJECT_01_WATCHPAY_PAY_TYPE || "101";
 
             const GLOBLE_DOMAIN = process.env.GLOBLE_DOMAIN;
             const notify_url = `${GLOBLE_DOMAIN}/${process.env.PROJECT_01_TOKEN}/project-01/watchpay/notify/deposit`;
-            const page_url = process.env.WATCHPAY_PAGE_URL || "https://example.com";
+            const page_url = process.env.PROJECT_01_WATCHPAY_PAGE_URL || "https://example.com";
 
-            if (!WATCHPAY_MCH_ID || !WATCHPAY_PAYMENT_KEY || !GLOBLE_DOMAIN) {
-                await ctx.reply("Deposit is not configured. Missing env vars: WATCHPAY_MCH_ID, WATCHPAY_PAYMENT_KEY, GLOBLE_DOMAIN");
+            if (!PROJECT_01_WATCHPAY_MCH_ID || !PROJECT_01_WATCHPAY_PAYMENT_KEY || !GLOBLE_DOMAIN) {
+                await ctx.reply("Deposit is not configured. Missing env vars: PROJECT_01_WATCHPAY_MCH_ID, PROJECT_01_WATCHPAY_PAYMENT_KEY, GLOBLE_DOMAIN");
                 return;
             }
 
@@ -505,13 +505,13 @@ module.exports = (bot) => {
             session = null;
 
             const resp = await createDepositOrder({
-                baseUrl: WATCHPAY_BASE_URL,
-                mch_id: WATCHPAY_MCH_ID,
-                paymentKey: WATCHPAY_PAYMENT_KEY,
+                baseUrl: PROJECT_01_WATCHPAY_BASE_URL,
+                mch_id: PROJECT_01_WATCHPAY_MCH_ID,
+                paymentKey: PROJECT_01_WATCHPAY_PAYMENT_KEY,
                 notify_url,
                 page_url,
                 mch_order_no,
-                pay_type: WATCHPAY_PAY_TYPE,
+                pay_type: PROJECT_01_WATCHPAY_PAY_TYPE,
                 trade_amount: depositAmount,
                 goods_name: "First Deposit",
                 mch_return_msg: String(user._id),
@@ -782,14 +782,14 @@ module.exports = (bot) => {
             }
 
             // env
-            const WATCHPAY_BASE_URL = process.env.WATCHPAY_BASE_URL;
-            const WATCHPAY_MCH_ID = process.env.WATCHPAY_MCH_ID;
-            const WATCHPAY_PAYMENT_KEY = process.env.WATCHPAY_PAYMENT_KEY;
+            const PROJECT_01_WATCHPAY_BASE_URL = process.env.PROJECT_01_WATCHPAY_BASE_URL;
+            const PROJECT_01_WATCHPAY_MCH_ID = process.env.PROJECT_01_WATCHPAY_MCH_ID;
+            const PROJECT_01_WATCHPAY_PAYMENT_KEY = process.env.PROJECT_01_WATCHPAY_PAYMENT_KEY;
             const GLOBLE_DOMAIN = process.env.GLOBLE_DOMAIN;
 
-            if (!WATCHPAY_MCH_ID || !WATCHPAY_PAYMENT_KEY || !GLOBLE_DOMAIN) {
+            if (!PROJECT_01_WATCHPAY_MCH_ID || !PROJECT_01_WATCHPAY_PAYMENT_KEY || !GLOBLE_DOMAIN) {
                 clearState(ctx.from.id);
-                return ctx.reply("Withdraw is not configured. Missing env vars: WATCHPAY_MCH_ID, WATCHPAY_PAYMENT_KEY, GLOBLE_DOMAIN", activeMenu());
+                return ctx.reply("Withdraw is not configured. Missing env vars: PROJECT_01_WATCHPAY_MCH_ID, PROJECT_01_WATCHPAY_PAYMENT_KEY, GLOBLE_DOMAIN", activeMenu());
             }
 
             const back_url = `${GLOBLE_DOMAIN}/${process.env.PROJECT_01_TOKEN}/project-01/watchpay/notify/withdraw`;
@@ -847,9 +847,9 @@ module.exports = (bot) => {
             let resp;
             try {
                 resp = await createWithdrawOrder({
-                    baseUrl: WATCHPAY_BASE_URL,
-                    mch_id: WATCHPAY_MCH_ID,
-                    paymentKey: WATCHPAY_PAYMENT_KEY,
+                    baseUrl: PROJECT_01_WATCHPAY_BASE_URL,
+                    mch_id: PROJECT_01_WATCHPAY_MCH_ID,
+                    paymentKey: PROJECT_01_WATCHPAY_PAYMENT_KEY,
                     mch_transferId,
                     transfer_amount: String(amount), // integer string
                     bank_code: b.bank_code,

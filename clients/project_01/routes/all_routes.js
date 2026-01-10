@@ -88,7 +88,7 @@ async function sendMenuToChat(bot, chatId, userDoc, firstName = "") {
 app.post("/project-01/watchpay/notify/deposit", express.urlencoded({ extended: false }), async (req, res) => {
     let session = null;
     try {
-        const paymentKey = process.env.WATCHPAY_PAYMENT_KEY;
+        const paymentKey = process.env.PROJECT_01_WATCHPAY_PAYMENT_KEY;
         if (!paymentKey) return res.status(500).send("fail");
 
         const body = req.body || {};
@@ -172,7 +172,7 @@ app.post("/project-01/watchpay/notify/deposit", express.urlencoded({ extended: f
 app.post("/project-01/watchpay/notify/withdraw", express.urlencoded({ extended: false }), async (req, res) => {
     let session = null;
     try {
-        const paymentKey = process.env.WATCHPAY_PAYMENT_KEY;
+        const paymentKey = process.env.PROJECT_01_WATCHPAY_PAYMENT_KEY;
         if (!paymentKey) return res.status(500).send("fail");
 
         const body = req.body || {};
