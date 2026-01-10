@@ -1,1009 +1,1485 @@
 <%- include('../partials/header') %>
 
-<%
-  function formatCompact(num) {
-    const n = Number(num || 0);
-    const abs = Math.abs(n);
-
+<% 
+function formatCompact(num) { 
+    const n = Number(num || 0); 
+    const abs = Math.abs(n); 
     if (abs <= 9999) return String(n);
-
-    const units = [
-      { v: 1e9, s: 'B' },
-      { v: 1e6, s: 'M' },
-      { v: 1e3, s: 'K' },
-    ];
-
+    
+    const units = [ 
+        { v: 1e9, s: 'B' }, 
+        { v: 1e6, s: 'M' }, 
+        { v: 1e3, s: 'K' }, 
+    ]; 
     const u = units.find(x => abs >= x.v);
     if (!u) return String(n);
 
     const val = n / u.v;
     const fixed = val >= 100 ? val.toFixed(0) : (val >= 10 ? val.toFixed(1) : val.toFixed(2));
     return fixed.replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1') + u.s;
-  }
+}
 
-  function formatCompactMoney(num) {
+function formatCompactMoney(num) {
     const n = Number(num || 0);
     const abs = Math.abs(n);
-    if (abs <= 9999) return Number(n).toFixed(2);
-    return formatCompact(n);
-  }
+    if (abs <= 9999) return Number(n).toFixed(2); 
+    return formatCompact(n); 
+} 
 
-  function getUpiFromNote(note) {
-    const s = String(note || '');
-    const key = 'Withdraw request to UPI:';
-    if (s.includes(key)) return s.split(key)[1].trim();
-    const key2 = 'UPI:';
-    if (s.includes(key2)) return s.split(key2)[1].trim();
-    return '';
-  }
 %>
 
 <section class="max-w-4xl mx-auto px-4 py-8">
-  <div class="max-w-6xl mx-auto">
+    <div class="max-w-6xl mx-auto">
+        <!-- KPI Cards -->
+        <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg p-4 sm:p-6 shadow-lg">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700 min-w-0">
+                    <div class="text-xs text-slate-400">Total Users</div>
+                    <div id="k_total_users" class="mt-1 text-xl font-bold truncate">
+                        <%= (summary && summary.total_users) ? formatCompact(summary.total_users) : '—' %>
+                    </div>
+                </div>
 
-    <!-- KPI card -->
-    <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg p-4 sm:p-6 shadow-lg">
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700 min-w-0">
-          <div class="text-xs text-slate-400">Total Users</div>
-          <div id="k_total_users" class="mt-1 text-xl font-bold truncate">
-            <%= (summary && summary.total_users) ? formatCompact(summary.total_users) : '—' %>
-          </div>
+                <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700 min-w-0">
+                    <div class="text-xs text-slate-400">Users w/ First Deposit</div>
+                    <div id="k_total_deposit_users" class="mt-1 text-xl font-bold truncate">
+                        <%= (summary && summary.total_users_first_deposit) ? formatCompact(summary.total_users_first_deposit) : '—' %>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700 min-w-0">
+                    <div class="text-xs text-slate-400">Total Deposit</div>
+                    <div id="k_total_deposit" class="mt-1 text-xl font-bold truncate">
+                        ₹<%= (summary && summary.total_deposit) ? formatCompactMoney(summary.total_deposit) : '0.00' %>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700 min-w-0">
+                    <div class="text-xs text-slate-400">Total Withdrawn</div>
+                    <div id="k_total_withdrawn" class="mt-1 text-xl font-bold truncate">
+                        ₹<%= (summary && summary.total_withdrawn) ? formatCompactMoney(summary.total_withdrawn) : '0.00' %>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700 min-w-0">
+                    <div class="text-xs text-slate-400">Total Commission</div>
+                    <div id="k_total_commission" class="mt-1 text-xl font-bold truncate">
+                        ₹<%= (summary && summary.total_commission) ? formatCompactMoney(summary.total_commission) : '0.00' %>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700 min-w-0">
+                    <div class="text-xs text-slate-400">Platform Profit (est.)</div>
+                    <div id="k_owner_profit" class="mt-1 text-xl font-bold truncate">
+                        ₹<%= (summary && summary.owner_profit) ? formatCompactMoney(summary.owner_profit) : '0.00' %>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700 min-w-0">
-          <div class="text-xs text-slate-400">Users w/ First Deposit</div>
-          <div id="k_total_deposit_users" class="mt-1 text-xl font-bold truncate">
-            <%= (summary && summary.total_users_first_deposit) ? formatCompact(summary.total_users_first_deposit) : '—' %>
-          </div>
+        <!-- Withdrawals Panel -->
+        <div class="mt-6 bg-slate-900/40 rounded-lg p-4 sm:p-6 border border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <h2 class="text-lg font-semibold">Withdrawal Requests</h2>
+
+                <div class="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+                    <div class="w-full sm:w-72">
+                        <input id="wdSearchInput" type="search" placeholder="Search Order Id / Bank / User / TX"
+                            class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm" />
+                    </div>
+
+                    <div class="flex items-center w-full">
+                        <div class="text-xs text-slate-400 mr-2 hidden sm:block">Filter:</div>
+                        <div id="filterButtons" class="flex flex-wrap gap-2 justify-end">
+                            <button data-status="Pending"
+                                class="filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm text-sky-300">
+                                Pending
+                            </button>
+                            <button data-status="All"
+                                class="filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
+                                All
+                            </button>
+                            <button data-status="Success"
+                                class="filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
+                                Success
+                            </button>
+                            <button data-status="Reject"
+                                class="filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
+                                Reject
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="withdrawalsContainer" class="mt-4">
+                <div class="text-sm text-slate-400">Loading withdrawals…</div>
+            </div>
+
+            <!-- Pagination (Withdrawals) -->
+            <div class="mt-4 flex items-center justify-between gap-3">
+                <button id="wdPrevBtn"
+                    class="px-3 py-2 rounded-lg bg-slate-700/60 border border-slate-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                    Prev
+                </button>
+                <div id="wdPageLabel" class="text-xs text-slate-400 select-none">1/1</div>
+                <button id="wdNextBtn"
+                    class="px-3 py-2 rounded-lg bg-slate-700/60 border border-slate-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                    Next
+                </button>
+            </div>
+
+            <div id="withdrawalsMeta" class="mt-3 text-xs text-slate-400"></div>
         </div>
 
-        <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700 min-w-0">
-          <div class="text-xs text-slate-400">Total Deposit</div>
-          <div id="k_total_deposit" class="mt-1 text-xl font-bold truncate">
-            ₹<%= (summary && summary.total_deposit) ? formatCompactMoney(summary.total_deposit) : '0.00' %>
-          </div>
+        <!-- Deposits Panel -->
+        <div class="mt-6 bg-slate-900/40 rounded-lg p-4 sm:p-6 border border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <h2 class="text-lg font-semibold">Deposit Requests</h2>
+
+                <div class="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+                    <div class="w-full sm:w-72">
+                        <input id="depositSearchInput" type="search" placeholder="Search Order Id / Gateway Order / User / TX"
+                            class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm" />
+                    </div>
+
+                    <div class="flex items-center w-full">
+                        <div class="text-xs text-slate-400 mr-2 hidden sm:block">Filter:</div>
+                        <div id="depositFilterButtons" class="flex flex-wrap gap-2 justify-end">
+                            <button data-status="Pending"
+                                class="deposit-filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm text-sky-300">
+                                Pending
+                            </button>
+                            <button data-status="All"
+                                class="deposit-filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
+                                All
+                            </button>
+                            <button data-status="Success"
+                                class="deposit-filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
+                                Success
+                            </button>
+                            <button data-status="Reject"
+                                class="deposit-filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
+                                Reject
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="depositsContainer" class="mt-4">
+                <div class="text-sm text-slate-400">Loading deposits…</div>
+            </div>
+
+            <!-- Pagination (Deposits) -->
+            <div class="mt-4 flex items-center justify-between gap-3">
+                <button id="depositPrevBtn"
+                    class="px-3 py-2 rounded-lg bg-slate-700/60 border border-slate-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                    Prev
+                </button>
+                <div id="depositPageLabel" class="text-xs text-slate-400 select-none">1/1</div>
+                <button id="depositNextBtn"
+                    class="px-3 py-2 rounded-lg bg-slate-700/60 border border-slate-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                    Next
+                </button>
+            </div>
+
+            <div id="depositsMeta" class="mt-3 text-xs text-slate-400"></div>
         </div>
 
-        <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700 min-w-0">
-          <div class="text-xs text-slate-400">Total Withdrawn</div>
-          <div id="k_total_withdrawn" class="mt-1 text-xl font-bold truncate">
-            ₹<%= (summary && summary.total_withdrawn) ? formatCompactMoney(summary.total_withdrawn) : '0.00' %>
-          </div>
-        </div>
+        <!-- Users Panel -->
+        <div class="mt-6 bg-slate-900/40 rounded-lg p-4 sm:p-6 border border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <h2 class="text-lg font-semibold">Users</h2>
 
-        <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700 min-w-0">
-          <div class="text-xs text-slate-400">Total Commission</div>
-          <div id="k_total_commission" class="mt-1 text-xl font-bold truncate">
-            ₹<%= (summary && summary.total_commission) ? formatCompactMoney(summary.total_commission) : '0.00' %>
-          </div>
-        </div>
+                <div class="flex flex-col items-center gap-2 w-full sm:w-auto">
+                    <div class="w-full">
+                        <input id="userSearchInput" type="search" placeholder="Search username / name"
+                            class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm" />
+                    </div>
 
-        <div class="p-3 rounded-lg bg-slate-800/60 border border-slate-700 min-w-0">
-          <div class="text-xs text-slate-400">Platform Profit (est.)</div>
-          <div id="k_owner_profit" class="mt-1 text-xl font-bold truncate">
-            ₹<%= (summary && summary.owner_profit) ? formatCompactMoney(summary.owner_profit) : '0.00' %>
-          </div>
+                    <div id="userFilterButtons" class="flex flex-wrap gap-2 w-full">
+                        <button data-status="All"
+                            class="user-filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm text-sky-300">
+                            All
+                        </button>
+                        <button data-status="Pending"
+                            class="user-filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
+                            Pending
+                        </button>
+                        <button data-status="Active"
+                            class="user-filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
+                            Active
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="usersContainer" class="mt-4">
+                <div class="text-sm text-slate-400">Loading users…</div>
+            </div>
+
+            <!-- Pagination (Users) -->
+            <div class="mt-4 flex items-center justify-between gap-3">
+                <button id="uPrevBtn"
+                    class="px-3 py-2 rounded-lg bg-slate-700/60 border border-slate-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                    Prev
+                </button>
+                <div id="uPageLabel" class="text-xs text-slate-400 select-none">1/1</div>
+                <button id="uNextBtn"
+                    class="px-3 py-2 rounded-lg bg-slate-700/60 border border-slate-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                    Next
+                </button>
+            </div>
+
+            <div id="usersMeta" class="mt-3 text-xs text-slate-400"></div>
         </div>
-      </div>
     </div>
-
-    <!-- Withdrawals panel -->
-    <div class="mt-6 bg-slate-900/40 rounded-lg p-4 sm:p-6 border border-slate-800">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h2 class="text-lg font-semibold">Withdrawal Requests</h2>
-
-        <div class="flex-1 flex items-center justify-end">
-          <div class="text-xs text-slate-400 mr-2 hidden sm:block">Filter:</div>
-          <div id="filterButtons" class="flex flex-wrap gap-2 justify-end">
-            <button data-status="Pending"
-              class="filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm text-sky-300">
-              Pending
-            </button>
-            <button data-status="All"
-              class="filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
-              All
-            </button>
-            <button data-status="Success"
-              class="filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
-              Success
-            </button>
-            <button data-status="Reject"
-              class="filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
-              Reject
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div id="withdrawalsContainer" class="mt-4">
-        <div class="text-sm text-slate-400">Loading withdrawals…</div>
-      </div>
-
-      <!-- Pagination (Withdrawals) -->
-      <div class="mt-4 flex items-center justify-between gap-3">
-        <button id="wdPrevBtn" class="px-3 py-2 rounded-lg bg-slate-700/60 border border-slate-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-          Prev
-        </button>
-        <div id="wdPageLabel" class="text-xs text-slate-400 select-none">1/1</div>
-        <button id="wdNextBtn" class="px-3 py-2 rounded-lg bg-slate-700/60 border border-slate-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-          Next
-        </button>
-      </div>
-
-      <div id="withdrawalsMeta" class="mt-3 text-xs text-slate-400"></div>
-    </div>
-
-    <!-- Users panel -->
-    <div class="mt-6 bg-slate-900/40 rounded-lg p-4 sm:p-6 border border-slate-800">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h2 class="text-lg font-semibold">Users</h2>
-
-        <div class="flex items-center gap-2 w-full sm:w-auto">
-          <div class="flex-1">
-            <input id="userSearchInput" type="search" placeholder="Search username / name / user_id"
-              class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm" />
-          </div>
-
-          <div id="userFilterButtons" class="flex flex-wrap gap-2 justify-end">
-            <button data-status="All"
-              class="user-filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm text-sky-300">
-              All
-            </button>
-            <button data-status="Pending"
-              class="user-filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
-              Pending
-            </button>
-            <button data-status="Active"
-              class="user-filter-btn px-3 py-1 rounded-lg bg-slate-700/60 border border-slate-600 text-sm">
-              Active
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div id="usersContainer" class="mt-4">
-        <div class="text-sm text-slate-400">Loading users…</div>
-      </div>
-
-      <!-- Pagination (Users) -->
-      <div class="mt-4 flex items-center justify-between gap-3">
-        <button id="uPrevBtn" class="px-3 py-2 rounded-lg bg-slate-700/60 border border-slate-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-          Prev
-        </button>
-        <div id="uPageLabel" class="text-xs text-slate-400 select-none">1/1</div>
-        <button id="uNextBtn" class="px-3 py-2 rounded-lg bg-slate-700/60 border border-slate-600 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-          Next
-        </button>
-      </div>
-
-      <div id="usersMeta" class="mt-3 text-xs text-slate-400"></div>
-    </div>
-
-  </div>
 </section>
 
-<!-- Reject modal -->
+<!-- Reject Modal (for Withdrawals) -->
 <div id="rejectModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
-  <div class="bg-slate-900 rounded-lg p-4 w-full max-w-md">
-    <h3 class="text-lg font-semibold mb-2">Reject Withdrawal</h3>
-    <div class="text-sm text-slate-400 mb-3">Select a reason (required):</div>
+    <div class="bg-slate-900 rounded-lg p-4 w-full max-w-md">
+        <h3 class="text-lg font-semibold mb-2">Reject Withdrawal</h3>
+        <div class="text-sm text-slate-400 mb-3">Select a reason (required):</div>
 
-    <div id="rejectReasonList" class="space-y-2 mb-4 overflow-y-auto max-h-48">
-      <% (reject_reasons || []).forEach(function(r){ %>
-        <div>
-          <label class="inline-flex items-center gap-2">
-            <input type="radio" name="reject_reason" value="<%= r.key %>" class="reject-radio">
-            <span class="text-sm"><%= r.label %></span>
-          </label>
+        <div id="rejectReasonList" class="space-y-2 mb-4 overflow-y-auto max-h-48">
+            <% (reject_reasons || []).forEach(function(r){ %>
+                <div>
+                    <label class="inline-flex items-center gap-2">
+                        <input type="radio" name="reject_reason" value="<%= r.key %>" class="reject-radio">
+                        <span class="text-sm">
+                            <%= r.label %>
+                        </span>
+                    </label>
+                </div>
+            <% }) %>
         </div>
-      <% }) %>
-    </div>
 
-    <div class="flex justify-end gap-2">
-      <button id="rejectCancel" class="px-3 py-2 rounded-lg bg-slate-700/60">Cancel</button>
-      <button id="rejectConfirm" class="px-3 py-2 rounded-lg bg-red-600 text-white">Reject</button>
+        <div class="flex justify-end gap-2">
+            <button id="rejectCancel" class="px-3 py-2 rounded-lg bg-slate-700/60">Cancel</button>
+            <button id="rejectConfirm" class="px-3 py-2 rounded-lg bg-red-600 text-white">Reject</button>
+        </div>
     </div>
-  </div>
 </div>
 
-<!-- User modal -->
+<!-- User Modal -->
 <div id="userModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
-  <div class="bg-slate-900 rounded-lg p-4 w-full max-w-xl">
-    <div class="flex items-start justify-between gap-3">
-      <div>
-        <h3 id="um_name" class="text-lg font-semibold">User Name</h3>
-        <div id="um_handle" class="text-sm text-slate-400">@username</div>
-      </div>
-      <div class="flex items-center gap-2">
-        <button id="um_close" class="px-3 py-1 rounded-lg bg-slate-700/60">Close</button>
-      </div>
+    <div class="bg-slate-900 rounded-lg p-4 w-full max-w-xl">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h3 id="um_name" class="text-lg font-semibold">User Name</h3>
+                <div id="um_handle" class="text-sm text-slate-400">@username</div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="um_close" class="px-3 py-1 rounded-lg bg-slate-700/60">Close</button>
+            </div>
+        </div>
+
+        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div class="text-xs text-slate-400">DB ID</div>
+                <div id="um_dbid" class="mt-1 text-sm text-slate-100 break-words"></div>
+            </div>
+
+            <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div class="text-xs text-slate-400">User ID</div>
+                <div id="um_userid" class="mt-1 text-sm text-slate-100"></div>
+            </div>
+
+            <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div class="text-xs text-slate-400">Wallet Balance</div>
+                <div id="um_wallet" class="mt-1 text-sm text-slate-100"></div>
+            </div>
+
+            <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <div class="text-xs text-slate-400">Registration Status</div>
+                <div id="um_status" class="mt-1 text-sm text-slate-100"></div>
+            </div>
+
+            <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700 col-span-full">
+                <div class="text-xs text-slate-400">Joined (IST)</div>
+                <div id="um_joined" class="mt-1 text-sm text-slate-100"></div>
+            </div>
+
+            <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700 col-span-full">
+                <div class="text-xs text-slate-400">Invite Code</div>
+                <div id="um_invite" class="mt-1 text-sm text-slate-100"></div>
+            </div>
+        </div>
+
+        <div class="mt-4 flex gap-2 justify-end">
+            <button id="um_activate" class="px-4 py-2 rounded-lg bg-amber-500 text-slate-900 hidden">Activate</button>
+        </div>
     </div>
-
-    <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-        <div class="text-xs text-slate-400">DB ID</div>
-        <div id="um_dbid" class="mt-1 text-sm text-slate-100 break-words"></div>
-      </div>
-
-      <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-        <div class="text-xs text-slate-400">User ID</div>
-        <div id="um_userid" class="mt-1 text-sm text-slate-100"></div>
-      </div>
-
-      <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-        <div class="text-xs text-slate-400">Wallet Balance</div>
-        <div id="um_wallet" class="mt-1 text-sm text-slate-100"></div>
-      </div>
-
-      <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-        <div class="text-xs text-slate-400">Registration Status</div>
-        <div id="um_status" class="mt-1 text-sm text-slate-100"></div>
-      </div>
-
-      <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700 col-span-full">
-        <div class="text-xs text-slate-400">Joined (IST)</div>
-        <div id="um_joined" class="mt-1 text-sm text-slate-100"></div>
-      </div>
-
-      <div class="p-3 rounded-lg bg-slate-800/50 border border-slate-700 col-span-full">
-        <div class="text-xs text-slate-400">Invite Code</div>
-        <div id="um_invite" class="mt-1 text-sm text-slate-100"></div>
-      </div>
-    </div>
-
-    <div class="mt-4 flex gap-2 justify-end">
-      <button id="um_activate" class="px-4 py-2 rounded-lg bg-amber-500 text-slate-900 hidden">Activate</button>
-    </div>
-  </div>
 </div>
 
 <script>
-  (function () {
-    const token = '<%= token %>';
-    const apiSummaryUrl = `/${token}/project-01/admin/summary`;
-    const apiWithdrawalsUrl = `/${token}/project-01/admin/withdrawals`;
-    const apiUsersUrl = `/${token}/project-01/admin/users`;
-    const apiApprove = (txid) => `/${token}/project-01/admin/withdrawals/${txid}/approve`;
-    const apiReject = (txid) => `/${token}/project-01/admin/withdrawals/${txid}/reject`;
-    const apiActivateUser = (id) => `/${token}/project-01/admin/users/${id}/activate`;
+    (function () {
+        const token = '<%= token %>';
+        const apiSummaryUrl = `/${token}/project-01/admin/summary`;
+        const apiWithdrawalsUrl = `/${token}/project-01/admin/withdrawals`;
+        const apiDepositsUrl = `/${token}/project-01/admin/deposits`;
+        const apiUsersUrl = `/${token}/project-01/admin/users`;
+        const apiApproveWithdrawal = (txid) => `/${token}/project-01/admin/withdrawals/${txid}/approve`;
+        const apiRejectWithdrawal = (txid) => `/${token}/project-01/admin/withdrawals/${txid}/reject`;
+        const apiApproveDeposit = (txid) => `/${token}/project-01/admin/deposits/${txid}/approve`;
+        const apiRejectDeposit = (txid) => `/${token}/project-01/admin/deposits/${txid}/reject`;
+        const apiActivateUser = (id) => `/${token}/project-01/admin/users/${id}/activate`;
 
-    // Withdrawals state
-    let currentStatus = 'Pending';
-    let currentPage = 1;
-    const withdrawLimit = 10;
+        // Withdrawals state
+        let currentStatus = 'Pending';
+        let currentPage = 1;
+        let wdSearch = '';
+        const withdrawLimit = 10;
 
-    // Users state
-    let userStatus = 'All';
-    let usersPage = 1;
-    const usersLimit = 10;
-    let userSearch = '';
+        // Deposits state
+        let depositCurrentStatus = 'Pending';
+        let depositCurrentPage = 1;
+        let depositSearch = '';
+        const depositLimit = 10;
 
-    const withdrawalsContainer = document.getElementById('withdrawalsContainer');
-    const withdrawalsMeta = document.getElementById('withdrawalsMeta');
+        // Users state
+        let userStatus = 'All';
+        let usersPage = 1;
+        const usersLimit = 10;
+        let userSearch = '';
 
-    const usersContainer = document.getElementById('usersContainer');
-    const usersMeta = document.getElementById('usersMeta');
+        // Elements
+        const withdrawalsContainer = document.getElementById('withdrawalsContainer');
+        const withdrawalsMeta = document.getElementById('withdrawalsMeta');
+        const depositsContainer = document.getElementById('depositsContainer');
+        const depositsMeta = document.getElementById('depositsMeta');
+        const usersContainer = document.getElementById('usersContainer');
+        const usersMeta = document.getElementById('usersMeta');
 
-    // Pagination elements
-    const wdPrevBtn = document.getElementById('wdPrevBtn');
-    const wdNextBtn = document.getElementById('wdNextBtn');
-    const wdPageLabel = document.getElementById('wdPageLabel');
+        // Search inputs
+        const wdSearchInput = document.getElementById('wdSearchInput');
+        const depositSearchInput = document.getElementById('depositSearchInput');
+        const userSearchInput = document.getElementById('userSearchInput');
 
-    const uPrevBtn = document.getElementById('uPrevBtn');
-    const uNextBtn = document.getElementById('uNextBtn');
-    const uPageLabel = document.getElementById('uPageLabel');
+        // Pagination elements
+        const wdPrevBtn = document.getElementById('wdPrevBtn');
+        const wdNextBtn = document.getElementById('wdNextBtn');
+        const wdPageLabel = document.getElementById('wdPageLabel');
+        const depositPrevBtn = document.getElementById('depositPrevBtn');
+        const depositNextBtn = document.getElementById('depositNextBtn');
+        const depositPageLabel = document.getElementById('depositPageLabel');
+        const uPrevBtn = document.getElementById('uPrevBtn');
+        const uNextBtn = document.getElementById('uNextBtn');
+        const uPageLabel = document.getElementById('uPageLabel');
 
-    // loading flags (for pagination buttons)
-    let withdrawalsLoading = false;
-    let usersLoading = false;
+        // Loading flags
+        let withdrawalsLoading = false;
+        let depositsLoading = false;
+        let usersLoading = false;
+        let mutationInFlight = false;
+        let wdTotalPages = 1;
+        let depositTotalPages = 1;
+        let uTotalPages = 1;
 
-    // Mutation lock (no overlay; just button-level loading)
-    let mutationInFlight = false;
+        // Helper functions
+        function computeTotalPages(total, limit) {
+            const t = Number(total || 0);
+            const l = Number(limit || 10);
+            const pages = Math.ceil(t / l);
+            return pages > 0 ? pages : 1;
+        }
 
-    // pager state
-    let wdTotalPages = 1;
-    let uTotalPages = 1;
+        function syncWithdrawalsPager() {
+            wdPageLabel.textContent = `${currentPage}/${wdTotalPages}`;
+            wdPrevBtn.disabled = mutationInFlight || withdrawalsLoading || currentPage <= 1;
+            wdNextBtn.disabled = mutationInFlight || withdrawalsLoading || currentPage >= wdTotalPages;
+        }
 
-    function computeTotalPages(total, limit) {
-      const t = Number(total || 0);
-      const l = Number(limit || 10);
-      const pages = Math.ceil(t / l);
-      return pages > 0 ? pages : 1;
-    }
+        function syncDepositsPager() {
+            depositPageLabel.textContent = `${depositCurrentPage}/${depositTotalPages}`;
+            depositPrevBtn.disabled = mutationInFlight || depositsLoading || depositCurrentPage <= 1;
+            depositNextBtn.disabled = mutationInFlight || depositsLoading || depositCurrentPage >= depositTotalPages;
+        }
 
-    function syncWithdrawalsPager() {
-      wdPageLabel.textContent = `${currentPage}/${wdTotalPages}`;
-      wdPrevBtn.disabled = mutationInFlight || withdrawalsLoading || currentPage <= 1;
-      wdNextBtn.disabled = mutationInFlight || withdrawalsLoading || currentPage >= wdTotalPages;
-    }
+        function syncUsersPager() {
+            uPageLabel.textContent = `${usersPage}/${uTotalPages}`;
+            uPrevBtn.disabled = mutationInFlight || usersLoading || usersPage <= 1;
+            uNextBtn.disabled = mutationInFlight || usersLoading || usersPage >= uTotalPages;
+        }
 
-    function syncUsersPager() {
-      uPageLabel.textContent = `${usersPage}/${uTotalPages}`;
-      uPrevBtn.disabled = mutationInFlight || usersLoading || usersPage <= 1;
-      uNextBtn.disabled = mutationInFlight || usersLoading || usersPage >= uTotalPages;
-    }
+        function setMutationLock(on) {
+            mutationInFlight = !!on;
+            document.querySelectorAll('[data-mutation="1"]').forEach(btn => {
+                btn.disabled = mutationInFlight;
+                btn.classList.toggle('opacity-60', mutationInFlight);
+                btn.classList.toggle('cursor-not-allowed', mutationInFlight);
+            });
+            syncWithdrawalsPager();
+            syncDepositsPager();
+            syncUsersPager();
+        }
 
-    wdPrevBtn.addEventListener('click', () => {
-      if (wdPrevBtn.disabled) return;
-      currentPage = Math.max(1, currentPage - 1);
-      loadWithdrawals();
-    });
+        async function copyTextSilently(text, el) {
+            const t = String(text || '').trim();
+            if (!t) return;
+            try {
+                await navigator.clipboard.writeText(t);
+            } catch (e) {
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = t;
+                    ta.setAttribute('readonly', '');
+                    ta.style.position = 'fixed';
+                    ta.style.left = '-9999px';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                } catch (_) { }
+            }
+            if (el) {
+                el.classList.add('text-emerald-300');
+                setTimeout(() => el.classList.remove('text-emerald-300'), 600);
+            }
+        }
 
-    wdNextBtn.addEventListener('click', () => {
-      if (wdNextBtn.disabled) return;
-      currentPage = Math.min(wdTotalPages, currentPage + 1);
-      loadWithdrawals();
-    });
+        function safeStr(v) {
+            const s = (v === null || v === undefined) ? '' : String(v);
+            return s.trim();
+        }
 
-    uPrevBtn.addEventListener('click', () => {
-      if (uPrevBtn.disabled) return;
-      usersPage = Math.max(1, usersPage - 1);
-      loadUsers();
-    });
+        // Modal functions
+        function showModal(modalEl) {
+            if (!modalEl) return;
+            modalEl.classList.remove('hidden');
+            modalEl.classList.add('flex');
+            document.body.classList.add('overflow-hidden');
+        }
+        
+        function hideModal(modalEl) {
+            if (!modalEl) return;
+            modalEl.classList.add('hidden');
+            modalEl.classList.remove('flex');
+            document.body.classList.remove('overflow-hidden');
+        }
 
-    uNextBtn.addEventListener('click', () => {
-      if (uNextBtn.disabled) return;
-      usersPage = Math.min(uTotalPages, usersPage + 1);
-      loadUsers();
-    });
+        // ====================
+        // WITHDRAWALS SECTION
+        // ====================
+        
+        // Withdrawal search handler
+        if (wdSearchInput) {
+            let wdSearchTimer = null;
+            wdSearchInput.addEventListener('input', () => {
+                clearTimeout(wdSearchTimer);
+                wdSearchTimer = setTimeout(() => {
+                    wdSearch = wdSearchInput.value.trim();
+                    currentPage = 1;
+                    loadWithdrawals();
+                }, 500);
+            });
+        }
 
-    function setMutationLock(on) {
-      mutationInFlight = !!on;
+        // Withdrawal pagination
+        wdPrevBtn.addEventListener('click', () => {
+            if (wdPrevBtn.disabled) return;
+            currentPage = Math.max(1, currentPage - 1);
+            loadWithdrawals();
+        });
 
-      // disable/enable all mutation buttons currently visible
-      document.querySelectorAll('[data-mutation="1"]').forEach(btn => {
-        btn.disabled = mutationInFlight;
-        btn.classList.toggle('opacity-60', mutationInFlight);
-        btn.classList.toggle('cursor-not-allowed', mutationInFlight);
-      });
+        wdNextBtn.addEventListener('click', () => {
+            if (wdNextBtn.disabled) return;
+            currentPage = Math.min(wdTotalPages, currentPage + 1);
+            loadWithdrawals();
+        });
 
-      syncWithdrawalsPager();
-      syncUsersPager();
-    }
+        // Withdrawal filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => { 
+                    b.classList.remove('text-sky-300', 'bg-slate-700/60'); 
+                });
+                btn.classList.add('text-sky-300', 'bg-slate-700/60');
+                currentStatus = btn.dataset.status || 'Pending';
+                currentPage = 1;
+                loadWithdrawals();
+            });
+            if (btn.dataset.status === 'Pending') btn.classList.add('text-sky-300', 'bg-slate-700/60');
+        });
 
-    // number formatter (K/M/B after 9999)
-    function formatCompact(num) {
-      const n = Number(num || 0);
-      const abs = Math.abs(n);
-      if (abs <= 9999) return String(n);
+        // ====================
+        // DEPOSITS SECTION
+        // ====================
+        
+        // Deposit search handler
+        if (depositSearchInput) {
+            let depositSearchTimer = null;
+            depositSearchInput.addEventListener('input', () => {
+                clearTimeout(depositSearchTimer);
+                depositSearchTimer = setTimeout(() => {
+                    depositSearch = depositSearchInput.value.trim();
+                    depositCurrentPage = 1;
+                    loadDeposits();
+                }, 500);
+            });
+        }
 
-      const units = [
-        { v: 1e9, s: 'B' },
-        { v: 1e6, s: 'M' },
-        { v: 1e3, s: 'K' },
-      ];
-      const u = units.find(x => abs >= x.v);
-      if (!u) return String(n);
+        // Deposit pagination
+        depositPrevBtn.addEventListener('click', () => {
+            if (depositPrevBtn.disabled) return;
+            depositCurrentPage = Math.max(1, depositCurrentPage - 1);
+            loadDeposits();
+        });
 
-      const val = n / u.v;
-      const fixed = val >= 100 ? val.toFixed(0) : (val >= 10 ? val.toFixed(1) : val.toFixed(2));
-      return fixed.replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1') + u.s;
-    }
+        depositNextBtn.addEventListener('click', () => {
+            if (depositNextBtn.disabled) return;
+            depositCurrentPage = Math.min(depositTotalPages, depositCurrentPage + 1);
+            loadDeposits();
+        });
 
-    function formatMoneyCompact(num) {
-      const n = Number(num || 0);
-      const abs = Math.abs(n);
-      if (abs <= 9999) return Number(n).toFixed(2);
-      return formatCompact(n);
-    }
+        // Deposit filter buttons
+        document.querySelectorAll('.deposit-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.deposit-filter-btn').forEach(b => { 
+                    b.classList.remove('text-sky-300', 'bg-slate-700/60'); 
+                });
+                btn.classList.add('text-sky-300', 'bg-slate-700/60');
+                depositCurrentStatus = btn.dataset.status || 'Pending';
+                depositCurrentPage = 1;
+                loadDeposits();
+            });
+            if (btn.dataset.status === 'Pending') btn.classList.add('text-sky-300', 'bg-slate-700/60');
+        });
 
-    function getUpiFromNote(note) {
-      const s = String(note || '');
-      const key = 'Withdraw request to UPI:';
-      if (s.includes(key)) return s.split(key)[1].trim();
-      const key2 = 'UPI:';
-      if (s.includes(key2)) return s.split(key2)[1].trim();
-      return '';
-    }
+        // ====================
+        // USERS SECTION
+        // ====================
+        
+        // User search handler
+        if (userSearchInput) {
+            let searchTimer = null;
+            userSearchInput.addEventListener('input', () => {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    userSearch = userSearchInput.value.trim();
+                    usersPage = 1;
+                    loadUsers();
+                }, 500);
+            });
+        }
 
-    async function copyTextSilently(text, el) {
-      const t = String(text || '').trim();
-      if (!t) return;
+        // User pagination
+        uPrevBtn.addEventListener('click', () => {
+            if (uPrevBtn.disabled) return;
+            usersPage = Math.max(1, usersPage - 1);
+            loadUsers();
+        });
 
-      try {
-        await navigator.clipboard.writeText(t);
-      } catch (e) {
-        try {
-          const ta = document.createElement('textarea');
-          ta.value = t;
-          ta.setAttribute('readonly', '');
-          ta.style.position = 'fixed';
-          ta.style.left = '-9999px';
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-        } catch (_) { }
-      }
+        uNextBtn.addEventListener('click', () => {
+            if (uNextBtn.disabled) return;
+            usersPage = Math.min(uTotalPages, usersPage + 1);
+            loadUsers();
+        });
 
-      if (el) {
-        el.classList.add('text-emerald-300');
-        setTimeout(() => el.classList.remove('text-emerald-300'), 600);
-      }
-    }
+        // User filter buttons
+        document.querySelectorAll('.user-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.user-filter-btn').forEach(b => b.classList.remove('text-sky-300', 'bg-slate-700/60'));
+                btn.classList.add('text-sky-300', 'bg-slate-700/60');
+                userStatus = btn.dataset.status || 'All';
+                usersPage = 1;
+                loadUsers();
+            });
+            if (btn.dataset.status === 'All') btn.classList.add('text-sky-300', 'bg-slate-700/60');
+        });
 
-    // Utility: show / hide modal and disable background scrolling
-    function showModal(modalEl) {
-      if (!modalEl) return;
-      modalEl.classList.remove('hidden');
-      modalEl.classList.add('flex');
-      document.body.classList.add('overflow-hidden');
-    }
-    function hideModal(modalEl) {
-      if (!modalEl) return;
-      modalEl.classList.add('hidden');
-      modalEl.classList.remove('flex');
-      document.body.classList.remove('overflow-hidden');
-    }
+        // ====================
+        // API FUNCTIONS
+        // ====================
+        
+        async function loadSummary() {
+            try {
+                const res = await axios.get(apiSummaryUrl, { timeout: 8000 });
+                if (res.data && res.data.ok && res.data.summary) {
+                    const s = res.data.summary;
+                    document.getElementById('k_total_users').textContent = s.total_users;
+                    document.getElementById('k_total_deposit_users').textContent = s.total_users_first_deposit;
+                    document.getElementById('k_total_deposit').textContent = '₹' + (s.total_deposit || 0);
+                    document.getElementById('k_total_withdrawn').textContent = '₹' + (s.total_withdrawn || 0);
+                    document.getElementById('k_total_commission').textContent = '₹' + (s.total_commission || 0);
+                    document.getElementById('k_owner_profit').textContent = '₹' + (s.owner_profit || 0);
+                }
+            } catch (err) {
+                console.error('summary load error', err);
+            }
+        }
 
-    // Close when clicking overlay
-    document.querySelectorAll('#rejectModal, #userModal').forEach(modal => {
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) hideModal(modal);
-      });
-    });
+        // ====================
+        // WITHDRAWALS RENDER
+        // ====================
+        
+        function renderWithdrawals(rows, meta) {
+            wdTotalPages = computeTotalPages(meta && meta.total, withdrawLimit);
+            if (currentPage > wdTotalPages) currentPage = wdTotalPages;
 
-    // Filter buttons behavior
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.filter-btn').forEach(b => { b.classList.remove('text-sky-300', 'bg-slate-700/60'); });
-        btn.classList.add('text-sky-300', 'bg-slate-700/60');
-        currentStatus = btn.dataset.status || 'Pending';
-        currentPage = 1;
+            if (!rows || !rows.length) {
+                withdrawalsContainer.innerHTML = '<div class="text-sm text-slate-400">No withdrawals found for this filter.</div>';
+                syncWithdrawalsPager();
+                return;
+            }
+
+            const frag = document.createDocumentFragment();
+            rows.forEach(r => {
+                try {
+                    const card = document.createElement('div');
+                    card.className = 'mb-3 p-3 rounded-lg bg-slate-800/50 border border-slate-700';
+
+                    const top = document.createElement('div'); 
+                    top.className = 'flex items-start justify-between gap-3 flex-wrap';
+                    
+                    const left = document.createElement('div'); 
+                    left.className = 'min-w-0';
+                    
+                    const name = document.createElement('div'); 
+                    name.className = 'font-medium text-slate-100 truncate';
+                    const uname = r.user ? (r.user.firstname ? (r.user.firstname + (r.user.lastname ? ' ' + r.user.lastname : '')) : (r.user.username || 'User')) : 'User';
+                    name.textContent = uname;
+                    
+                    const handle = document.createElement('div'); 
+                    handle.className = 'text-xs text-slate-400 truncate';
+                    const uhandle = r.user && r.user.username ? ('@' + r.user.username) : (r.user && r.user.userid ? r.user.userid : '');
+                    handle.textContent = uhandle;
+                    
+                    left.appendChild(name); 
+                    left.appendChild(handle);
+
+                    const right = document.createElement('div'); 
+                    right.className = 'text-right';
+                    
+                    const amt = document.createElement('div'); 
+                    amt.className = 'text-slate-100 font-semibold';
+                    amt.textContent = '₹' + Number(r.amount || 0).toFixed(2);
+
+                    const statusBadge = document.createElement('div'); 
+                    statusBadge.className = 'text-xs mt-1 inline-block px-2 py-1 rounded-full';
+                    if (r.status === 'P') { 
+                        statusBadge.className += ' bg-yellow-700 text-yellow-100'; 
+                        statusBadge.textContent = 'Pending'; 
+                    } else if (r.status === 'S') { 
+                        statusBadge.className += ' bg-emerald-700 text-emerald-100'; 
+                        statusBadge.textContent = 'Success'; 
+                    } else if (r.status === 'R') { 
+                        statusBadge.className += ' bg-red-700 text-red-100'; 
+                        statusBadge.textContent = 'Rejected'; 
+                    } else { 
+                        statusBadge.className += ' bg-slate-700 text-slate-200'; 
+                        statusBadge.textContent = r.status || '-'; 
+                    }
+
+                    right.appendChild(amt); 
+                    right.appendChild(statusBadge);
+                    top.appendChild(left); 
+                    top.appendChild(right);
+                    card.appendChild(top);
+
+                    // ===== MID (Order Id + Bank Details field-wise + Note) =====
+                    const mid = document.createElement('div'); 
+                    mid.className = 'mt-2 text-xs text-slate-300';
+
+                    // Order Id (mch_order_no)
+                    const orderId = safeStr(r.mch_order_no);
+                    const oidDiv = document.createElement('div');
+                    oidDiv.className = 'text-xs text-slate-300';
+                    if (orderId) {
+                        oidDiv.innerHTML = `Order Id: <span class="wd-oid-copy text-sky-300 underline underline-offset-2 cursor-pointer">${orderId}</span>`;
+                    } else {
+                        oidDiv.textContent = 'Order Id: -';
+                    }
+                    mid.appendChild(oidDiv);
+
+                    // Bank Details (object fields) - each value clickable to copy
+                    const bd = (r.user && r.user.bank_details && typeof r.user.bank_details === 'object') ? r.user.bank_details : {};
+                    const bankWrap = document.createElement('div');
+                    bankWrap.className = 'mt-2 p-2 rounded-lg bg-slate-900/30 border border-slate-700/60';
+
+                    const bankTitle = document.createElement('div');
+                    bankTitle.className = 'text-xs text-slate-400 mb-1';
+                    bankTitle.textContent = 'Bank Details (click value to copy)';
+                    bankWrap.appendChild(bankTitle);
+
+                    const bankFields = [
+                        { key: 'holder_name', label: 'Holder Name' },
+                        { key: 'bank_name', label: 'Bank Name' },
+                        { key: 'account_number', label: 'Account No.' },
+                        { key: 'ifsc', label: 'IFSC' },
+                        { key: 'branch', label: 'Branch' },
+                        { key: 'bank_code', label: 'Bank Code' },
+                    ];
+
+                    bankFields.forEach(f => {
+                        const val = safeStr(bd && bd[f.key]);
+                        const row = document.createElement('div');
+                        row.className = 'flex items-start gap-2 py-0.5';
+
+                        const k = document.createElement('div');
+                        k.className = 'text-xs text-slate-400 w-28 flex-none';
+                        k.textContent = f.label + ':';
+
+                        const v = document.createElement('div');
+                        v.className = 'text-xs text-slate-200 break-words flex-1 min-w-0';
+
+                        if (val) {
+                            const span = document.createElement('span');
+                            span.className = 'bd-copy text-sky-300 underline underline-offset-2 cursor-pointer';
+                            span.textContent = val;
+                            span.dataset.copy = val;
+                            v.appendChild(span);
+                        } else {
+                            v.textContent = '-';
+                        }
+
+                        row.appendChild(k);
+                        row.appendChild(v);
+                        bankWrap.appendChild(row);
+                    });
+
+                    mid.appendChild(bankWrap);
+
+                    // Note (as-is)
+                    const noteDiv = document.createElement('div');
+                    noteDiv.className = 'text-xs text-slate-300 mt-2';
+                    noteDiv.textContent = (r.note || '');
+                    mid.appendChild(noteDiv);
+
+                    const txDiv = document.createElement('div'); 
+                    txDiv.className = 'text-xs text-slate-400 mt-2'; 
+                    txDiv.textContent = 'TX: ' + (String(r.id || '').toUpperCase() || ''); 
+                    mid.appendChild(txDiv);
+                    
+                    const timeDiv = document.createElement('div'); 
+                    timeDiv.className = 'text-xs text-slate-400 mt-1'; 
+                    timeDiv.textContent = r.created_at_ist || '-'; 
+                    mid.appendChild(timeDiv);
+                    
+                    card.appendChild(mid);
+
+                    // Copy handlers
+                    if (orderId) {
+                        setTimeout(() => {
+                            const el = card.querySelector('.wd-oid-copy');
+                            if (el) el.addEventListener('click', () => copyTextSilently(orderId, el));
+                        }, 0);
+                    }
+
+                    // Bank field copy handlers (event delegation)
+                    setTimeout(() => {
+                        bankWrap.querySelectorAll('.bd-copy').forEach(el => {
+                            el.addEventListener('click', () => copyTextSilently(el.dataset.copy || el.textContent, el));
+                        });
+                    }, 0);
+
+                    if (r.status === 'P') {
+                        const actions = document.createElement('div'); 
+                        actions.className = 'mt-3 flex gap-2 flex-wrap';
+                        
+                        const approveBtn = document.createElement('button');
+                        approveBtn.className = 'px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm';
+                        approveBtn.textContent = 'Approve';
+                        approveBtn.dataset.mutation = "1";
+                        approveBtn.addEventListener('click', () => adminApproveWithdrawal(r.id, approveBtn));
+                        
+                        const rejectBtn = document.createElement('button');
+                        rejectBtn.className = 'px-3 py-2 bg-red-600 text-white rounded-lg text-sm';
+                        rejectBtn.textContent = 'Reject';
+                        rejectBtn.dataset.mutation = "1";
+                        rejectBtn.addEventListener('click', () => openRejectModal(r.id, rejectBtn));
+                        
+                        actions.appendChild(approveBtn); 
+                        actions.appendChild(rejectBtn);
+                        card.appendChild(actions);
+                    } else if (r.status === 'R' && r.admin_note) {
+                        const adminNote = document.createElement('div'); 
+                        adminNote.className = 'mt-3 text-xs text-slate-400'; 
+                        adminNote.textContent = 'Admin Note: ' + r.admin_note; 
+                        card.appendChild(adminNote);
+                    }
+
+                    frag.appendChild(card);
+                } catch (err) {
+                    console.error('Error rendering withdrawal row:', err);
+                }
+            });
+
+            withdrawalsContainer.innerHTML = '';
+            withdrawalsContainer.appendChild(frag);
+            if (mutationInFlight) setMutationLock(true);
+            syncWithdrawalsPager();
+        }
+
+        async function loadWithdrawals() {
+            withdrawalsLoading = true;
+            syncWithdrawalsPager();
+            withdrawalsContainer.innerHTML = '<div class="text-sm text-slate-400">Loading withdrawals…</div>';
+            try {
+                const res = await axios.get(apiWithdrawalsUrl, {
+                    params: { 
+                        status: currentStatus, 
+                        page: currentPage, 
+                        limit: withdrawLimit, 
+                        search: wdSearch 
+                    },
+                    timeout: 10000
+                });
+                
+                if (!res.data || !res.data.ok) {
+                    withdrawalsContainer.innerHTML = '<div class="text-sm text-red-400">Failed to load withdrawals: ' + (res.data?.error || 'Unknown error') + '</div>';
+                    wdTotalPages = 1;
+                    syncWithdrawalsPager();
+                    return;
+                }
+                renderWithdrawals(res.data.rows || [], res.data.meta || {});
+            } catch (err) {
+                console.error('load withdrawals error', err);
+                withdrawalsContainer.innerHTML = '<div class="text-sm text-red-400">Error loading withdrawals. Check console for details.</div>';
+                wdTotalPages = 1;
+                syncWithdrawalsPager();
+            } finally {
+                withdrawalsLoading = false;
+                syncWithdrawalsPager();
+            }
+        }
+
+        // ====================
+        // DEPOSITS RENDER
+        // ====================
+        
+        function renderDeposits(rows, meta) {
+            depositTotalPages = computeTotalPages(meta && meta.total, depositLimit);
+            if (depositCurrentPage > depositTotalPages) depositCurrentPage = depositTotalPages;
+
+            if (!rows || !rows.length) {
+                depositsContainer.innerHTML = '<div class="text-sm text-slate-400">No deposits found for this filter.</div>';
+                syncDepositsPager();
+                return;
+            }
+
+            const frag = document.createDocumentFragment();
+            rows.forEach(r => {
+                try {
+                    const card = document.createElement('div');
+                    card.className = 'mb-3 p-3 rounded-lg bg-slate-800/50 border border-slate-700';
+
+                    const top = document.createElement('div'); 
+                    top.className = 'flex items-start justify-between gap-3 flex-wrap';
+                    
+                    const left = document.createElement('div'); 
+                    left.className = 'min-w-0';
+                    
+                    const name = document.createElement('div'); 
+                    name.className = 'font-medium text-slate-100 truncate';
+                    const uname = r.user ? (r.user.firstname ? (r.user.firstname + (r.user.lastname ? ' ' + r.user.lastname : '')) : (r.user.username || 'User')) : 'User';
+                    name.textContent = uname;
+                    
+                    const handle = document.createElement('div'); 
+                    handle.className = 'text-xs text-slate-400 truncate';
+                    const uhandle = r.user && r.user.username ? ('@' + r.user.username) : (r.user && r.user.userid ? r.user.userid : '');
+                    handle.textContent = uhandle;
+                    
+                    left.appendChild(name); 
+                    left.appendChild(handle);
+
+                    const right = document.createElement('div'); 
+                    right.className = 'text-right';
+                    
+                    const amt = document.createElement('div'); 
+                    amt.className = 'text-slate-100 font-semibold';
+                    amt.textContent = '₹' + Number(r.amount || 0).toFixed(2);
+
+                    const statusBadge = document.createElement('div'); 
+                    statusBadge.className = 'text-xs mt-1 inline-block px-2 py-1 rounded-full';
+                    if (r.status === 'P') { 
+                        statusBadge.className += ' bg-yellow-700 text-yellow-100'; 
+                        statusBadge.textContent = 'Pending'; 
+                    } else if (r.status === 'S') { 
+                        statusBadge.className += ' bg-emerald-700 text-emerald-100'; 
+                        statusBadge.textContent = 'Success'; 
+                    } else if (r.status === 'R') { 
+                        statusBadge.className += ' bg-red-700 text-red-100'; 
+                        statusBadge.textContent = 'Rejected'; 
+                    } else { 
+                        statusBadge.className += ' bg-slate-700 text-slate-200'; 
+                        statusBadge.textContent = r.status || '-'; 
+                    }
+
+                    right.appendChild(amt); 
+                    right.appendChild(statusBadge);
+                    top.appendChild(left); 
+                    top.appendChild(right);
+                    card.appendChild(top);
+
+                    const mid = document.createElement('div'); 
+                    mid.className = 'mt-2 text-xs text-slate-300';
+
+                    // Gateway and Gateway Order No
+                    const gateway = r.gateway || 'N/A';
+                    const gatewayOrderNo = r.gateway_order_no || 'N/A';
+                    
+                    if (gateway !== 'N/A') {
+                        const gatewayDiv = document.createElement('div');
+                        gatewayDiv.className = 'text-xs text-slate-300';
+                        gatewayDiv.textContent = `Gateway: ${gateway}`;
+                        mid.appendChild(gatewayDiv);
+                    }
+                    
+                    // Order Id display
+                    const orderId = safeStr(r.mch_order_no);
+                    const oidDiv = document.createElement('div');
+                    oidDiv.className = 'text-xs text-slate-300 mt-1';
+                    if (orderId) {
+                        oidDiv.innerHTML = `Order Id: <span class="deposit-oid-copy text-sky-300 underline underline-offset-2 cursor-pointer">${orderId}</span>`;
+                    } else {
+                        oidDiv.textContent = 'Order Id: -';
+                    }
+                    mid.appendChild(oidDiv);
+                    
+                    // Gateway Order No display
+                    if (gatewayOrderNo !== 'N/A') {
+                        const gatewayOrderDiv = document.createElement('div');
+                        gatewayOrderDiv.className = 'text-xs text-slate-300 mt-1';
+                        gatewayOrderDiv.innerHTML = `Gateway Order: <span class="gateway-order-copy text-sky-300 underline underline-offset-2 cursor-pointer">${gatewayOrderNo}</span>`;
+                        mid.appendChild(gatewayOrderDiv);
+                    }
+                    
+                    const noteDiv = document.createElement('div'); 
+                    noteDiv.textContent = (r.note || '');
+                    noteDiv.className = 'text-xs text-slate-300 mt-1';
+                    mid.appendChild(noteDiv);
+                    
+                    const txDiv = document.createElement('div'); 
+                    txDiv.className = 'text-xs text-slate-400 mt-1'; 
+                    txDiv.textContent = 'TX: ' + (r?.id?.toUpperCase() || ''); 
+                    mid.appendChild(txDiv);
+                    
+                    const timeDiv = document.createElement('div'); 
+                    timeDiv.className = 'text-xs text-slate-400 mt-1'; 
+                    timeDiv.textContent = r.created_at_ist || '-'; 
+                    mid.appendChild(timeDiv);
+                    
+                    card.appendChild(mid);
+
+                    // Order Id copy handler
+                    if (orderId) {
+                        setTimeout(() => {
+                            const el = card.querySelector('.deposit-oid-copy');
+                            if (el) el.addEventListener('click', () => copyTextSilently(orderId, el));
+                        }, 0);
+                    }
+                    
+                    // Gateway Order No copy handler
+                    if (gatewayOrderNo !== 'N/A') {
+                        setTimeout(() => {
+                            const el = card.querySelector('.gateway-order-copy');
+                            if (el) el.addEventListener('click', () => copyTextSilently(gatewayOrderNo, el));
+                        }, 0);
+                    }
+
+                    // Action buttons for pending deposits
+                    if (r.status === 'P') {
+                        const actions = document.createElement('div'); 
+                        actions.className = 'mt-3 flex gap-2 flex-wrap';
+                        
+                        const approveBtn = document.createElement('button');
+                        approveBtn.className = 'px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm';
+                        approveBtn.textContent = 'Approve';
+                        approveBtn.dataset.mutation = "1";
+                        approveBtn.addEventListener('click', () => adminApproveDeposit(r.id, approveBtn));
+                        
+                        const rejectBtn = document.createElement('button');
+                        rejectBtn.className = 'px-3 py-2 bg-red-600 text-white rounded-lg text-sm';
+                        rejectBtn.textContent = 'Reject';
+                        rejectBtn.dataset.mutation = "1";
+                        rejectBtn.addEventListener('click', () => {
+                            if (confirm('Reject this deposit request?')) {
+                                adminRejectDeposit(r.id, rejectBtn);
+                            }
+                        });
+                        
+                        actions.appendChild(approveBtn); 
+                        actions.appendChild(rejectBtn);
+                        card.appendChild(actions);
+                    }
+
+                    frag.appendChild(card);
+                } catch (err) {
+                    console.error('Error rendering deposit row:', err);
+                }
+            });
+
+            depositsContainer.innerHTML = '';
+            depositsContainer.appendChild(frag);
+            syncDepositsPager();
+        }
+
+        async function loadDeposits() {
+            depositsLoading = true;
+            syncDepositsPager();
+            depositsContainer.innerHTML = '<div class="text-sm text-slate-400">Loading deposits…</div>';
+            try {
+                const res = await axios.get(apiDepositsUrl, {
+                    params: { 
+                        status: depositCurrentStatus, 
+                        page: depositCurrentPage, 
+                        limit: depositLimit, 
+                        search: depositSearch 
+                    },
+                    timeout: 10000
+                });
+                if (!res.data || !res.data.ok) {
+                    depositsContainer.innerHTML = '<div class="text-sm text-red-400">Failed to load deposits: ' + (res.data?.error || 'Unknown error') + '</div>';
+                    depositTotalPages = 1;
+                    syncDepositsPager();
+                    return;
+                }
+                renderDeposits(res.data.rows || [], res.data.meta || {});
+            } catch (err) {
+                console.error('load deposits error', err);
+                depositsContainer.innerHTML = '<div class="text-sm text-red-400">Error loading deposits. Check console for details.</div>';
+                depositTotalPages = 1;
+                syncDepositsPager();
+            } finally {
+                depositsLoading = false;
+                syncDepositsPager();
+            }
+        }
+
+        // ====================
+        // ACTION FUNCTIONS
+        // ====================
+        
+        // Withdrawal approve
+        async function adminApproveWithdrawal(txid, btnEl) {
+            if (mutationInFlight) return;
+            if (!confirm('Approve this withdrawal request?\n\nThis will mark the request as SUCCESS.')) return;
+            const oldText = btnEl ? btnEl.textContent : null;
+            try {
+                setMutationLock(true);
+                if (btnEl) btnEl.textContent = 'Approving...';
+                withdrawalsMeta.textContent = 'Approving withdrawal...';
+                const res = await axios.post(apiApproveWithdrawal(txid));
+                if (res.data && res.data.ok) {
+                    withdrawalsMeta.textContent = 'Approved. Refreshing...';
+                    await loadSummary();
+                    await loadWithdrawals();
+                    withdrawalsMeta.textContent = '';
+                } else {
+                    alert(res.data && res.data.error ? res.data.error : 'Approve failed');
+                }
+            } catch (err) {
+                console.error('approve error', err);
+                alert('Server error');
+            } finally {
+                if (btnEl) btnEl.textContent = oldText || 'Approve';
+                withdrawalsMeta.textContent = '';
+                setMutationLock(false);
+            }
+        }
+
+        // Deposit approve
+        async function adminApproveDeposit(txid, btnEl) {
+            if (mutationInFlight) return;
+            if (!confirm('Approve this deposit request?\n\nThis will:\n1. Mark deposit as Success\n2. Activate user if not active\n3. Distribute commission')) return;
+            const oldText = btnEl ? btnEl.textContent : null;
+            try {
+                setMutationLock(true);
+                if (btnEl) btnEl.textContent = 'Approving...';
+                depositsMeta.textContent = 'Approving deposit...';
+                const res = await axios.post(apiApproveDeposit(txid));
+                if (res.data && res.data.ok) {
+                    depositsMeta.textContent = 'Approved. Refreshing...';
+                    await loadSummary();
+                    await loadDeposits();
+                    depositsMeta.textContent = '';
+                } else {
+                    alert(res.data && res.data.error ? res.data.error : 'Approve failed');
+                }
+            } catch (err) {
+                console.error('approve deposit error', err);
+                alert('Server error');
+            } finally {
+                if (btnEl) btnEl.textContent = oldText || 'Approve';
+                depositsMeta.textContent = '';
+                setMutationLock(false);
+            }
+        }
+
+        // Deposit reject
+        async function adminRejectDeposit(txid, btnEl) {
+            if (mutationInFlight) return;
+            const oldText = btnEl ? btnEl.textContent : null;
+            try {
+                setMutationLock(true);
+                if (btnEl) btnEl.textContent = 'Rejecting...';
+                depositsMeta.textContent = 'Rejecting deposit...';
+                const res = await axios.post(apiRejectDeposit(txid));
+                if (res.data && res.data.ok) {
+                    depositsMeta.textContent = 'Rejected. Refreshing...';
+                    await loadSummary();
+                    await loadDeposits();
+                    depositsMeta.textContent = '';
+                } else {
+                    alert(res.data && res.data.error ? res.data.error : 'Reject failed');
+                }
+            } catch (err) {
+                console.error('reject deposit error', err);
+                alert('Server error');
+            } finally {
+                if (btnEl) btnEl.textContent = oldText || 'Reject';
+                depositsMeta.textContent = '';
+                setMutationLock(false);
+            }
+        }
+
+        // ====================
+        // REJECT MODAL (for Withdrawals)
+        // ====================
+        
+        let rejectTargetTx = null;
+        let rejectOpenBtn = null;
+        const rejectModal = document.getElementById('rejectModal');
+        const rejectCancel = document.getElementById('rejectCancel');
+        const rejectConfirm = document.getElementById('rejectConfirm');
+        rejectCancel.dataset.mutation = "1";
+        rejectConfirm.dataset.mutation = "1";
+
+        document.querySelectorAll('#rejectModal, #userModal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) hideModal(modal);
+            });
+        });
+
+        function openRejectModal(txid, btnEl) {
+            if (mutationInFlight) return;
+            rejectTargetTx = txid;
+            rejectOpenBtn = btnEl || null;
+            document.querySelectorAll('.reject-radio').forEach(r => r.checked = false);
+            showModal(rejectModal);
+        }
+
+        rejectCancel.addEventListener('click', () => {
+            if (mutationInFlight) return;
+            rejectTargetTx = null;
+            rejectOpenBtn = null;
+            hideModal(rejectModal);
+        });
+
+        rejectConfirm.addEventListener('click', async () => {
+            if (mutationInFlight) return;
+            const selected = Array.from(document.querySelectorAll('.reject-radio')).find(r => r.checked);
+            if (!selected) { alert('Please select a reject reason.'); return; }
+            const reason = selected.value;
+            if (!rejectTargetTx) return;
+            const oldText = rejectConfirm.textContent;
+            try {
+                setMutationLock(true);
+                rejectConfirm.textContent = 'Rejecting...';
+                withdrawalsMeta.textContent = 'Rejecting withdrawal...';
+                const res = await axios.post(apiRejectWithdrawal(rejectTargetTx), { reason });
+                if (res.data && res.data.ok) {
+                    hideModal(rejectModal);
+                    rejectTargetTx = null;
+                    rejectOpenBtn = null;
+                    withdrawalsMeta.textContent = 'Rejected. Refreshing...';
+                    await loadSummary();
+                    await loadWithdrawals();
+                    withdrawalsMeta.textContent = '';
+                } else {
+                    alert(res.data && res.data.error ? res.data.error : 'Reject failed');
+                }
+            } catch (err) {
+                console.error('reject error', err);
+                alert('Server error');
+            } finally {
+                rejectConfirm.textContent = oldText;
+                withdrawalsMeta.textContent = '';
+                setMutationLock(false);
+            }
+        });
+
+        // ====================
+        // USERS FUNCTIONS
+        // ====================
+        
+        function renderUsers(rows, meta) {
+            uTotalPages = computeTotalPages(meta && meta.total, usersLimit);
+            if (usersPage > uTotalPages) usersPage = uTotalPages;
+
+            if (!rows || !rows.length) {
+                usersContainer.innerHTML = '<div class="text-sm text-slate-400">No users found.</div>';
+                syncUsersPager();
+                return;
+            }
+            const frag = document.createDocumentFragment();
+
+            rows.forEach(u => {
+                try {
+                    const card = document.createElement('div');
+                    card.className = 'mb-3 p-3 rounded-lg bg-slate-800/50 border border-slate-700';
+
+                    const top = document.createElement('div');
+                    top.className = 'flex items-start justify-between gap-3 flex-nowrap';
+
+                    const left = document.createElement('div');
+                    left.className = 'min-w-0 flex-1';
+
+                    const name = document.createElement('div');
+                    name.className = 'font-medium text-slate-100 truncate';
+                    const displayName = (u.firstname ? (u.firstname + (u.lastname ? ' ' + u.lastname : '')) : (u.username || 'User'));
+                    name.textContent = displayName;
+
+                    const handle = document.createElement('div');
+                    handle.className = 'text-xs text-slate-400 whitespace-normal break-words';
+                    handle.textContent = (u.username ? ('@' + u.username) : (u.userid || ''));
+
+                    left.appendChild(name);
+                    left.appendChild(handle);
+
+                    const right = document.createElement('div');
+                    right.className = 'flex-none text-right whitespace-nowrap';
+
+                    const bal = document.createElement('div');
+                    bal.className = 'text-slate-100 font-semibold';
+                    bal.textContent = '₹' + Number(u.walletbalance || 0).toFixed(2);
+
+                    const statusBadge = document.createElement('div');
+                    statusBadge.className = 'text-xs mt-1 inline-block px-2 py-1 rounded-full';
+                    const reg = (u.registrationstatus || '').toUpperCase();
+                    if (reg === 'ACTIVE') { statusBadge.className += ' bg-emerald-700 text-emerald-100'; statusBadge.textContent = 'ACTIVE'; }
+                    else if (reg === 'PENDING') { statusBadge.className += ' bg-yellow-700 text-yellow-100'; statusBadge.textContent = 'PENDING'; }
+                    else { statusBadge.className += ' bg-slate-700 text-slate-200'; statusBadge.textContent = reg || '-'; }
+
+                    right.appendChild(bal);
+                    right.appendChild(statusBadge);
+
+                    top.appendChild(left);
+                    top.appendChild(right);
+                    card.appendChild(top);
+
+                    const mid = document.createElement('div'); 
+                    mid.className = 'mt-2 text-xs text-slate-300';
+                    const joined = document.createElement('div'); 
+                    joined.className = 'text-xs text-slate-400'; 
+                    joined.textContent = 'Joined (IST): ' + (u.createdatist || '-');
+
+                    const teamLine = document.createElement('div');
+                    teamLine.className = 'text-xs text-slate-300 mt-1';
+                    teamLine.textContent = `Team: ${Number(u.teamcount || 0)} | Income: ₹${Number(u.totalincome || 0).toFixed(2)}`;
+
+                    mid.appendChild(joined);
+                    mid.appendChild(teamLine);
+                    card.appendChild(mid);
+
+                    const actions = document.createElement('div'); 
+                    actions.className = 'mt-3 flex gap-2 flex-wrap';
+
+                    const viewBtn = document.createElement('button');
+                    viewBtn.className = 'px-3 py-2 bg-slate-700 text-white rounded-lg text-sm';
+                    viewBtn.textContent = 'View';
+                    viewBtn.addEventListener('click', () => openUserDetails(u));
+                    actions.appendChild(viewBtn);
+
+                    if ((u.registrationstatus || '').toUpperCase() === 'PENDING') {
+                        const activateBtn = document.createElement('button');
+                        activateBtn.className = 'px-3 py-2 bg-amber-500 text-slate-900 rounded-lg text-sm';
+                        activateBtn.textContent = 'Activate';
+                        activateBtn.dataset.mutation = "1";
+                        activateBtn.addEventListener('click', () => activateUser(u, activateBtn));
+                        actions.appendChild(activateBtn);
+                    }
+
+                    card.appendChild(actions);
+                    frag.appendChild(card);
+                } catch (err) {
+                    console.error('Error rendering user row:', err);
+                }
+            });
+
+            usersContainer.innerHTML = '';
+            usersContainer.appendChild(frag);
+            if (mutationInFlight) setMutationLock(true);
+            syncUsersPager();
+        }
+
+        async function loadUsers() {
+            usersLoading = true;
+            syncUsersPager();
+            usersContainer.innerHTML = '<div class="text-sm text-slate-400">Loading users…</div>';
+            try {
+                const res = await axios.get(apiUsersUrl, {
+                    params: { 
+                        status: userStatus, 
+                        page: usersPage, 
+                        limit: usersLimit, 
+                        search: userSearch 
+                    },
+                    timeout: 10000
+                });
+                if (!res.data || !res.data.ok) {
+                    usersContainer.innerHTML = '<div class="text-sm text-red-400">Failed to load users: ' + (res.data?.error || 'Unknown error') + '</div>';
+                    uTotalPages = 1;
+                    syncUsersPager();
+                    return;
+                }
+                renderUsers(res.data.rows || [], res.data.meta || {});
+            } catch (err) {
+                console.error('load users error', err);
+                usersContainer.innerHTML = '<div class="text-sm text-red-400">Error loading users. Check console for details.</div>';
+                uTotalPages = 1;
+                syncUsersPager();
+            } finally {
+                usersLoading = false;
+                syncUsersPager();
+            }
+        }
+
+        // ====================
+        // USER MODAL
+        // ====================
+        
+        const userModal = document.getElementById('userModal');
+        const um_close = document.getElementById('um_close');
+        const um_activate = document.getElementById('um_activate');
+        um_activate.dataset.mutation = "1";
+
+        function hideUserModal() {
+            hideModal(userModal);
+        }
+
+        um_close.addEventListener('click', () => {
+            if (mutationInFlight) return;
+            hideUserModal();
+        });
+
+        function openUserDetails(u) {
+            document.getElementById('um_name').textContent = (u.firstname ? (u.firstname + (u.lastname ? ' ' + u.lastname : '')) : (u.username || 'User'));
+            document.getElementById('um_handle').textContent = u.username ? ('@' + u.username) : (u.userid || '');
+            document.getElementById('um_dbid').textContent = u.id || '-';
+            document.getElementById('um_userid').textContent = u.userid || '-';
+            document.getElementById('um_wallet').textContent = '₹' + Number(u.walletbalance || 0).toFixed(2);
+
+            const reg = (u.registrationstatus || '').toUpperCase();
+            const statusEl = document.getElementById('um_status');
+            statusEl.textContent = reg || '-';
+            statusEl.className = 'mt-1 text-sm text-slate-100';
+            if (reg === 'ACTIVE') statusEl.classList.add('text-emerald-300');
+            else if (reg === 'PENDING') statusEl.classList.add('text-yellow-300');
+            else statusEl.classList.add('text-slate-300');
+
+            document.getElementById('um_joined').textContent = u.createdatist || '-';
+            document.getElementById('um_invite').textContent = u.invitecode || '-';
+
+            if (reg === 'PENDING') {
+                um_activate.classList.remove('hidden');
+                um_activate.onclick = async function () {
+                    if (mutationInFlight) return;
+                    const displayName = (u.firstname ? (u.firstname + (u.lastname ? ' ' + u.lastname : '')) : (u.username || 'User'));
+                    const msg = `Confirm User Activation\n\nUser: ${displayName}\nUsername/UserID: ${u.username ? ('@' + u.username) : (u.userid || '-')}\nDB ID: ${u.id || '-'}\n\nThis action will:\n• Set registration_status to ACTIVE\n• Distribute applicable invite commissions\n\nDo you want to continue?`;
+                    if (!confirm(msg)) return;
+                    await activateUser(u, um_activate, true);
+                };
+            } else {
+                um_activate.classList.add('hidden');
+                um_activate.onclick = null;
+            }
+            showModal(userModal);
+        }
+
+        async function activateUser(uOrId, btnEl, closeModalOnSuccess = false) {
+            if (mutationInFlight) return;
+            const id = typeof uOrId === 'object' ? uOrId.id : uOrId;
+            const u = typeof uOrId === 'object' ? uOrId : null;
+            if (u && !closeModalOnSuccess) {
+                const displayName = (u.firstname ? (u.firstname + (u.lastname ? ' ' + u.lastname : '')) : (u.username || 'User'));
+                const msg = `Confirm User Activation\n\nUser: ${displayName}\nUsername/UserID: ${u.username ? ('@' + u.username) : (u.userid || '-')}\nDB ID: ${u.id || '-'}\n\nThis action will:\n• Set registration_status to ACTIVE\n• Distribute applicable invite commissions\n\nDo you want to continue?`;
+                if (!confirm(msg)) return;
+            }
+            const oldText = btnEl ? btnEl.textContent : null;
+            try {
+                setMutationLock(true);
+                if (btnEl) btnEl.textContent = 'Activating...';
+                usersMeta.textContent = 'Activating user...';
+                const res = await axios.post(apiActivateUser(id));
+                if (res.data && res.data.ok) {
+                    if (closeModalOnSuccess) hideUserModal();
+                    usersMeta.textContent = 'Activated. Refreshing...';
+                    await loadSummary();
+                    await loadUsers();
+                    usersMeta.textContent = '';
+                } else {
+                    alert(res.data && res.data.error ? res.data.error : 'Activate failed');
+                }
+            } catch (err) {
+                console.error('activate user error', err);
+                alert('Server error');
+            } finally {
+                if (btnEl) btnEl.textContent = oldText || 'Activate';
+                usersMeta.textContent = '';
+                setMutationLock(false);
+            }
+        }
+
+        // ====================
+        // INITIALIZATION
+        // ====================
+        
+        syncWithdrawalsPager();
+        syncDepositsPager();
+        syncUsersPager();
+        loadSummary();
         loadWithdrawals();
-      });
-      if (btn.dataset.status === 'Pending') btn.classList.add('text-sky-300', 'bg-slate-700/60');
-    });
-
-    // User filter buttons
-    document.querySelectorAll('.user-filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.user-filter-btn').forEach(b => b.classList.remove('text-sky-300', 'bg-slate-700/60'));
-        btn.classList.add('text-sky-300', 'bg-slate-700/60');
-        userStatus = btn.dataset.status || 'All';
-        usersPage = 1;
+        loadDeposits();
         loadUsers();
-      });
-      if (btn.dataset.status === 'All') btn.classList.add('text-sky-300', 'bg-slate-700/60');
-    });
-
-    // search input
-    const userSearchInput = document.getElementById('userSearchInput');
-    let searchTimer = null;
-    userSearchInput.addEventListener('input', () => {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => {
-        userSearch = userSearchInput.value.trim();
-        usersPage = 1;
-        loadUsers();
-      }, 500);
-    });
-
-    // Load summary
-    async function loadSummary() {
-      try {
-        const res = await axios.get(apiSummaryUrl, { timeout: 8000 });
-        if (res.data && res.data.ok && res.data.summary) {
-          const s = res.data.summary;
-          document.getElementById('k_total_users').textContent = formatCompact(s.total_users);
-          document.getElementById('k_total_deposit_users').textContent = formatCompact(s.total_users_first_deposit);
-          document.getElementById('k_total_deposit').textContent = '₹' + formatMoneyCompact(s.total_deposit || 0);
-          document.getElementById('k_total_withdrawn').textContent = '₹' + formatMoneyCompact(s.total_withdrawn || 0);
-          document.getElementById('k_total_commission').textContent = '₹' + formatMoneyCompact(s.total_commission || 0);
-          document.getElementById('k_owner_profit').textContent = '₹' + formatMoneyCompact(s.owner_profit || 0);
-        }
-      } catch (err) {
-        console.error('summary load error', err);
-      }
-    }
-
-    // Render withdrawals cards
-    function renderWithdrawals(rows, meta) {
-      wdTotalPages = computeTotalPages(meta && meta.total, withdrawLimit);
-      if (currentPage > wdTotalPages) currentPage = wdTotalPages;
-
-      if (!rows || !rows.length) {
-        withdrawalsContainer.innerHTML = '<div class="text-sm text-slate-400">No withdrawals found for this filter.</div>';
-        syncWithdrawalsPager();
-        return;
-      }
-
-      const frag = document.createDocumentFragment();
-
-      rows.forEach(r => {
-        const card = document.createElement('div');
-        card.className = 'mb-3 p-3 rounded-lg bg-slate-800/50 border border-slate-700';
-
-        const top = document.createElement('div'); top.className = 'flex items-start justify-between gap-3 flex-wrap';
-        const left = document.createElement('div'); left.className = 'min-w-0';
-        const name = document.createElement('div'); name.className = 'font-medium text-slate-100 truncate';
-        const uname = r.user ? (r.user.first_name ? (r.user.first_name + (r.user.last_name ? ' ' + r.user.last_name : '')) : (r.user.username || 'User')) : 'User';
-        name.textContent = uname;
-        const handle = document.createElement('div'); handle.className = 'text-xs text-slate-400 truncate';
-        const uhandle = r.user && r.user.username ? ('@' + r.user.username) : (r.user && r.user.user_id ? r.user.user_id : '');
-        handle.textContent = uhandle;
-        left.appendChild(name); left.appendChild(handle);
-
-        const right = document.createElement('div'); right.className = 'text-right';
-        const amt = document.createElement('div'); amt.className = 'text-slate-100 font-semibold';
-        amt.textContent = '₹' + Number(r.amount || 0).toFixed(2);
-
-        const statusBadge = document.createElement('div'); statusBadge.className = 'text-xs mt-1 inline-block px-2 py-1 rounded-full';
-        if (r.status === 'P') { statusBadge.className += ' bg-yellow-700 text-yellow-100'; statusBadge.textContent = 'Pending'; }
-        else if (r.status === 'S') { statusBadge.className += ' bg-emerald-700 text-emerald-100'; statusBadge.textContent = 'Success'; }
-        else if (r.status === 'R') { statusBadge.className += ' bg-red-700 text-red-100'; statusBadge.textContent = 'Rejected'; }
-        else { statusBadge.className += ' bg-slate-700 text-slate-200'; statusBadge.textContent = r.status || '-'; }
-
-        right.appendChild(amt); right.appendChild(statusBadge);
-
-        top.appendChild(left); top.appendChild(right);
-        card.appendChild(top);
-
-        const mid = document.createElement('div'); mid.className = 'mt-2 text-xs text-slate-300';
-
-        const upi = getUpiFromNote(r.note);
-        if (upi) {
-          const noteDiv = document.createElement('div');
-          noteDiv.className = 'text-xs text-slate-300';
-          noteDiv.innerHTML = `UPI: <span class="upi-copy text-sky-300 underline underline-offset-2 cursor-pointer">${upi}</span>`;
-          mid.appendChild(noteDiv);
-        } else {
-          const noteDiv = document.createElement('div');
-          noteDiv.textContent = (r.note || '');
-          mid.appendChild(noteDiv);
-        }
-
-        const txDiv = document.createElement('div'); txDiv.className = 'text-xs text-slate-400 mt-1'; txDiv.textContent = 'TX: ' + (r._id || ''); mid.appendChild(txDiv);
-        const timeDiv = document.createElement('div'); timeDiv.className = 'text-xs text-slate-400 mt-1'; timeDiv.textContent = r.created_at_ist || '-'; mid.appendChild(timeDiv);
-
-        card.appendChild(mid);
-
-        if (upi) {
-          setTimeout(() => {
-            const el = card.querySelector('.upi-copy');
-            if (el) el.addEventListener('click', () => copyTextSilently(upi, el));
-          }, 0);
-        }
-
-        if (r.status === 'P') {
-          const actions = document.createElement('div'); actions.className = 'mt-3 flex gap-2 flex-wrap';
-
-          const approveBtn = document.createElement('button');
-          approveBtn.className = 'px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm';
-          approveBtn.textContent = 'Approve';
-          approveBtn.dataset.mutation = "1";
-          approveBtn.addEventListener('click', () => adminApprove(r._id, approveBtn));
-
-          const rejectBtn = document.createElement('button');
-          rejectBtn.className = 'px-3 py-2 bg-red-600 text-white rounded-lg text-sm';
-          rejectBtn.textContent = 'Reject';
-          rejectBtn.dataset.mutation = "1";
-          rejectBtn.addEventListener('click', () => openRejectModal(r._id, rejectBtn));
-
-          actions.appendChild(approveBtn); actions.appendChild(rejectBtn);
-          card.appendChild(actions);
-        } else if (r.status === 'R' && r.admin_note) {
-          const adminNote = document.createElement('div'); adminNote.className = 'mt-3 text-xs text-slate-400'; adminNote.textContent = 'Admin Note: ' + r.admin_note; card.appendChild(adminNote);
-        }
-
-        frag.appendChild(card);
-      });
-
-      withdrawalsContainer.innerHTML = '';
-      withdrawalsContainer.appendChild(frag);
-
-      if (mutationInFlight) setMutationLock(true);
-      syncWithdrawalsPager();
-    }
-
-    async function loadWithdrawals() {
-      withdrawalsLoading = true;
-      syncWithdrawalsPager();
-
-      withdrawalsContainer.innerHTML = '<div class="text-sm text-slate-400">Loading withdrawals…</div>';
-      try {
-        const res = await axios.get(apiWithdrawalsUrl, {
-          params: { status: currentStatus, page: currentPage, limit: withdrawLimit },
-          timeout: 10000
-        });
-
-        if (!res.data || !res.data.ok) {
-          withdrawalsContainer.innerHTML = '<div class="text-sm text-red-400">Failed to load withdrawals</div>';
-          wdTotalPages = 1;
-          syncWithdrawalsPager();
-          return;
-        }
-
-        renderWithdrawals(res.data.rows || [], res.data.meta || {});
-      } catch (err) {
-        console.error('load withdrawals error', err);
-        withdrawalsContainer.innerHTML = '<div class="text-sm text-red-400">Error loading withdrawals.</div>';
-        wdTotalPages = 1;
-        syncWithdrawalsPager();
-      } finally {
-        withdrawalsLoading = false;
-        syncWithdrawalsPager();
-      }
-    }
-
-    async function adminApprove(txid, btnEl) {
-      if (mutationInFlight) return;
-      if (!confirm('Approve this withdrawal request?\n\nThis will mark the request as SUCCESS.')) return;
-
-      const oldText = btnEl ? btnEl.textContent : null;
-
-      try {
-        setMutationLock(true);
-        if (btnEl) btnEl.textContent = 'Approving...';
-        withdrawalsMeta.textContent = 'Approving withdrawal...';
-
-        const res = await axios.post(apiApprove(txid));
-        if (res.data && res.data.ok) {
-          withdrawalsMeta.textContent = 'Approved. Refreshing...';
-          await loadSummary();
-          await loadWithdrawals();
-          withdrawalsMeta.textContent = '';
-        } else {
-          alert(res.data && res.data.error ? res.data.error : 'Approve failed');
-        }
-      } catch (err) {
-        console.error('approve error', err);
-        alert('Server error');
-      } finally {
-        if (btnEl) btnEl.textContent = oldText || 'Approve';
-        withdrawalsMeta.textContent = '';
-        setMutationLock(false);
-      }
-    }
-
-    // Reject modal logic
-    let rejectTargetTx = null;
-    let rejectOpenBtn = null;
-
-    const rejectModal = document.getElementById('rejectModal');
-    const rejectCancel = document.getElementById('rejectCancel');
-    const rejectConfirm = document.getElementById('rejectConfirm');
-
-    rejectCancel.dataset.mutation = "1";
-    rejectConfirm.dataset.mutation = "1";
-
-    function openRejectModal(txid, btnEl) {
-      if (mutationInFlight) return;
-      rejectTargetTx = txid;
-      rejectOpenBtn = btnEl || null;
-      document.querySelectorAll('.reject-radio').forEach(r => r.checked = false);
-      showModal(rejectModal);
-    }
-
-    rejectCancel.addEventListener('click', () => {
-      if (mutationInFlight) return;
-      rejectTargetTx = null;
-      rejectOpenBtn = null;
-      hideModal(rejectModal);
-    });
-
-    rejectConfirm.addEventListener('click', async () => {
-      if (mutationInFlight) return;
-
-      const selected = Array.from(document.querySelectorAll('.reject-radio')).find(r => r.checked);
-      if (!selected) { alert('Please select a reject reason.'); return; }
-
-      const reason = selected.value;
-      if (!rejectTargetTx) return;
-
-      const oldText = rejectConfirm.textContent;
-
-      try {
-        setMutationLock(true);
-        rejectConfirm.textContent = 'Rejecting...';
-        withdrawalsMeta.textContent = 'Rejecting withdrawal...';
-
-        const res = await axios.post(apiReject(rejectTargetTx), { reason });
-        if (res.data && res.data.ok) {
-          hideModal(rejectModal);
-          rejectTargetTx = null;
-          rejectOpenBtn = null;
-
-          withdrawalsMeta.textContent = 'Rejected. Refreshing...';
-          await loadSummary();
-          await loadWithdrawals();
-          withdrawalsMeta.textContent = '';
-        } else {
-          alert(res.data && res.data.error ? res.data.error : 'Reject failed');
-        }
-      } catch (err) {
-        console.error('reject error', err);
-        alert('Server error');
-      } finally {
-        rejectConfirm.textContent = oldText;
-        withdrawalsMeta.textContent = '';
-        setMutationLock(false);
-      }
-    });
-
-    // -------------- USERS UI --------------
-
-    function renderUsers(rows, meta) {
-      uTotalPages = computeTotalPages(meta && meta.total, usersLimit);
-      if (usersPage > uTotalPages) usersPage = uTotalPages;
-
-      if (!rows || !rows.length) {
-        usersContainer.innerHTML = '<div class="text-sm text-slate-400">No users found.</div>';
-        syncUsersPager();
-        return;
-      }
-      const frag = document.createDocumentFragment();
-
-      rows.forEach(u => {
-        const card = document.createElement('div');
-        card.className = 'mb-3 p-3 rounded-lg bg-slate-800/50 border border-slate-700';
-
-        const top = document.createElement('div');
-        top.className = 'flex items-start justify-between gap-3 flex-nowrap';
-
-        const left = document.createElement('div');
-        left.className = 'min-w-0 flex-1';
-
-        const name = document.createElement('div');
-        name.className = 'font-medium text-slate-100 truncate';
-        const displayName = (u.first_name ? (u.first_name + (u.last_name ? ' ' + u.last_name : '')) : (u.username || 'User'));
-        name.textContent = displayName;
-
-        const handle = document.createElement('div');
-        handle.className = 'text-xs text-slate-400 whitespace-normal break-words';
-        handle.textContent = (u.username ? ('@' + u.username) : (u.user_id || ''));
-
-        left.appendChild(name);
-        left.appendChild(handle);
-
-        const right = document.createElement('div');
-        right.className = 'flex-none text-right whitespace-nowrap';
-
-        const bal = document.createElement('div');
-        bal.className = 'text-slate-100 font-semibold';
-        bal.textContent = '₹' + Number(u.wallet_balance || 0).toFixed(2);
-
-        const statusBadge = document.createElement('div');
-        statusBadge.className = 'text-xs mt-1 inline-block px-2 py-1 rounded-full';
-        const reg = (u.registration_status || '').toUpperCase();
-        if (reg === 'ACTIVE') { statusBadge.className += ' bg-emerald-700 text-emerald-100'; statusBadge.textContent = 'ACTIVE'; }
-        else if (reg === 'PENDING') { statusBadge.className += ' bg-yellow-700 text-yellow-100'; statusBadge.textContent = 'PENDING'; }
-        else { statusBadge.className += ' bg-slate-700 text-slate-200'; statusBadge.textContent = reg || '-'; }
-
-        right.appendChild(bal);
-        right.appendChild(statusBadge);
-
-        top.appendChild(left);
-        top.appendChild(right);
-        card.appendChild(top);
-
-        const mid = document.createElement('div'); mid.className = 'mt-2 text-xs text-slate-300';
-        const joined = document.createElement('div'); joined.className = 'text-xs text-slate-400'; joined.textContent = 'Joined (IST): ' + (u.created_at_ist || '-');
-        mid.appendChild(joined);
-        const idDiv = document.createElement('div'); idDiv.className = 'text-xs text-slate-400 mt-1'; idDiv.textContent = 'DB ID: ' + (u._id || '');
-        mid.appendChild(idDiv);
-
-        card.appendChild(mid);
-
-        const actions = document.createElement('div'); actions.className = 'mt-3 flex gap-2 flex-wrap';
-
-        const viewBtn = document.createElement('button');
-        viewBtn.className = 'px-3 py-2 bg-slate-700 text-white rounded-lg text-sm';
-        viewBtn.textContent = 'View';
-        viewBtn.addEventListener('click', () => openUserDetails(u));
-        actions.appendChild(viewBtn);
-
-        if ((u.registration_status || '').toUpperCase() === 'PENDING') {
-          const activateBtn = document.createElement('button');
-          activateBtn.className = 'px-3 py-2 bg-amber-500 text-slate-900 rounded-lg text-sm';
-          activateBtn.textContent = 'Activate';
-          activateBtn.dataset.mutation = "1";
-          activateBtn.addEventListener('click', () => activateUser(u, activateBtn));
-          actions.appendChild(activateBtn);
-        }
-
-        card.appendChild(actions);
-        frag.appendChild(card);
-      });
-
-      usersContainer.innerHTML = '';
-      usersContainer.appendChild(frag);
-
-      if (mutationInFlight) setMutationLock(true);
-      syncUsersPager();
-    }
-
-    async function loadUsers() {
-      usersLoading = true;
-      syncUsersPager();
-
-      usersContainer.innerHTML = '<div class="text-sm text-slate-400">Loading users…</div>';
-      try {
-        const res = await axios.get(apiUsersUrl, {
-          params: { status: userStatus, page: usersPage, limit: usersLimit, search: userSearch },
-          timeout: 10000
-        });
-
-        if (!res.data || !res.data.ok) {
-          usersContainer.innerHTML = '<div class="text-sm text-red-400">Failed to load users</div>';
-          uTotalPages = 1;
-          syncUsersPager();
-          return;
-        }
-
-        renderUsers(res.data.rows || [], res.data.meta || {});
-      } catch (err) {
-        console.error('load users error', err);
-        usersContainer.innerHTML = '<div class="text-sm text-red-400">Error loading users.</div>';
-        uTotalPages = 1;
-        syncUsersPager();
-      } finally {
-        usersLoading = false;
-        syncUsersPager();
-      }
-    }
-
-    // ----- User details modal handling -----
-    const userModal = document.getElementById('userModal');
-    const um_close = document.getElementById('um_close');
-    const um_activate = document.getElementById('um_activate');
-
-    um_activate.dataset.mutation = "1";
-
-    function hideUserModal() {
-      hideModal(userModal);
-    }
-
-    um_close.addEventListener('click', () => {
-      if (mutationInFlight) return;
-      hideUserModal();
-    });
-
-    function openUserDetails(u) {
-      document.getElementById('um_name').textContent = (u.first_name ? (u.first_name + (u.last_name ? ' ' + u.last_name : '')) : (u.username || 'User'));
-      document.getElementById('um_handle').textContent = u.username ? ('@' + u.username) : (u.user_id || '');
-      document.getElementById('um_dbid').textContent = u._id || '-';
-      document.getElementById('um_userid').textContent = u.user_id || '-';
-      document.getElementById('um_wallet').textContent = '₹' + Number(u.wallet_balance || 0).toFixed(2);
-
-      const reg = (u.registration_status || '').toUpperCase();
-      const statusEl = document.getElementById('um_status');
-      statusEl.textContent = reg || '-';
-      statusEl.className = 'mt-1 text-sm text-slate-100';
-      if (reg === 'ACTIVE') statusEl.classList.add('text-emerald-300');
-      else if (reg === 'PENDING') statusEl.classList.add('text-yellow-300');
-      else statusEl.classList.add('text-slate-300');
-
-      document.getElementById('um_joined').textContent = u.created_at_ist || '-';
-      document.getElementById('um_invite').textContent = u.invite_code || '-';
-
-      if (reg === 'PENDING') {
-        um_activate.classList.remove('hidden');
-        um_activate.onclick = async function () {
-          if (mutationInFlight) return;
-
-          const displayName = (u.first_name ? (u.first_name + (u.last_name ? ' ' + u.last_name : '')) : (u.username || 'User'));
-          const msg =
-            `Confirm User Activation\n\n` +
-            `User: ${displayName}\n` +
-            `Username/UserID: ${u.username ? ('@' + u.username) : (u.user_id || '-')}\n` +
-            `DB ID: ${u._id || '-'}\n\n` +
-            `This action will:\n` +
-            `• Set registration_status to ACTIVE\n` +
-            `• Distribute applicable invite commissions\n\n` +
-            `Do you want to continue?`;
-
-          if (!confirm(msg)) return;
-          await activateUser(u, um_activate, true);
-        };
-      } else {
-        um_activate.classList.add('hidden');
-        um_activate.onclick = null;
-      }
-
-      showModal(userModal);
-    }
-
-    async function activateUser(uOrId, btnEl, closeModalOnSuccess = false) {
-      if (mutationInFlight) return;
-
-      const id = typeof uOrId === 'object' ? uOrId._id : uOrId;
-      const u = typeof uOrId === 'object' ? uOrId : null;
-
-      if (u && !closeModalOnSuccess) {
-        const displayName = (u.first_name ? (u.first_name + (u.last_name ? ' ' + u.last_name : '')) : (u.username || 'User'));
-        const msg =
-          `Confirm User Activation\n\n` +
-          `User: ${displayName}\n` +
-          `Username/UserID: ${u.username ? ('@' + u.username) : (u.user_id || '-')}\n` +
-          `DB ID: ${u._id || '-'}\n\n` +
-          `This action will:\n` +
-          `• Set registration_status to ACTIVE\n` +
-          `• Distribute applicable invite commissions\n\n` +
-          `Do you want to continue?`;
-
-        if (!confirm(msg)) return;
-      }
-
-      const oldText = btnEl ? btnEl.textContent : null;
-
-      try {
-        setMutationLock(true);
-        if (btnEl) btnEl.textContent = 'Activating...';
-        usersMeta.textContent = 'Activating user...';
-
-        const res = await axios.post(apiActivateUser(id));
-        if (res.data && res.data.ok) {
-          if (closeModalOnSuccess) hideUserModal();
-          usersMeta.textContent = 'Activated. Refreshing...';
-          await loadSummary();
-          await loadUsers();
-          usersMeta.textContent = '';
-        } else {
-          alert(res.data && res.data.error ? res.data.error : 'Activate failed');
-        }
-      } catch (err) {
-        console.error('activate user error', err);
-        alert('Server error');
-      } finally {
-        if (btnEl) btnEl.textContent = oldText || 'Activate';
-        usersMeta.textContent = '';
-        setMutationLock(false);
-      }
-    }
-
-    // init
-    syncWithdrawalsPager();
-    syncUsersPager();
-
-    loadSummary();
-    loadWithdrawals();
-    loadUsers();
-  })();
+    })();
 </script>
 
+<!-- Telegram WebApp Safe Area Script -->
 <script>
-  (function () {
-    const root = document.documentElement;
-    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    (function () {
+        const root = document.documentElement;
+        const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 
-    function numCssVar(name) {
-      const v = getComputedStyle(root).getPropertyValue(name);
-      const n = parseFloat(v);
-      return Number.isFinite(n) ? n : 0;
-    }
+        function numCssVar(name) {
+            const v = getComputedStyle(root).getPropertyValue(name);
+            const n = parseFloat(v);
+            return Number.isFinite(n) ? n : 0;
+        }
 
-    function setSafeVars() {
-      let top = 0;
-      let bottom = 0;
+        function setSafeVars() {
+            let top = 0;
+            let bottom = 0;
 
-      try {
-        top = tg?.safeAreaInset?.top ?? 0;
-        bottom = tg?.safeAreaInset?.bottom ?? 0;
-      } catch (e) { }
+            try {
+                top = tg?.safeAreaInset?.top ?? 0;
+                bottom = tg?.safeAreaInset?.bottom ?? 0;
+            } catch (e) { }
 
-      if (!top) top = numCssVar('--tg-safe-area-inset-top');
-      if (!bottom) bottom = numCssVar('--tg-safe-area-inset-bottom');
+            if (!top) top = numCssVar('--tg-safe-area-inset-top');
+            if (!bottom) bottom = numCssVar('--tg-safe-area-inset-bottom');
 
-      if (!top && /iPhone|iPad|iPod/i.test(navigator.userAgent)) top = 24;
+            if (!top && /iPhone|iPad|iPod/i.test(navigator.userAgent)) top = 24;
 
-      root.style.setProperty('--app-safe-top', top + 'px');
-      root.style.setProperty('--app-safe-bottom', bottom + 'px');
-    }
+            root.style.setProperty('--app-safe-top', top + 'px');
+            root.style.setProperty('--app-safe-bottom', bottom + 'px');
+        }
 
-    setSafeVars();
+        setSafeVars();
 
-    try { tg?.onEvent?.('safeAreaChanged', setSafeVars); } catch (e) { }
-    try { tg?.onEvent?.('safe_area_changed', setSafeVars); } catch (e) { }
+        try { tg?.onEvent?.('safeAreaChanged', setSafeVars); } catch (e) { }
+        try { tg?.onEvent?.('safe_area_changed', setSafeVars); } catch (e) { }
 
-    try {
-      if (tg?.setHeaderColor && tg?.colorScheme) {
-        tg.setHeaderColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
-      }
-      if (tg?.setBackgroundColor && tg?.colorScheme) {
-        tg.setBackgroundColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
-      }
-    } catch (e) { }
-  })();
+        try {
+            if (tg?.setHeaderColor && tg?.colorScheme) {
+                tg.setHeaderColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+            }
+            if (tg?.setBackgroundColor && tg?.colorScheme) {
+                tg.setBackgroundColor(tg.colorScheme === 'dark' ? '#020617' : '#f8fafc');
+            }
+        } catch (e) { }
+    })();
 </script>

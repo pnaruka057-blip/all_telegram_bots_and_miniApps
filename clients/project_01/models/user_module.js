@@ -24,7 +24,14 @@ const telegramUserSchema = new mongoose.Schema(
             count: { type: Number, default: 0 },
             auto_credited_flag: { type: Boolean, default: false }
         },
-        upi_id: { type: String, default: "" }
+        bank_details: {
+            holder_name: { type: String, default: "", trim: true },
+            bank_name: { type: String, default: "", trim: true },
+            account_number: { type: String, default: "", trim: true },
+            ifsc: { type: String, default: "", trim: true },
+            branch: { type: String, default: "", trim: true },
+            bank_code: { type: String, default: "", trim: true },
+        },
     },
     { versionKey: false }
 );

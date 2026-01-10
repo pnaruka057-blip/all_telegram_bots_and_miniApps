@@ -3,7 +3,7 @@ const app = express()
 const path = require('path')
 const expressEjsLayouts = require('express-ejs-layouts');
 const moment = require('moment-timezone');
-const PER_TAP_AMOUNT = 0.01;
+const PER_TAP_AMOUNT = 0.1;
 const DAILY_CAP = 100;
 let project_01_token = process.env.PROJECT_01_TOKEN
 const developer_telegram_username = process.env.DEVELOPER_TELEGRAM_USERNAME
@@ -13,10 +13,10 @@ const user_model = require("../models/user_module");
 const invite_model = require("../models/invite_model");
 const transactions_model = require("../models/transactions_model");
 const other_model = require("../models/other_model");
-const { Telegraf } = require('telegraf');
+const { Telegraf, Markup } = require('telegraf');
 const mongoose = require("mongoose")
 const { verifyCallback } = require("../helpers/watchpay");
-
+const depositAmount = 100;
 app.use(express.static(path.join(__dirname, '..', "public")))
 app.use(expressEjsLayouts);
 
@@ -37,58 +37,280 @@ if (process.env.PROJECT_01_NODE_ENV && process.env.PROJECT_01_NODE_ENV !== "deve
     project_01_bot = new Telegraf(process.env.BOT_TOKEN_PROJECT_01);
 }
 
+function escapeRegex(s = "") {
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function pendingMenu() {
+    return Markup.keyboard([[`💳 First Deposit ₹${depositAmount} ✅`]])
+        .resize()
+        .persistent();
+}
+
+
+function activeMenu() {
+    return Markup.keyboard([
+        ["🔗 Invite", "🎁 Daily Bonus"],
+        ["💰 Check Balance"],
+        ["🧾 Transactions Report"],
+        ["💳 Add Payment Details"],
+        ["👥 Team Report", "🏧 Withdraw"],
+    ])
+        .resize()
+        .persistent();
+}
+
+async function sendMenuToChat(bot, chatId, userDoc, firstName = "") {
+    const isActive = userDoc && userDoc.registration_status === "ACTIVE";
+
+    const text = isActive
+        ? (
+            `Hello ${firstName || userDoc.first_name || ""}\n` +
+            `Thanks for trusting our services...\n\n` +
+            `Your account is already active. You can select options from the bottom menu to continue.`
+        )
+        : (
+            `Hello ${firstName || userDoc.first_name || ""}\n` +
+            `Thanks for trusting our services...\n\n` +
+            `To activate your account, you need to complete a first deposit of ₹${depositAmount}. After the deposit, your ID will be activated.`
+        );
+
+    const keyboard = isActive ? activeMenu() : pendingMenu();
+
+    // IMPORTANT: Markup.keyboard returns object with reply_markup
+    await bot.telegram.sendMessage(chatId, text, {
+        reply_markup: keyboard.reply_markup,
+    });
+}
+
+
 // WatchPay deposit notify (x-www-form-urlencoded)
 app.post("/project-01/watchpay/notify/deposit", express.urlencoded({ extended: false }), async (req, res) => {
+    let session = null;
     try {
-        const paymentKey = process.env.WATCHPAY_PAYMENT_KEY_TEST;
-        console.log(paymentKey);
+        const paymentKey = process.env.WATCHPAY_PAYMENT_KEY;
         if (!paymentKey) return res.status(500).send("fail");
 
         const body = req.body || {};
 
-        // verify sign
+        // 1) Verify signature (callback uses signType)
         const ok = verifyCallback(body, paymentKey);
         if (!ok) return res.status(401).send("fail");
 
-        const mchOrderNo = body.mchOrderNo || body.mch_order_no || "";
-        const tradeResult = String(body.tradeResult || "");
+        const mchOrderNo = String(body.mchOrderNo || body.mch_order_no || "").trim();
+        const tradeResult = String(body.tradeResult || "").trim(); // "1" success
+        const gatewayOrderNo = String(body.orderNo || "").trim();
 
         if (!mchOrderNo) return res.status(400).send("fail");
 
-        // tradeResult=1 => success (as per your doc text)
-        if (tradeResult === "1") {
-            await transactions_model.updateOne(
-                { gateway: "WATCHPAY", mch_order_no: mchOrderNo, type: "D" },
-                {
-                    $set: {
-                        status: "S",
-                        trade_result: tradeResult,
-                        gateway_order_no: body.orderNo || "",
-                        raw_callback: body,
-                    },
-                }
-            );
-        } else {
-            await transactions_model.updateOne(
-                { gateway: "WATCHPAY", mch_order_no: mchOrderNo, type: "D" },
-                {
-                    $set: {
-                        status: "R",
-                        trade_result: tradeResult,
-                        raw_callback: body,
-                        note: "Deposit failed/rejected (WatchPay)",
-                    },
-                }
-            );
+        session = await project_01_connection.startSession();
+        session.startTransaction();
+
+        // 2) Find the pending deposit transaction by mch_order_no (NOT by user id)
+        const tx = await transactions_model.findOne({
+            gateway: "WATCHPAY",
+            mch_order_no: mchOrderNo,
+            type: "D",
+        }).session(session);
+
+        // If we don't find tx, still return success to stop retries (optional policy)
+        if (!tx) {
+            await session.commitTransaction();
+            session.endSession();
+            return res.send("success");
         }
 
-        // IMPORTANT: must return "success" to stop retries
+        // 3) If already processed, just ack
+        if (tx.status === "S") {
+            await session.commitTransaction();
+            session.endSession();
+            return res.send("success");
+        }
+
+        // 4) Activate user + commission (only once)
+        const user = await user_model.findById(tx.userDB_id).session(session);
+
+        // 5) Update tx status
+        if (tradeResult === "1") {
+            tx.status = "S";
+            tx.trade_result = tradeResult;
+            tx.gateway_order_no = gatewayOrderNo;
+            tx.raw_callback = body;
+            await tx.save({ session });
+            if (user && user.registration_status !== "ACTIVE") {
+                user.registration_status = "ACTIVE";
+                await user.save({ session });
+                await distributeRegistrationCommission(project_01_bot, user, depositAmount, session);
+            }
+        } else {
+            tx.status = "R";
+            tx.trade_result = tradeResult;
+            tx.raw_callback = body;
+            tx.note = "Deposit failed/rejected (WatchPay)";
+            await tx.save({ session });
+        }
+
+        await session.commitTransaction();
+        session.endSession();
+        await project_01_bot.telegram.sendMessage(user.user_id, "Payment confirmed. Your account is now active.");
+        await sendMenuToChat(project_01_bot, user.user_id, user, user.first_name);
         return res.send("success");
     } catch (err) {
         console.error("watchpay notify error:", err);
+        if (session) {
+            try { await session.abortTransaction(); } catch (e) { }
+            session.endSession();
+        }
         return res.status(500).send("fail");
     }
 });
+
+// -----------------------------
+// WatchPay withdraw notify (x-www-form-urlencoded)
+// URL used in bot: /project-01/watchpay/notify/withdraw
+// -----------------------------
+app.post("/project-01/watchpay/notify/withdraw", express.urlencoded({ extended: false }), async (req, res) => {
+    let session = null;
+    try {
+        const paymentKey = process.env.WATCHPAY_PAYMENT_KEY;
+        if (!paymentKey) return res.status(500).send("fail");
+
+        const body = req.body || {};
+
+        // 1) Verify signature
+        const ok = verifyCallback(body, paymentKey);
+        if (!ok) return res.status(401).send("fail");
+
+        // 2) Extract ids (different gateways sometimes send different key names)
+        const merTransferId = String(body.merTransferId).trim();
+
+        const tradeResult = String(body.tradeResult).trim(); // business status
+        const gatewayTradeNo = String(body.tradeNo).trim();
+
+        if (!merTransferId) return res.status(400).send("fail");
+
+        session = await project_01_connection.startSession();
+        session.startTransaction();
+
+        // 3) Find the pending withdrawal transaction
+        const tx = await transactions_model
+            .findOne({
+                gateway: "WATCHPAY",
+                mch_order_no: merTransferId, // we stored merTransferId in mch_order_no
+                type: "W",
+            })
+            .session(session);
+
+        // If not found: ACK success to stop retries (same approach used in deposit notifier)
+        if (!tx) {
+            await session.commitTransaction();
+            session.endSession();
+            return res.send("success");
+        }
+
+        // If already processed: ACK
+        if (tx.status === "S" || tx.status === "R") {
+            await session.commitTransaction();
+            session.endSession();
+            return res.send("success");
+        }
+
+        // Load user for messages/refund
+        const user = await user_model.findById(tx.userDB_id).session(session);
+
+        // 4) Interpret tradeResult:
+        // Commonly:
+        //   "1" => success
+        //   "0" => processing/pending (do not finalize)
+        //   other => fail
+        const isSuccess = tradeResult === "1";
+        const isProcessing = tradeResult === "0";
+
+        // Always store callback payload
+        tx.trade_result = tradeResult;
+        tx.gateway_order_no = gatewayTradeNo || tx.gateway_order_no;
+        tx.raw_callback = body;
+
+        if (isSuccess) {
+            tx.status = "S";
+            tx.note = tx.note || "Withdraw success (WatchPay)";
+            tx.processed_at = new Date();
+            await tx.save({ session });
+
+            await session.commitTransaction();
+            session.endSession();
+            session = null;
+
+            // Notify user
+            if (project_01_bot && user?.user_id) {
+                project_01_bot.telegram
+                    .sendMessage(
+                        user.user_id,
+                        `✅ Withdrawal Successful\nTX id: ${tx._id}\nAmount: ₹${Number(tx.amount || 0).toFixed(
+                            2
+                        )}`
+                    )
+                    .catch(() => { });
+            }
+
+            return res.send("success");
+        }
+
+        if (isProcessing) {
+            // keep as Pending, just update raw_callback / gateway_order_no / trade_result
+            await tx.save({ session });
+
+            await session.commitTransaction();
+            session.endSession();
+            session = null;
+
+            return res.send("success");
+        }
+
+        // 5) Fail => mark rejected + refund wallet (since wallet was deducted at request time)
+        const refundAmount = Number(tx.amount || 0);
+
+        tx.status = "R";
+        tx.note = `Withdraw rejected/failed`;
+        tx.processed_at = new Date();
+        await tx.save({ session });
+
+        if (user && refundAmount > 0) {
+            await user_model.updateOne(
+                { _id: user._id },
+                { $inc: { wallet_balance: refundAmount } },
+                { session }
+            );
+        }
+
+        await session.commitTransaction();
+        session.endSession();
+        session = null;
+
+        // Notify user
+        if (project_01_bot && user?.user_id) {
+            project_01_bot.telegram
+                .sendMessage(
+                    user.user_id,
+                    `❌ Withdrawal Failed\nTX id: ${tx._id}\nAmount refunded: ₹${refundAmount.toFixed(2)}`
+                )
+                .catch(() => { });
+        }
+
+        return res.send("success");
+    } catch (err) {
+        console.error("watchpay withdraw notify error:", err);
+
+        if (session) {
+            try {
+                await session.abortTransaction();
+            } catch (_) { }
+            session.endSession();
+        }
+        return res.status(500).send("fail");
+    }
+}
+);
 
 /**
  * USER
@@ -214,6 +436,7 @@ async function fetchTransactions(userDB_id) {
     // Convert timestamps to IST display format
     const mapped = tx.map(t => ({
         ...t,
+        _id: String(t._id),
         created_at_ist: t.created_at ? toISTDateTime(t.created_at) : null
     }));
 
@@ -281,7 +504,6 @@ app.get('/project-01/transactions-report', async (req, res) => {
         }
 
         const tx = await fetchTransactions(userDB_id);
-
         return res.render(
             'pages/transactions_report',
             baseTemplateData({
@@ -575,10 +797,10 @@ const REJECT_REASONS = [
 ];
 
 /**
- * computeSummary() - deposits are derived from ACTIVE users * fixed deposit (1000)
+ * computeSummary() - deposits are derived from ACTIVE users * fixed deposit (depositAmount)
  */
 async function computeSummary() {
-    const DEPOSIT_PER_USER = Number(process.env.FIRST_DEPOSIT_AMOUNT) || 1000;
+    const DEPOSIT_PER_USER = depositAmount;
 
     const total_users = await user_model.countDocuments();
     const activeUsersCount = await user_model.countDocuments({ registration_status: 'ACTIVE' });
@@ -652,49 +874,105 @@ app.get('/project-01/admin/summary', async (req, res) => {
  * GET withdrawals
  * GET /project-01/admin/withdrawals?status=Pending&page=1&limit=50
  */
-app.get('/project-01/admin/withdrawals', async (req, res) => {
+app.get("/project-01/admin/withdrawals", async (req, res) => {
     try {
-        const statusMap = { All: null, Pending: 'P', Reject: 'R', Success: 'S' };
-        const statusParam = req.query.status || 'Pending';
-        const statusFilter = statusMap[statusParam] === null ? {} : { status: statusMap[statusParam] };
+        const statusMap = { All: null, Pending: "P", Reject: "R", Success: "S" };
+        const statusParam = req.query.status || "Pending";
+        const statusFilter = statusMap[statusParam] ? { status: statusMap[statusParam] } : {};
 
-        const page = Math.max(1, parseInt(req.query.page || '1', 10));
-        const limit = Math.max(10, Math.min(200, parseInt(req.query.limit || '50', 10)));
+        const page = Math.max(1, parseInt(req.query.page || "1", 10));
+        const limit = Math.max(10, Math.min(200, parseInt(req.query.limit || "50", 10)));
         const skip = (page - 1) * limit;
 
-        const query = Object.assign({ type: 'W' }, statusFilter);
+        const search = String(req.query.search || "").trim();
 
-        const [items, total] = await Promise.all([
-            transactions_model.find(query).sort({ created_at: 1 }).skip(skip).limit(limit).lean(),
-            transactions_model.countDocuments(query)
-        ]);
+        // base query: withdrawals
+        const query = { type: "W", ...statusFilter };
 
-        // map created_at to IST and attach basic user info
-        const userIds = [...new Set(items.map(it => String(it.userDB_id)))].filter(Boolean);
-        let usersMap = {};
+        // search support: Order Id (mch_order_no), gateway_order_no, note/UPI, txid, user fields
+        if (search) {
+            const or = [];
+            const rx = new RegExp(escapeRegex(search), "i");
 
-        if (userIds.length) {
-            const users = await user_model.find({ _id: { $in: userIds } })
-                .select('first_name last_name username user_id wallet_balance registration_status created_at')
+            // txid direct
+            if (mongoose.Types.ObjectId.isValid(search)) {
+                or.push({ _id: new mongoose.Types.ObjectId(search) });
+            }
+
+            // order id / gateway order / note
+            or.push({ mch_order_no: rx });
+            or.push({ gateway_order_no: rx });
+            or.push({ note: rx });
+
+            // user side search
+            const userOr = [];
+            userOr.push({ username: rx });
+            userOr.push({ first_name: rx });
+            userOr.push({ last_name: rx });
+
+            // numeric telegram user_id search
+            const maybeNum = Number(search);
+            if (Number.isFinite(maybeNum)) userOr.push({ user_id: maybeNum });
+
+            const matchedUsers = await user_model
+                .find(userOr.length ? { $or: userOr } : {})
+                .select("_id")
+                .limit(2000)
                 .lean();
 
-            usersMap = users.reduce((acc, u) => { acc[String(u._id)] = u; return acc; }, {});
+            if (matchedUsers && matchedUsers.length) {
+                const ids = matchedUsers.map((u) => u._id);
+                or.push({ userDB_id: { $in: ids } });
+            }
+
+            query.$or = or;
         }
 
-        const rows = items.map(it => {
-            const user = usersMap[String(it.userDB_id)] || null;
+        const [items, total] = await Promise.all([
+            transactions_model.find(query).sort({ created_at: -1 }).skip(skip).limit(limit).lean(),
+            transactions_model.countDocuments(query),
+        ]);
+
+        // attach user info (same as your existing logic)
+        const userIds = [...new Set(items.map((it) => String(it.userDB_id)).filter(Boolean))];
+        let usersMap = {};
+        if (userIds.length) {
+            const users = await user_model
+                .find({ _id: { $in: userIds } })
+                .select("first_name last_name username user_id wallet_balance registration_status created_at bank_details")
+                .lean();
+
+            usersMap = users.reduce((acc, u) => {
+                acc[String(u._id)] = u;
+                return acc;
+            }, {});
+        }
+
+        const rows = items.map((it) => {
+            const u = usersMap[String(it.userDB_id)] || null;
             return {
                 ...it,
-                created_at_ist: toISTDate(it.created_at),
-                user
+                id: String(it._id),
+                created_at_ist: it.created_at ? toISTDateTime(it.created_at) : null,
+                user: u
+                    ? {
+                        id: String(u._id),
+                        firstname: u.first_name,
+                        lastname: u.last_name,
+                        username: u.username,
+                        userid: u.user_id,
+                        walletbalance: u.wallet_balance,
+                        registrationstatus: u.registration_status,
+                        createdatist: u.created_at ? toISTDate(u.created_at) : null,
+                        bank_details: u.bank_details,
+                    }
+                    : null,
             };
         });
-
         return res.json({ ok: true, rows, meta: { total, page, limit } });
-
     } catch (err) {
-        console.error('admin withdrawals api error:', err);
-        return res.status(500).json({ ok: false, error: 'Server error' });
+        console.error("admin withdrawals api error:", err);
+        return res.status(500).json({ ok: false, error: "Server error" });
     }
 });
 
@@ -729,7 +1007,7 @@ app.post('/project-01/admin/withdrawals/:txid/approve', async (req, res) => {
 
             await transactions_model.updateOne(
                 { _id: txid },
-                { $set: { status: 'S', admin_note: 'Approved by admin', processed_at: new Date() } },
+                { $set: { status: 'S', processed_at: new Date() } },
                 { session }
             );
 
@@ -844,53 +1122,438 @@ app.post('/project-01/admin/withdrawals/:txid/reject', async (req, res) => {
     }
 });
 
+// ==============================
+// DEPOSIT MANAGEMENT ENDPOINTS
+// ==============================
+
+/**
+ * GET deposits list
+ * GET /project-01/admin/deposits?status=Pending&page=1&limit=50&search=
+ */
+app.get("/project-01/admin/deposits", async (req, res) => {
+    try {
+        const statusMap = { All: null, Pending: "P", Success: "S", Reject: "R" };
+        const statusParam = req.query.status || "Pending";
+        const statusFilter = statusMap[statusParam] ? { status: statusMap[statusParam] } : {};
+
+        const page = Math.max(1, parseInt(req.query.page || "1", 10));
+        const limit = Math.max(10, Math.min(200, parseInt(req.query.limit || "50", 10)));
+        const skip = (page - 1) * limit;
+
+        const search = String(req.query.search || "").trim();
+
+        // base query: deposits (type "D")
+        const query = { type: "D", ...statusFilter };
+
+        // search support: Order Id (mch_order_no), gateway_order_no, note, user fields
+        if (search) {
+            const or = [];
+            const rx = new RegExp(escapeRegex(search), "i");
+
+            // txid direct
+            if (mongoose.Types.ObjectId.isValid(search)) {
+                or.push({ _id: new mongoose.Types.ObjectId(search) });
+            }
+
+            // order id / gateway order / note
+            or.push({ mch_order_no: rx });
+            or.push({ gateway_order_no: rx });
+            or.push({ note: rx });
+
+            // user side search
+            const userOr = [];
+            userOr.push({ username: rx });
+            userOr.push({ first_name: rx });
+            userOr.push({ last_name: rx });
+
+            // numeric telegram user_id search
+            const maybeNum = Number(search);
+            if (Number.isFinite(maybeNum)) userOr.push({ user_id: maybeNum });
+
+            const matchedUsers = await user_model
+                .find(userOr.length ? { $or: userOr } : {})
+                .select("_id")
+                .limit(2000)
+                .lean();
+
+            if (matchedUsers && matchedUsers.length) {
+                const ids = matchedUsers.map((u) => u._id);
+                or.push({ userDB_id: { $in: ids } });
+            }
+
+            query.$or = or;
+        }
+
+        const [items, total] = await Promise.all([
+            transactions_model.find(query).sort({ created_at: -1 }).skip(skip).limit(limit).lean(),
+            transactions_model.countDocuments(query),
+        ]);
+
+        // attach user info
+        const userIds = [...new Set(items.map((it) => String(it.userDB_id)).filter(Boolean))];
+        let usersMap = {};
+        if (userIds.length) {
+            const users = await user_model
+                .find({ _id: { $in: userIds } })
+                .select("first_name last_name username user_id wallet_balance registration_status created_at")
+                .lean();
+
+            usersMap = users.reduce((acc, u) => {
+                acc[String(u._id)] = u;
+                return acc;
+            }, {});
+        }
+
+        const rows = items.map((it) => {
+            const u = usersMap[String(it.userDB_id)] || null;
+            return {
+                ...it,
+                id: String(it._id),
+                created_at_ist: it.created_at ? toISTDateTime(it.created_at) : null,
+                user: u
+                    ? {
+                        id: String(u._id),
+                        firstname: u.first_name,
+                        lastname: u.last_name,
+                        username: u.username,
+                        userid: u.user_id,
+                        walletbalance: u.wallet_balance,
+                        registrationstatus: u.registration_status,
+                        createdatist: u.created_at ? toISTDate(u.created_at) : null,
+                    }
+                    : null,
+            };
+        });
+
+        return res.json({ ok: true, rows, meta: { total, page, limit } });
+    } catch (err) {
+        console.error("admin deposits api error:", err);
+        return res.status(500).json({ ok: false, error: "Server error" });
+    }
+});
+
+/**
+ * Approve deposit
+ * POST /project-01/admin/deposits/:txid/approve
+ */
+app.post('/project-01/admin/deposits/:txid/approve', async (req, res) => {
+    let session = null;
+    try {
+        const { txid } = req.params;
+
+        if (!txid || !mongoose.Types.ObjectId.isValid(txid)) {
+            return res.status(400).json({ ok: false, error: 'Invalid transaction ID' });
+        }
+
+        session = await project_01_connection.startSession();
+        session.startTransaction();
+
+        try {
+            // Find the deposit transaction
+            const tx = await transactions_model.findById(txid).session(session).lean();
+            if (!tx || tx.type !== 'D') {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(404).json({ ok: false, error: 'Deposit transaction not found' });
+            }
+
+            if (tx.status !== 'P') {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({
+                    ok: false,
+                    error: `Deposit is not in Pending status. Current status: ${tx.status}`
+                });
+            }
+
+            // Get the user
+            const user = await user_model.findById(tx.userDB_id).session(session).lean();
+            if (!user) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(404).json({ ok: false, error: 'User not found' });
+            }
+
+            // Update transaction status to Success
+            await transactions_model.updateOne(
+                { _id: txid },
+                {
+                    $set: {
+                        status: 'S',
+                        note: 'Deposit approved by admin',
+                        processed_at: new Date()
+                    }
+                },
+                { session }
+            );
+
+            // Update user wallet balance
+            await user_model.updateOne(
+                { _id: user._id },
+                { $inc: { wallet_balance: tx.amount } },
+                { session }
+            );
+
+            // If user is not active, activate them and distribute commission
+            if (user.registration_status !== 'ACTIVE') {
+                await user_model.updateOne(
+                    { _id: user._id },
+                    { $set: { registration_status: 'ACTIVE', activated_at: new Date() } },
+                    { session }
+                );
+
+                // Distribute commission for the activation
+                await distributeRegistrationCommission(project_01_bot, user, tx.amount, session);
+            }
+
+            await session.commitTransaction();
+            session.endSession();
+
+            // Send notification to user if bot is available
+            if (project_01_bot && user.user_id) {
+                try {
+                    const message = `✅ Your deposit of ₹${tx.amount} has been approved!\n\n` +
+                        `Your account is now active and ₹${tx.amount} has been added to your wallet.\n` +
+                        `Wallet Balance: ₹${user.wallet_balance + tx.amount}`;
+
+                    await project_01_bot.telegram.sendMessage(user.user_id, message);
+                } catch (notifyErr) {
+                    console.error("Failed to send deposit approval notification:", notifyErr);
+                }
+            }
+
+            return res.json({
+                ok: true,
+                message: 'Deposit approved successfully',
+                data: {
+                    amount: tx.amount,
+                    user_id: user.user_id,
+                    registration_activated: user.registration_status !== 'ACTIVE'
+                }
+            });
+
+        } catch (txErr) {
+            try { await session.abortTransaction(); } catch (_) { }
+            session.endSession();
+            throw txErr;
+        }
+
+    } catch (err) {
+        console.error('approve deposit error:', err);
+        return res.status(500).json({ ok: false, error: 'Server error' });
+    }
+});
+
+/**
+ * Reject deposit
+ * POST /project-01/admin/deposits/:txid/reject
+ */
+app.post('/project-01/admin/deposits/:txid/reject', async (req, res) => {
+    let session = null;
+    try {
+        const { txid } = req.params;
+        const { reason } = req.body;
+
+        if (!txid || !mongoose.Types.ObjectId.isValid(txid)) {
+            return res.status(400).json({ ok: false, error: 'Invalid transaction ID' });
+        }
+
+        session = await project_01_connection.startSession();
+        session.startTransaction();
+
+        try {
+            const tx = await transactions_model.findById(txid).session(session).lean();
+            if (!tx || tx.type !== 'D') {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(404).json({ ok: false, error: 'Deposit transaction not found' });
+            }
+
+            if (tx.status !== 'P') {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({
+                    ok: false,
+                    error: `Deposit is not in Pending status. Current status: ${tx.status}`
+                });
+            }
+
+            // Get the user for notification
+            const user = await user_model.findById(tx.userDB_id).session(session).lean();
+
+            // Update transaction status to Rejected
+            const rejectNote = reason ? `Deposit rejected by admin: ${reason}` : 'Deposit rejected by admin';
+            await transactions_model.updateOne(
+                { _id: txid },
+                {
+                    $set: {
+                        status: 'R',
+                        note: rejectNote,
+                        processed_at: new Date()
+                    }
+                },
+                { session }
+            );
+
+            await session.commitTransaction();
+            session.endSession();
+
+            // Send notification to user if bot is available
+            if (project_01_bot && user && user.user_id) {
+                try {
+                    const message = `❌ Your deposit of ₹${tx.amount} has been rejected.\n\n` +
+                        `Reason: ${reason || 'No reason provided'}\n` +
+                        `Please contact support if you have any questions.`;
+
+                    await project_01_bot.telegram.sendMessage(user.user_id, message);
+                } catch (notifyErr) {
+                    console.error("Failed to send deposit rejection notification:", notifyErr);
+                }
+            }
+
+            return res.json({
+                ok: true,
+                message: 'Deposit rejected successfully',
+                data: {
+                    amount: tx.amount,
+                    user_id: user ? user.user_id : null,
+                    reason: reason || null
+                }
+            });
+
+        } catch (txErr) {
+            try { await session.abortTransaction(); } catch (_) { }
+            session.endSession();
+            throw txErr;
+        }
+
+    } catch (err) {
+        console.error('reject deposit error:', err);
+        return res.status(500).json({ ok: false, error: 'Server error' });
+    }
+});
+
 /**
  * GET users list (search + filter + pagination)
  * GET /project-01/admin/users?status=All&page=1&limit=30&search=
  *
  * status => All | Pending | Active (filters by registration_status)
  */
-app.get('/project-01/admin/users', async (req, res) => {
+app.get("/project-01/admin/users", async (req, res) => {
     try {
-        const statusParam = (req.query.status || 'All');
-        const statusFilter = (statusParam === 'All')
-            ? {}
-            : { registration_status: (statusParam === 'Pending' ? 'PENDING' : (statusParam === 'Active' ? 'ACTIVE' : statusParam)) };
+        const statusParam = req.query.status || "All";
 
-        const page = Math.max(1, parseInt(req.query.page || '1', 10));
-        const limit = Math.max(10, Math.min(200, parseInt(req.query.limit || '30', 10)));
+        const statusFilter =
+            statusParam === "All"
+                ? {}
+                : statusParam === "Pending"
+                    ? { registration_status: "PENDING" }
+                    : statusParam === "Active"
+                        ? { registration_status: "ACTIVE" }
+                        : { registration_status: statusParam };
+
+        const page = Math.max(1, parseInt(req.query.page || "1", 10));
+        const limit = Math.max(10, Math.min(200, parseInt(req.query.limit || "30", 10)));
         const skip = (page - 1) * limit;
 
-        const search = (req.query.search || '').trim();
+        const search = String(req.query.search || "").trim();
         const searchQuery = {};
 
         if (search) {
-            // search by username, first_name, last_name, user_id (partial)
-            const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-            searchQuery.$or = [
-                { username: { $regex: regex } },
-                { first_name: { $regex: regex } },
-                { last_name: { $regex: regex } },
+            const rx = new RegExp(escapeRegex(search), "i");
+            const ors = [
+                { username: rx },
+                { first_name: rx },
+                { last_name: rx },
             ];
+
+            const maybeNum = Number(search);
+            if (Number.isFinite(maybeNum)) ors.push({ user_id: maybeNum });
+
+            searchQuery.$or = ors;
         }
 
-        const finalQuery = Object.assign({}, statusFilter, searchQuery);
+        const finalQuery = { ...statusFilter, ...searchQuery };
 
-        const [items, total] = await Promise.all([
-            user_model.find(finalQuery).sort({ created_at: -1 }).skip(skip).limit(limit).lean(),
-            user_model.countDocuments(finalQuery)
+        const [total, items] = await Promise.all([
+            user_model.countDocuments(finalQuery),
+            (async () => {
+                const TX_COLL = transactions_model.collection.name; // usually "transactions"
+                const INV_COLL = invite_model.collection.name;      // usually "invites"
+
+                const pipeline = [
+                    { $match: finalQuery },
+                    { $sort: { created_at: -1 } },
+                    { $skip: skip },
+                    { $limit: limit },
+
+                    // total income = sum of Invite commission transactions (type "I")
+                    {
+                        $lookup: {
+                            from: TX_COLL,
+                            let: { uid: "$_id" },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: {
+                                            $and: [
+                                                { $eq: ["$userDB_id", "$$uid"] },
+                                                { $eq: ["$type", "I"] },
+                                            ],
+                                        },
+                                    },
+                                },
+                                { $group: { _id: null, total: { $sum: "$amount" } } },
+                            ],
+                            as: "incomeAgg",
+                        },
+                    },
+                    {
+                        $addFields: {
+                            total_income: { $ifNull: [{ $arrayElemAt: ["$incomeAgg.total", 0] }, 0] },
+                        },
+                    },
+
+                    // team count (downline size) via graph lookup on Invite edges
+                    {
+                        $graphLookup: {
+                            from: INV_COLL,
+                            startWith: "$_id",
+                            connectFromField: "invite_to_userDB_id",
+                            connectToField: "invited_by_userDB_id",
+                            as: "downlineEdges",
+                            maxDepth: 6, // upto 7 levels total (0..6)
+                        },
+                    },
+                    { $addFields: { team_count: { $size: "$downlineEdges" } } },
+
+                    { $project: { incomeAgg: 0, downlineEdges: 0 } },
+                ];
+
+                return user_model.aggregate(pipeline);
+            })(),
         ]);
 
-        const rows = items.map(u => ({
-            ...u,
-            created_at_ist: toISTDate(u.created_at)
+        const rows = (items || []).map((u) => ({
+            id: String(u._id),
+            firstname: u.first_name,
+            lastname: u.last_name,
+            username: u.username,
+            userid: u.user_id,
+            walletbalance: u.wallet_balance,
+            registrationstatus: u.registration_status,
+            invitecode: u.invite_code,
+            createdatist: u.created_at ? toISTDate(u.created_at) : null,
+
+            // NEW fields for UI
+            teamcount: Number(u.team_count || 0),
+            totalincome: Number(u.total_income || 0),
         }));
 
         return res.json({ ok: true, rows, meta: { total, page, limit } });
-
     } catch (err) {
-        console.error('admin users api error:', err);
-        return res.status(500).json({ ok: false, error: 'Server error' });
+        console.error("admin users api error:", err);
+        return res.status(500).json({ ok: false, error: "Server error" });
     }
 });
 
@@ -1043,7 +1706,7 @@ app.post('/project-01/admin/users/:id/activate', async (req, res) => {
             }
 
             // deposit amount (fixed)
-            const DEPOSIT_AMOUNT = Number(process.env.FIRST_DEPOSIT_AMOUNT) || 1000;
+            const DEPOSIT_AMOUNT = depositAmount;
 
             // mark user active (atomic update)
             await user_model.updateOne(

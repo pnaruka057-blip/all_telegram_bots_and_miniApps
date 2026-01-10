@@ -93,6 +93,15 @@
                                     <%= new Date(t.created_at).toLocaleString() %>
                                 </div>
 
+                                <!-- TX ID with copy functionality -->
+                                <div class="mt-2">
+                                    <span
+                                        class="text-xs text-slate-500 font-mono cursor-pointer hover:text-slate-300 transition-colors"
+                                        onclick="copyToClipboard('<%= t._id %>')" title="Click to copy TX ID">
+                                        TX id: <%= t._id %>
+                                    </span>
+                                </div>
+
                             </div>
 
                             <!-- Right -->
@@ -144,6 +153,14 @@
     </section>
 
     <script>
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Optional: Show a temporary notification
+                showNotification('TX ID copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            });
+        }
         (function () {
             const root = document.documentElement;
             const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;

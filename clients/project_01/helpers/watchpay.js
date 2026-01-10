@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+
 const axios = require("axios");
 
 function md5Lower(str) {
@@ -30,7 +31,9 @@ function verifyCallback(params, merchantKey) {
 function nowFmt() {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(
+        d.getMinutes(),
+    )}:${pad(d.getSeconds())}`;
 }
 
 async function createDepositOrder({
@@ -78,7 +81,93 @@ async function createDepositOrder({
     return data;
 }
 
+// ==============================
+// ADDED: Withdraw / Transfer Order
+// ==============================
+async function createWithdrawOrder({
+    baseUrl,
+    mch_id,
+    paymentKey,
+    back_url, // async notify URL (optional, but recommended)
+    mch_transferId,
+    transfer_amount, // integer (yuan)
+    bank_code,
+    receive_name,
+    receive_account,
+    remark, // India: IFSC code is required here
+}) {
+    const payload = {
+        sign_type: "MD5",
+        mch_id: String(mch_id),
+        mch_transferId: String(mch_transferId),
+        transfer_amount: String(transfer_amount),
+        apply_date: nowFmt(),
+        bank_code: String(bank_code),
+        receive_name: String(receive_name),
+        receive_account: String(receive_account),
+        remark: remark ? String(remark) : "sfsdfsd",
+        back_url: back_url ? String(back_url) : "",
+    };
+
+    payload.sign = signRequest(payload, paymentKey);
+
+    const url = `${baseUrl.replace(/\/+$/, "")}/pay/transfer`;
+
+    const form = new URLSearchParams();
+    Object.entries(payload).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && String(v) !== "") form.append(k, String(v));
+    });
+
+    const { data } = await axios.post(url, form.toString(), {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        timeout: 30000,
+    });
+
+    // Expected JSON like: { respCode, tradeNo, tradeResult, errorMsg, ... }
+    return data;
+}
+
+
+// ==============================
+// Transfer Inquiry ( /query/transfer )
+// ==============================
+async function queryTransferOrder({
+    baseUrl,
+    mch_id,
+    paymentKey,
+    mch_transferId,
+}) {
+    const url = `${String(baseUrl).replace(/\/+$/, "")}/query/transfer`;
+
+    const payload = {
+        mch_id: String(mch_id),
+        mch_transferId: String(mch_transferId),
+        sign_type: "MD5",
+    };
+
+    payload.sign = signRequest(payload, paymentKey);
+
+    console.log(payload);
+
+    const form = new URLSearchParams();
+    Object.entries(payload).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && String(v) !== "") form.append(k, String(v));
+    });
+
+    const { data } = await axios.post(url, form.toString(), {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        timeout: 30000,
+    });
+
+    console.log(data);
+
+    return data;
+}
+
+
 module.exports = {
     createDepositOrder,
+    createWithdrawOrder,
     verifyCallback,
+    queryTransferOrder
 };
