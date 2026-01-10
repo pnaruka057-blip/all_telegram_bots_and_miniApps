@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema(
         firstName: { type: String },
         lastName: { type: String },
         createdAt: { type: Date, required: true, default: Date.now },
+        isAdmin: { type: Boolean }
     },
     {
         versionKey: false, // __v off (storage optimize)
