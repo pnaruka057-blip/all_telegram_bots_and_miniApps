@@ -1290,7 +1290,7 @@ app.post('/project-01/admin/deposits/:txid/approve', async (req, res) => {
             // Update user wallet balance
             await user_model.updateOne(
                 { _id: user._id },
-                { $inc: { wallet_balance: tx.amount } },
+                { $inc: { wallet_balance: 0 } },
                 { session }
             );
 
