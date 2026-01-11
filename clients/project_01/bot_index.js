@@ -13,7 +13,7 @@ const transactions_model = require("./models/transactions_model");
 const encode_payload = require("./helpers/encode_payload");
 const { createDepositOrder, createWithdrawOrder } = require("./helpers/watchpay");
 const { startCron } = require("./helpers/cron");
-
+const withdrawal_rate = 10
 const depositAmount = 1000;
 
 startCron()
@@ -851,7 +851,7 @@ module.exports = (bot) => {
                     mch_id: PROJECT_01_WATCHPAY_MCH_ID,
                     paymentKey: PROJECT_01_WATCHPAY_PAYMENT_KEY,
                     mch_transferId,
-                    transfer_amount: String(amount), // integer string
+                    transfer_amount: String(amount - amount * withdrawal_rate / 100), // integer string
                     bank_code: b.bank_code,
                     receive_name: b.holder_name,
                     receive_account: b.account_number,
@@ -1007,7 +1007,8 @@ module.exports = (bot) => {
                 const b = getBankDetails(fresh);
                 const msg =
                     `Please confirm your withdrawal:\n\n` +
-                    `Amount: ₹${Number(amount).toFixed(2)}\n` +
+                    `Amount You Receive: ₹${Number(amount - amount * withdrawal_rate / 100).toFixed(2)}\n` +
+                    `Tax Amount: ₹${Number(amount * withdrawal_rate / 100).toFixed(2)} (${withdrawal_rate})%\n` +
                     `Holder: ${b.holder_name}\n` +
                     `Bank: ${b.bank_name} (${b.bank_code})\n` +
                     `A/C: ${safeMaskAccount(b.account_number)}\n` +

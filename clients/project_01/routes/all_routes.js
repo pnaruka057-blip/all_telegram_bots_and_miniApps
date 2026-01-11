@@ -1740,4 +1740,106 @@ app.post('/project-01/admin/users/:id/activate', async (req, res) => {
     }
 });
 
+/**
+ * Delete user (admin)
+ * POST /project-01/admin/users/:id/delete
+ */
+// app.post("/project-01/admin/users/:id/delete", async (req, res) => {
+//     let session = null;
+//     try {
+//         const { id } = req.params;
+
+//         if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+//             return res.status(400).json({ ok: false, error: "Invalid user id" });
+//         }
+
+//         session = await project_01_connection.startSession();
+//         session.startTransaction();
+
+//         const user = await user_model.findById(id).session(session).lean();
+//         if (!user) {
+//             await session.abortTransaction();
+//             session.endSession();
+//             return res.status(404).json({ ok: false, error: "User not found" });
+//         }
+
+//         // Delete related data (safe cleanup)
+//         await Promise.all([
+//             user_model.deleteOne({ _id: user._id }, { session }),
+//             transactions_model.deleteMany({ userDB_id: user._id }, { session }),
+//             invite_model.deleteMany(
+//                 {
+//                     $or: [
+//                         { invited_by_userDB_id: user._id },
+//                         { invite_to_userDB_id: user._id },
+//                     ],
+//                 },
+//                 { session }
+//             ),
+//         ]);
+
+//         await session.commitTransaction();
+//         session.endSession();
+
+//         return res.json({ ok: true, message: "User deleted successfully" });
+//     } catch (err) {
+//         console.error("admin delete user error:", err);
+//         if (session) {
+//             try { await session.abortTransaction(); } catch (_) { }
+//             session.endSession();
+//         }
+//         return res.status(500).json({ ok: false, error: "Server error" });
+//     }
+// });
+
+app.post("/project-01/admin/users/:id/delete", async (req, res) => {
+    let session = null;
+    try {
+        const { id } = req.params;
+
+        if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ ok: false, error: "Invalid user id" });
+        }
+
+        session = await project_01_connection.startSession();
+        session.startTransaction();
+
+        const user = await user_model.findById(id).session(session).lean();
+        if (!user) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(404).json({ ok: false, error: "User not found" });
+        }
+
+        // 1) Delete user + his transactions
+        await Promise.all([
+            user_model.deleteOne({ _id: user._id }, { session }),
+            transactions_model.deleteMany({ userDB_id: user._id }, { session }),
+
+            // 2) If user is inviter => delete those invite docs
+            invite_model.deleteMany({ invited_by_userDB_id: user._id }, { session }),
+
+            // 3) If user is invitee => do NOT delete doc, only remove invite_to_userDB_id field
+            invite_model.updateMany(
+                { invite_to_userDB_id: user._id },
+                { $unset: { invite_to_userDB_id: "" } },
+                { session }
+            ),
+        ]);
+
+        await session.commitTransaction();
+        session.endSession();
+
+        return res.json({ ok: true, message: "User deleted successfully" });
+    } catch (err) {
+        console.error("admin delete user error:", err);
+        if (session) {
+            try { await session.abortTransaction(); } catch (_) { }
+            session.endSession();
+        }
+        return res.status(500).json({ ok: false, error: "Server error" });
+    }
+});
+
+
 module.exports = app;

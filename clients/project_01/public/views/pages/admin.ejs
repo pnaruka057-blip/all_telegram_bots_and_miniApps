@@ -309,6 +309,7 @@ function formatCompactMoney(num) {
         </div>
 
         <div class="mt-4 flex gap-2 justify-end">
+            <button id="um_delete" class="px-4 py-2 rounded-lg bg-red-600 text-white">Delete</button>
             <button id="um_activate" class="px-4 py-2 rounded-lg bg-amber-500 text-slate-900 hidden">Activate</button>
         </div>
     </div>
@@ -327,7 +328,9 @@ function formatCompactMoney(num) {
         const apiRejectDeposit = (txid) => `/${token}/project-01/admin/deposits/${txid}/reject`;
         const apiActivateUser = (id) => `/${token}/project-01/admin/users/${id}/activate`;
 
-        // Withdrawals state
+        
+        const apiDeleteUser = (id) => `/${token}/project-01/admin/users/${id}/delete`;
+// Withdrawals state
         let currentStatus = 'Pending';
         let currentPage = 1;
         let wdSearch = '';
@@ -1284,6 +1287,14 @@ function formatCompactMoney(num) {
                     viewBtn.addEventListener('click', () => openUserDetails(u));
                     actions.appendChild(viewBtn);
 
+                    // Delete button
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'px-3 py-2 bg-red-600 text-white rounded-lg text-sm';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.dataset.mutation = "1";
+                    deleteBtn.addEventListener('click', () => deleteUser(u, deleteBtn));
+                    actions.appendChild(deleteBtn);
+
                     if ((u.registrationstatus || '').toUpperCase() === 'PENDING') {
                         const activateBtn = document.createElement('button');
                         activateBtn.className = 'px-3 py-2 bg-amber-500 text-slate-900 rounded-lg text-sm';
@@ -1345,7 +1356,9 @@ function formatCompactMoney(num) {
         const userModal = document.getElementById('userModal');
         const um_close = document.getElementById('um_close');
         const um_activate = document.getElementById('um_activate');
+        const um_delete = document.getElementById('um_delete');
         um_activate.dataset.mutation = "1";
+        if (um_delete) um_delete.dataset.mutation = "1";
 
         function hideUserModal() {
             hideModal(userModal);
@@ -1387,6 +1400,21 @@ function formatCompactMoney(num) {
                 um_activate.classList.add('hidden');
                 um_activate.onclick = null;
             }
+            
+
+            // Delete (always available)
+            if (um_delete) {
+                um_delete.onclick = async function () {
+                    if (mutationInFlight) return;
+
+                    const displayName = (u.firstname ? (u.firstname + (u.lastname ? ' ' + u.lastname : '')) : (u.username || 'User'));
+                    const msg = `Delete this user permanently?\n\nName: ${displayName}\nUsername/UserID: ${u.username ? ('@' + u.username) : (u.userid || '-')}\nDB ID: ${u.id || '-'}\n\nThis will remove user and related records.\nDo you want to continue?`;
+                    if (!confirm(msg)) return;
+
+                    await deleteUser(u, um_delete, true);
+                };
+            }
+
             showModal(userModal);
         }
 
@@ -1423,6 +1451,68 @@ function formatCompactMoney(num) {
                 setMutationLock(false);
             }
         }
+
+        
+
+        async function deleteUser(uOrId, btnEl, closeModalOnSuccess = false) {
+    if (mutationInFlight) return;
+
+    const id = typeof uOrId === 'object' ? uOrId.id : uOrId;
+    const u = typeof uOrId === 'object' ? uOrId : null;
+
+    if (!id) { alert('User id missing'); return; }
+
+    if (!closeModalOnSuccess) {
+        const displayName = u
+            ? (u.firstname ? (u.firstname + (u.lastname ? ' ' + u.lastname : '')) : (u.username || 'User'))
+            : id;
+
+        const msg = `Delete this user permanently?\n\nName/ID: ${displayName}\nDB ID: ${id}\n\nThis will remove user and related records.\nDo you want to continue?`;
+        if (!confirm(msg)) return;
+    }
+
+    const oldText = btnEl ? btnEl.textContent : null;
+
+    try {
+        setMutationLock(true);
+        if (btnEl) btnEl.textContent = 'Deleting...';
+
+        usersMeta.textContent = 'Deleting user...';
+        withdrawalsMeta.textContent = '';
+        depositsMeta.textContent = '';
+
+        const res = await axios.post(apiDeleteUser(id));
+
+        if (res.data && res.data.ok) {
+            if (closeModalOnSuccess) hideUserModal();
+
+            // optional: reset pages so "complete refresh" always starts from first page
+            currentPage = 1;
+            depositCurrentPage = 1;
+            usersPage = 1;
+
+            usersMeta.textContent = 'Deleted. Refreshing all panels...';
+
+            await loadSummary();
+            await loadWithdrawals();
+            await loadDeposits();
+            await loadUsers();
+
+            usersMeta.textContent = '';
+        } else {
+            alert(res.data && res.data.error ? res.data.error : 'Delete failed');
+        }
+    } catch (err) {
+        console.error('delete user error', err);
+        alert('Server error');
+    } finally {
+        if (btnEl) btnEl.textContent = oldText || 'Delete';
+        usersMeta.textContent = '';
+        setMutationLock(false);
+    }
+}
+
+
 
         // ====================
         // INITIALIZATION
