@@ -19,6 +19,7 @@ const telegramUserSchema = new mongoose.Schema(
         },
         wallet_balance: { type: Number, default: 0, min: 0 },
         created_at: { type: Date, default: Date.now },
+        activated_at: { type: Date },
         tab_tab_game: {
             balance: { type: Number, default: 0 },
             count: { type: Number, default: 0 },

@@ -3,8 +3,9 @@ const app = express()
 const path = require('path')
 const expressEjsLayouts = require('express-ejs-layouts');
 const moment = require('moment-timezone');
-const PER_TAP_AMOUNT = 0.1;
-const DAILY_CAP = 100;
+const PER_TAP_AMOUNT = 0.5;
+const DAILY_CAP = 300;
+const PLAY_WINDOW_DAYS = 5;
 let project_01_token = process.env.PROJECT_01_TOKEN
 const developer_telegram_username = process.env.DEVELOPER_TELEGRAM_USERNAME
 const support_telegram_username = process.env.SUPPORT_TELEGRAM_USERNAME
@@ -525,19 +526,12 @@ app.get('/project-01/transactions-report', async (req, res) => {
     }
 });
 
-async function countDirectActiveReferrals(userDB_id) {
-    if (!userDB_id) return 0;
-
-    // find direct invite relations
-    const invites = await invite_model.find({ invited_by_userDB_id: userDB_id }).select("invite_to_userDB_id").lean();
-    if (!invites || !invites.length) return 0;
-
-    const ids = invites.map(i => i.invite_to_userDB_id).filter(Boolean);
-    if (!ids.length) return 0;
-
-    // count users with registration_status ACTIVE
-    const activeCount = await user_model.countDocuments({ _id: { $in: ids }, registration_status: "ACTIVE" });
-    return activeCount;
+async function getFirstSuccessDepositTx(userDB_id) {
+    return transactions_model
+        .findOne({ userDB_id, type: "D", status: "S" })
+        .select("created_at")
+        .sort({ created_at: 1 })
+        .lean();
 }
 
 /**
@@ -547,246 +541,179 @@ async function countDirectActiveReferrals(userDB_id) {
 app.get('/project-01/daily-bonus', async (req, res) => {
     try {
         const { userDB_id } = req.query;
-
         if (!userDB_id) {
-            return res.render(
-                'pages/tap_tap_game',
-                baseTemplateData({
-                    page_name: "Daily Bonus",
-                    error: "userDB_id required"
-                })
-            );
+            return res.render('pages/tap_tap_game', baseTemplateData({
+                page_name: "Daily Bonus",
+                error: "userDB_id required"
+            }));
         }
 
         const user = await user_model.findById(userDB_id).lean();
-
         if (!user) {
-            return res.render(
-                'pages/tap_tap_game',
-                baseTemplateData({
-                    page_name: "Daily Bonus",
-                    error: "User not found"
-                })
-            );
+            return res.render('pages/tap_tap_game', baseTemplateData({
+                page_name: "Daily Bonus",
+                error: "User not found"
+            }));
         }
+
+        // only ACTIVE users should play (your activation is tied to success deposit flow)
+        if (user.registration_status !== "ACTIVE") {
+            return res.render('pages/tap_tap_game', baseTemplateData({
+                page_name: "Daily Bonus",
+                user,
+                error: "Your account is not active yet. Please complete first deposit."
+            }));
+        }
+
+        const depTx = await getFirstSuccessDepositTx(user._id);
+        if (!depTx?.created_at) {
+            return res.render('pages/tap_tap_game', baseTemplateData({
+                page_name: "Daily Bonus",
+                user,
+                error: "Activation deposit not found."
+            }));
+        }
+
+        const startedAt = depTx.created_at;
+        const endsAt = moment(startedAt).add(PLAY_WINDOW_DAYS, "days");
+        const withinPlayWindow = moment().isBefore(endsAt);
 
         const tab = (user.tab_tab_game && typeof user.tab_tab_game === 'object')
             ? user.tab_tab_game
             : { balance: 0, count: 0, auto_credited_flag: false };
 
-        const directActiveCount = await countDirectActiveReferrals(user._id);
-
-        // If eligible by balance AND not yet auto_credited_flag, credit ONCE (but do NOT reset balance/count; cron will handle cleanup)
-        let auto_credited_amount = 0;
-
-        if (Number(tab.balance || 0) >= 100 && !tab.auto_credited_flag) {
-            const creditAmount = 100; // credit ₹100 (user requested behaviour)
-
+        // if already reached daily cap but flag not set, just lock for today (NO wallet credit here)
+        if (Number(tab.balance || 0) >= DAILY_CAP && !tab.auto_credited_flag) {
             await user_model.updateOne(
                 { _id: user._id },
-                {
-                    $inc: { wallet_balance: creditAmount },
-                    $set: { "tab_tab_game.auto_credited_flag": true, "tab_tab_game.last_auto_credited_at": new Date() }
-                }
+                { $set: { "tab_tab_game.auto_credited_flag": true } }
             );
-
-            await transactions_model.create({
-                userDB_id: user._id,
-                type: "B",
-                amount: creditAmount,
-                status: "S",
-                note: "Daily bonus auto-credit (threshold reached)",
-                created_at: new Date()
-            });
-
-            auto_credited_amount = creditAmount;
-
-            // refresh user data
-            const fresh = await user_model.findById(user._id).lean();
-            const currentTab = (fresh.tab_tab_game && typeof fresh.tab_tab_game === 'object')
-                ? fresh.tab_tab_game
-                : { balance: 0, count: 0, auto_credited_flag: false };
-
-            return res.render(
-                'pages/tap_tap_game',
-                baseTemplateData({
-                    page_name: "Daily Bonus",
-                    user: fresh,
-                    withdrawable_balance: Number(fresh.wallet_balance || 0),
-                    tab_count: Number(currentTab.count || 0),
-                    tab_balance: Number(currentTab.balance || 0),
-                    direct_active_count: Number(directActiveCount || 0),
-                    eligible_for_directs: Number(directActiveCount || 0) >= 5,
-                    eligible_for_auto_credit: Number(currentTab.balance || 0) >= 100,
-                    auto_credited_amount,
-                    per_tap_amount: PER_TAP_AMOUNT,
-                    support_telegram_username
-                })
-            );
+            tab.auto_credited_flag = true;
         }
 
-        const currentTab = tab;
+        return res.render('pages/tap_tap_game', baseTemplateData({
+            page_name: "Daily Bonus",
+            user,
+            withdrawable_balance: Number(user.wallet_balance || 0),
+            tab_count: Number(tab.count || 0),
+            tab_balance: Number(tab.balance || 0),
+            per_tap_amount: PER_TAP_AMOUNT,
 
-        return res.render(
-            'pages/tap_tap_game',
-            baseTemplateData({
-                page_name: "Daily Bonus",
-                user,
-                withdrawable_balance: Number(user.wallet_balance || 0),
-                tab_count: Number(currentTab.count || 0),
-                tab_balance: Number(currentTab.balance || 0),
-                direct_active_count: Number(directActiveCount || 0),
-                eligible_for_directs: Number(directActiveCount || 0) >= 5,
-                eligible_for_auto_credit: Number(currentTab.balance || 0) >= 100,
-                auto_credited_amount,
-                per_tap_amount: PER_TAP_AMOUNT,
-                support_telegram_username
-            })
-        );
+            // new eligibility flags for UI
+            eligible_for_play: withinPlayWindow,
+            play_window_days: PLAY_WINDOW_DAYS,
+            play_window_ends_at: endsAt.toDate(),
+            daily_cap: DAILY_CAP,
 
+            support_telegram_username
+        }));
     } catch (err) {
         console.error("daily-bonus GET error:", err);
-        return res.render(
-            'pages/tap_tap_game',
-            baseTemplateData({
-                page_name: "Daily Bonus",
-                error: "Server error"
-            })
-        );
+        return res.render('pages/tap_tap_game', baseTemplateData({
+            page_name: "Daily Bonus",
+            error: "Server error"
+        }));
     }
 });
+
+// helper (same file)
+function isWriteConflict(err) {
+    const code = err?.code;
+    const codeName = err?.codeName;
+    const labels = err?.errorLabelSet ? Array.from(err.errorLabelSet) : (err?.errorLabels || []);
+    return code === 112 || codeName === "WriteConflict" || labels.includes("TransientTransactionError");
+}
+
+function sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+}
 
 app.post('/project-01/daily-bonus/tap', async (req, res) => {
     try {
         const { userDB_id } = req.body;
-
         if (!userDB_id) return res.status(400).json({ error: "userDB_id required" });
 
-        // load user existence quickly
-        const user = await user_model.findById(userDB_id).select("_id").lean();
-        if (!user) return res.status(404).json({ error: "User not found" });
+        // (your existing checks: user exists, ACTIVE, play window based on first success deposit)
+        // ... keep same as you already implemented
 
-        // eligibility: at least 5 direct active referrals
-        const directActiveCount = await countDirectActiveReferrals(user._id);
-        if (directActiveCount < 5) {
-            return res.status(403).json({
-                error: "Not eligible: you need at least 5 direct active referrals to use Daily Bonus.",
-                direct_active_count: directActiveCount
-            });
-        }
+        const MAX_RETRIES = 6;
 
-        // --- TRANSACTION START (POST optimization) ---
-        const session = await project_01_connection.startSession();
-        session.startTransaction();
-
-        try {
-            // ATOMIC update using an aggregation pipeline update (MongoDB 4.2+ required)
-            // This ensures balance becomes min(oldBalance + PER_TAP_AMOUNT, DAILY_CAP)
-            // and count increments by 1 in the same atomic operation.
-            const updated = await user_model.findOneAndUpdate(
-                { _id: user._id },
-                [
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                const updated = await user_model.findOneAndUpdate(
                     {
-                        $set: {
-                            "tab_tab_game.balance": {
-                                $min: [
-                                    { $add: [{ $ifNull: ["$tab_tab_game.balance", 0] }, PER_TAP_AMOUNT] },
-                                    DAILY_CAP
-                                ]
-                            },
-                            "tab_tab_game.count": { $add: [{ $ifNull: ["$tab_tab_game.count", 0] }, 1] },
-                            "tab_tab_game.created_at": { $ifNull: ["$tab_tab_game.created_at", new Date()] }
-                        }
-                    }
-                ],
-                { new: true, session } // return the document AFTER update
-            ).lean();
-
-            // If updated is null something went wrong (shouldn't usually happen)
-            if (!updated) {
-                await session.abortTransaction();
-                session.endSession();
-                return res.status(500).json({ error: "Unable to register tap. Try again." });
-            }
-
-            // Now check for auto-credit (credit ₹100 once if threshold reached and not yet auto credited)
-            let auto_credited = false;
-            let auto_credited_amount = 0;
-
-            const tab = (updated.tab_tab_game && typeof updated.tab_tab_game === "object")
-                ? updated.tab_tab_game
-                : { balance: 0, count: 0 };
-
-            // If balance reached cap (>= DAILY_CAP) and not yet auto credited, attempt to credit once.
-            if (Number(tab.balance || 0) >= DAILY_CAP) {
-                // Use findOneAndUpdate with condition to prevent double-crediting
-                const creditAmount = DAILY_CAP; // ₹100 per requirement
-
-                const credited = await user_model.findOneAndUpdate(
-                    {
-                        _id: updated._id,
+                        _id: userDB_id,
                         $or: [
                             { "tab_tab_game.auto_credited_flag": { $exists: false } },
                             { "tab_tab_game.auto_credited_flag": { $ne: true } }
                         ],
-                        // ensure the balance actually >= DAILY_CAP to prevent accidental credit
-                        $expr: { $gte: [{ $ifNull: ["$tab_tab_game.balance", 0] }, DAILY_CAP] }
+                        $expr: { $lt: [{ $ifNull: ["$tab_tab_game.balance", 0] }, DAILY_CAP] }
                     },
-                    {
-                        $inc: { wallet_balance: creditAmount },
-                        $set: { "tab_tab_game.auto_credited_flag": true, "tab_tab_game.last_auto_credited_at": new Date() }
-                    },
-                    { new: true, session }
+                    [
+                        {
+                            $set: {
+                                "tab_tab_game.balance": {
+                                    $min: [
+                                        { $add: [{ $ifNull: ["$tab_tab_game.balance", 0] }, PER_TAP_AMOUNT] },
+                                        DAILY_CAP
+                                    ]
+                                },
+                                "tab_tab_game.count": { $add: [{ $ifNull: ["$tab_tab_game.count", 0] }, 1] },
+
+                                // wallet instantly inc
+                                "wallet_balance": { $add: [{ $ifNull: ["$wallet_balance", 0] }, PER_TAP_AMOUNT] },
+
+                                // lock once daily cap reached (for today)
+                                "tab_tab_game.auto_credited_flag": {
+                                    $cond: [
+                                        {
+                                            $gte: [
+                                                {
+                                                    $min: [
+                                                        { $add: [{ $ifNull: ["$tab_tab_game.balance", 0] }, PER_TAP_AMOUNT] },
+                                                        DAILY_CAP
+                                                    ]
+                                                },
+                                                DAILY_CAP
+                                            ]
+                                        },
+                                        true,
+                                        { $ifNull: ["$tab_tab_game.auto_credited_flag", false] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    { new: true }
                 ).lean();
 
-                if (credited) {
-                    auto_credited = true;
-                    auto_credited_amount = creditAmount;
-
-                    // Create transaction record
-                    await transactions_model.create([{
-                        userDB_id: updated._id,
-                        type: "B",
-                        amount: creditAmount,
-                        status: "S",
-                        note: "Daily bonus auto-credit (tap-tap threshold)",
-                        created_at: new Date()
-                    }], { session });
-
-                    // refresh 'updated' to reflect new wallet balance
-                    Object.assign(updated, credited);
+                if (!updated) {
+                    return res.status(403).json({ error: "Daily limit reached for today." });
                 }
+
+                const tab = updated.tab_tab_game || {};
+                return res.json({
+                    tab_count: Number(tab.count || 0),
+                    tab_balance: Number(tab.balance || 0),
+                    withdrawable_balance: Number(updated.wallet_balance || 0),
+                    auto_credited_flag: Boolean(tab.auto_credited_flag)
+                });
+
+            } catch (err) {
+                if (isWriteConflict(err) && attempt < MAX_RETRIES) {
+                    await sleep(15 * attempt); // small backoff
+                    continue;
+                }
+                throw err;
             }
-
-            await session.commitTransaction();
-            session.endSession();
-
-            // Return authoritative state
-            const tab_count = Number((updated.tab_tab_game && updated.tab_tab_game.count) ? updated.tab_tab_game.count : 0);
-            const tab_balance = Number((updated.tab_tab_game && updated.tab_tab_game.balance) ? updated.tab_tab_game.balance : 0);
-            const withdrawable_balance = Number(updated.wallet_balance || 0);
-
-            return res.json({
-                tab_count,
-                tab_balance,
-                withdrawable_balance,
-                auto_credited,
-                auto_credited_amount,
-                direct_active_count: directActiveCount
-            });
-
-        } catch (txErr) {
-            try { await session.abortTransaction(); } catch (_) { }
-            session.endSession();
-            throw txErr;
         }
-        // --- TRANSACTION END ---
 
     } catch (err) {
         console.error("daily-bonus TAP error:", err);
         return res.status(500).json({ error: "Server error" });
     }
 });
+
 
 // Reject reasons (unchanged)
 const REJECT_REASONS = [

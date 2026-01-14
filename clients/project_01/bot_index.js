@@ -1,7 +1,6 @@
 // clients/project_01/bot_index.js
 
 const crypto = require("crypto");
-const axios = require("axios");
 const { Markup } = require("telegraf");
 
 const { project_01_connection } = require("../../globle_helper/mongoDB_connection");
@@ -13,8 +12,6 @@ const transactions_model = require("./models/transactions_model");
 const encode_payload = require("./helpers/encode_payload");
 const { createDepositOrder, createWithdrawOrder } = require("./helpers/watchpay");
 const { startCron } = require("./helpers/cron");
-const withdrawal_rate = 10
-const depositAmount = 1000;
 
 startCron()
 
@@ -22,6 +19,9 @@ startCron()
 // CONFIG
 // ==============================
 const MIN_WITHDRAW_AMOUNT = 1000;
+const withdrawal_rate = 10
+const depositAmount = 1000;
+const MIN_DIRECT_INVITES_FOR_WITHDRAW = 3;
 
 // ------------------------------
 // In-memory user flow state
@@ -46,6 +46,26 @@ function parseAmount(text) {
     const n = Number(String(text || "").replace(/[^\d.]/g, ""));
     if (!Number.isFinite(n)) return null;
     return Math.floor(n * 100) / 100;
+}
+
+async function getDirectInviteCount(userDB_id) {
+    return invite_model.countDocuments({ invited_by_userDB_id: userDB_id });
+}
+
+async function ensureMinInvitesForWithdraw(ctx, user) {
+    const count = await getDirectInviteCount(user._id);
+
+    if (count < MIN_DIRECT_INVITES_FOR_WITHDRAW) {
+        await ctx.reply(
+            `Withdrawal is available after at least ${MIN_DIRECT_INVITES_FOR_WITHDRAW} direct invites.\n` +
+            `Your direct invites: ${count}\n` +
+            `Please invite more users and try again.`,
+            activeMenu(),
+        );
+        return false;
+    }
+
+    return true;
 }
 
 // ------------------------------
@@ -730,6 +750,10 @@ module.exports = (bot) => {
             const user = await ensureActive(ctx);
             if (!user) return;
 
+            // ✅ min 3 direct invites check
+            const ok = await ensureMinInvitesForWithdraw(ctx, user);
+            if (!ok) return;
+
             const tgUserId = ctx.from.id;
 
             if (!hasBankDetails(user)) {
@@ -738,7 +762,9 @@ module.exports = (bot) => {
             }
 
             setState(tgUserId, STEPS.WAIT_WITHDRAW_AMOUNT, {});
-            return ctx.reply(`Send withdrawal amount (₹).\nMinimum withdrawal: ₹${MIN_WITHDRAW_AMOUNT}\nNote: Amount must be a whole number (no decimals).`);
+            return ctx.reply(
+                `Send withdrawal amount (₹).\nMinimum withdrawal: ₹${MIN_WITHDRAW_AMOUNT}\nNote: Amount must be a whole number (no decimals).`
+            );
         } catch (err) {
             console.error("withdraw start error:", err);
             ctx.reply("Something went wrong. Please try again.");
@@ -986,6 +1012,11 @@ module.exports = (bot) => {
 
             // Withdraw amount step
             if (st.step === STEPS.WAIT_WITHDRAW_AMOUNT) {
+                const ok = await ensureMinInvitesForWithdraw(ctx, user);
+                if (!ok) {
+                    clearState(tgUserId);
+                    return;
+                }
                 const amount = parseAmount(text);
                 if (!amount || amount <= 0) return ctx.reply("Invalid amount. Send number only (example: 2000).");
                 if (!Number.isInteger(amount)) return ctx.reply("Amount must be a whole number (example: 2000). Send again:");
