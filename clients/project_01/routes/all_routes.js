@@ -1645,7 +1645,28 @@ app.post('/project-01/admin/users/:id/activate', async (req, res) => {
             // distribute commission for the activation (no bot): pass null for bot if not available here
             // If you have access to your telegraf bot instance here, pass it as first arg to notify inviters.
             await distributeRegistrationCommission(project_01_bot, freshUser, DEPOSIT_AMOUNT, session);
+            // generate mch_order_no
+            const mch_order_no = `FD${Date.now()}${String(freshUser.telegram_id || freshUser._id).slice(-4)}`;
 
+            // create SUCCESS deposit transaction (ADMIN activation)
+            await transactions_model.create(
+                [
+                    {
+                        userDB_id: freshUser._id,
+                        type: "D", // Deposit
+                        amount: DEPOSIT_AMOUNT,
+                        status: "S", // Success
+                        note: "Activated by admin",
+                        gateway: "ADMIN",
+                        mch_order_no: mch_order_no,
+                        gateway_order_no: "",
+                        trade_result: "",
+                        raw_callback: null,
+                        created_at: new Date()
+                    }
+                ],
+                { session }
+            );
             await session.commitTransaction();
             session.endSession();
 
