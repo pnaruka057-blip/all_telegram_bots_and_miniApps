@@ -339,6 +339,7 @@ function baseTemplateData(extra = {}) {
     return {
         developer_telegram_username,
         token: project_01_token,
+        support_telegram_username,
         ...extra
     };
 }
@@ -470,7 +471,6 @@ app.get('/project-01/team-report', async (req, res) => {
                 page_name: "Team Report",
                 user,
                 team,
-                support_telegram_username
             })
         );
     } catch (err) {
@@ -511,7 +511,6 @@ app.get('/project-01/transactions-report', async (req, res) => {
                 page_name: "Transactions Report",
                 user,
                 tx,
-                support_telegram_username
             })
         );
     } catch (err) {
@@ -604,8 +603,6 @@ app.get('/project-01/daily-bonus', async (req, res) => {
             play_window_days: PLAY_WINDOW_DAYS,
             play_window_ends_at: endsAt.toDate(),
             daily_cap: DAILY_CAP,
-
-            support_telegram_username
         }));
     } catch (err) {
         console.error("daily-bonus GET error:", err);
