@@ -86,6 +86,18 @@ if (process.env.PROJECT_02_NODE_ENV && process.env.PROJECT_02_NODE_ENV !== 'deve
     );
 }
 
+app.get("/my-ip", async (req, res) => {
+    try {
+        const r = await fetch("https://api.ipify.org?format=json");
+        const data = await r.json();
+        res.json({
+            railway_detected_public_ip: data.ip
+        });
+    } catch (e) {
+        res.status(500).json({ error: "Unable to fetch IP" });
+    }
+});
+
 app.get('/', (req, res) => {
     try {
         const param = req.query?.tgWebAppStartParam;
@@ -178,18 +190,6 @@ app.get('/', (req, res) => {
     } catch (error) {
         console.error('Error processing request:', error);
         return res.status(400).send('❌ Invalid or corrupted parameters.');
-    }
-});
-
-app.get("/my-ip", async (req, res) => {
-    try {
-        const r = await fetch("https://api.ipify.org?format=json");
-        const data = await r.json();
-        res.json({
-            railway_detected_public_ip: data.ip
-        });
-    } catch (e) {
-        res.status(500).json({ error: "Unable to fetch IP" });
     }
 });
 
