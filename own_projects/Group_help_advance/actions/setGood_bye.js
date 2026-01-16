@@ -3,6 +3,7 @@ const validateOwner = require("../helpers/validateOwner");
 const user_setting_module = require("../models/user_settings_module");
 const safeEditOrSend = require("../helpers/safeEditOrSend");
 const parseButtonsSyntax = require("../helpers/parseButtonsSyntax");
+const encode_payload = require("../helpers/encode_payload");
 
 // helper to check if any goodbye content exists
 function computeGoodbyeState(goodbye) {
@@ -13,6 +14,149 @@ function computeGoodbyeState(goodbye) {
     return { hasText, hasMedia, hasButtons };
 }
 
+// ---- Placeholder validation (ONLY allowed placeholders) ----
+const ALLOWED_PLACEHOLDERS = new Set([
+    "{ID}",
+    "{MENTION}",
+    "{NAME}",
+    "{SURNAME}",
+    "{USERNAME}",
+    "{GROUPNAME}",
+]);
+
+function findInvalidPlaceholders(input) {
+    const text = String(input || "");
+    const matches = text.match(/\{[A-Za-z0-9_]+\}/g) || [];
+    const invalid = [];
+    for (const m of matches) {
+        if (!ALLOWED_PLACEHOLDERS.has(m.toUpperCase())) invalid.push(m);
+    }
+    return [...new Set(invalid)];
+}
+
+const _ALLOWED_TAGS = new Set([
+    'b', 'strong',
+    'i', 'em',
+    'u', 'ins',
+    's', 'strike', 'del',
+    'code', 'pre',
+    'a',
+    'tg-spoiler',
+]);
+
+function escapeHtml(str) {
+    return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
+function _extractAttr(attrs, name) {
+    const re = new RegExp(`\\b${name}\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)`, 'i');
+    const m = String(attrs || '').match(re);
+    if (!m) return null;
+    let v = m[1];
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+    return v;
+}
+
+function validateTelegramHtmlStrict(html) {
+    const text = String(html ?? '');
+
+    // Quick: if no tags, ok
+    if (!/[<>]/.test(text)) return { ok: true, errors: [] };
+
+    const errors = [];
+    const stack = [];
+
+    // Match tags like <b>, </b>, <a href="...">, <em/>
+    const tagRe = /<\s*(\/)?\s*([a-z0-9-]+)([^>]*)>/gi;
+    let m;
+
+    while ((m = tagRe.exec(text))) {
+        const isClose = !!m[1];
+        const rawName = String(m[2] || '');
+        const name = rawName.toLowerCase();
+        const attrs = String(m[3] || '');
+
+        // Detect self-closing like <em/> or <em />
+        const isSelfClosing = /\/\s*>\s*$/.test(m[0]);
+
+        if (!_ALLOWED_TAGS.has(name)) {
+            errors.push(`Unsupported tag <${rawName}>`);
+            continue;
+        }
+
+        if (!isClose && isSelfClosing) {
+            errors.push(`Invalid self-closing tag: <${rawName}/> . Use </${rawName}> to close.`);
+            continue;
+        }
+
+        // Attributes rules
+        const hasAttrs = /\S/.test(attrs.replace(/\/\s*$/, ''));
+        if (!isClose && hasAttrs) {
+            if (name === 'a') {
+                // Allow ONLY href on <a>
+                const href = _extractAttr(attrs, 'href');
+                if (!href) {
+                    errors.push('Tag <a> must include href. Example: <a href="https://example.com">link</a>');
+                }
+
+                // Collect attribute names like href, target, rel...
+                const attrNameRe = /([a-zA-Z_:][\w:.-]*)\s*=/g;
+                const names = [];
+                let am;
+                while ((am = attrNameRe.exec(attrs))) {
+                    names.push(am[1].toLowerCase());
+                }
+
+                const extra = names.filter(n => n && n !== 'href');
+                if (extra.length) {
+                    errors.push('Only href attribute is allowed in <a> tag.');
+                }
+            } else if (name === 'code') {
+                const cleaned = attrs.replace(/\\bclass\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)/i, '').trim();
+                if (cleaned) errors.push('Only class attribute is allowed in <code> tag.');
+            } else {
+                errors.push(`Attributes are not allowed in <${rawName}> tag.`);
+            }
+        }
+
+        // Stack validation
+        if (!isClose) {
+            stack.push(name);
+        } else {
+            const last = stack.pop();
+            if (last !== name) {
+                errors.push(`Tag mismatch: expected </${last || name}> but found </${rawName}>`);
+            }
+        }
+    }
+
+    if (stack.length) {
+        errors.push(`Unclosed tag(s): ${stack.map(t => `<${t}>`).join(', ')}`);
+    }
+
+    return { ok: errors.length === 0, errors };
+}
+
+function _isTelegramHtmlParseError(err) {
+    const desc = err?.response?.description || err?.description || '';
+    const code = err?.response?.error_code || err?.code;
+    return code === 400 && /can't parse entities/i.test(String(desc));
+}
+
+async function _validateWithTelegramOrThrow(ctx, htmlText) {
+    const sent = await ctx.telegram.sendMessage(ctx.chat.id, htmlText || '', {
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        disable_notification: true,
+    });
+    if (sent?.message_id) {
+        try { await ctx.telegram.deleteMessage(ctx.chat.id, sent.message_id); } catch (_) { }
+    }
+}
+
 async function renderGoodbyeMenu(ctx, chatIdStr, userId) {
     const isOwner = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
     if (!isOwner) return;
@@ -21,17 +165,25 @@ async function renderGoodbyeMenu(ctx, chatIdStr, userId) {
     const goodbye = userSettings?.settings?.[chatIdStr]?.goodbye || {};
 
     const enabled = !!goodbye.enabled;
-    const mode = goodbye.mode === "first_leave" ? "1️⃣ Send 1st leave" : "🔔 Send at every leave";
     const deleteLast = !!goodbye.delete_last;
+    const pmAllowed = !!goodbye.is_pm_allowed;
+    const forceStart = !!goodbye.is_force_bot_start;
     const ok = "✅";
     const no = "❌";
+
+    const pmNote = pmAllowed
+        ? `⚠️ The message will only be send to users who started @${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE} in private chat.\n\n`
+        : "";
 
     const text =
         `👋 <b>Goodbye Message</b>\n\n` +
         `From this menu you can set a goodbye message that will be sent when someone leaves the group.\n\n` +
         `<b>Status</b>: ${enabled ? "On " + ok : "Off " + no}\n` +
-        `<b>Mode</b>: ${mode}\n` +
-        `<b>Delete previous goodbye message</b>: ${deleteLast ? 'On ' + ok : 'Off ' + no}\n\n` +
+        `<b>Delete previous goodbye msg</b>: ${deleteLast ? 'On ' + ok : 'Off ' + no}\n` +
+        `<b>Send in private chat</b>: ${pmAllowed ? 'On ' + ok : 'Off ' + no}\n` +
+        `<b>Force bot start</b>: ${forceStart ? 'On ' + ok : 'Off ' + no}\n\n` +
+        pmNote +
+
         `<i>👉 Use the buttons below to control this setting for <b>${(isOwner) ? isOwner?.title : chatIdStr}</b>.</i>`;
 
     const keyboard = Markup.inlineKeyboard([
@@ -41,11 +193,17 @@ async function renderGoodbyeMenu(ctx, chatIdStr, userId) {
         ],
         [Markup.button.callback("✍️ Customize message", `CUSTOMIZE_GOODBYE_${chatIdStr}`)],
         [
-            Markup.button.callback("🔔 Always send", `GOODBYE_MODE_ALWAYS_${chatIdStr}`),
-            Markup.button.callback("1️⃣ Send 1st leave", `GOODBYE_MODE_FIRST_${chatIdStr}`)
+            Markup.button.callback(deleteLast ? "Delete previous message ✓" : "Delete previous message ✗", `GOODBYE_DELETE_LAST_${chatIdStr}`)
         ],
         [
-            Markup.button.callback(deleteLast ? "Delete previous message ✅" : "Delete previous message ❌", `GOODBYE_DELETE_LAST_${chatIdStr}`)
+            Markup.button.callback(
+                pmAllowed ? "Send in private ✓" : "Send in private ✗",
+                `GOODBYE_PM_TOGGLE_${chatIdStr}`
+            ),
+            Markup.button.callback(
+                forceStart ? "Force bot start ✓" : "Force bot start ✗",
+                `GOODBYE_FORCE_START_TOGGLE_${chatIdStr}`
+            )
         ],
         [Markup.button.callback("⬅️ Back", `GROUP_SETTINGS_${chatIdStr}`)]
     ]);
@@ -193,8 +351,8 @@ module.exports = (bot) => {
         }
     });
 
-    // MODE: ALWAYS
-    bot.action(/^GOODBYE_MODE_ALWAYS_(-?\d+)$/, async (ctx) => {
+    // MODE TOGGLE: always <-> first_leave
+    bot.action(/^GOODBYE_MODE_TOGGLE_(-?\d+)$/, async (ctx) => {
         try {
             const chatIdStr = ctx.match[1];
             const chatId = Number(chatIdStr);
@@ -203,39 +361,27 @@ module.exports = (bot) => {
             const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
             if (!ok) return;
 
-            await user_setting_module.updateOne(
-                { user_id: userId },
-                { $set: { [`settings.${chatIdStr}.goodbye.mode`]: "always" } },
-                { upsert: true }
-            );
+            const userSettings = await user_setting_module.findOne({ user_id: userId }).lean();
+            const current = userSettings?.settings?.[chatIdStr]?.goodbye?.mode;
 
-            await ctx.answerCbQuery("Mode set to: send on every leave");
-            await renderGoodbyeMenu(ctx, chatIdStr, userId);
-        } catch (err) {
-            console.error("GOODBYE_MODE_ALWAYS error:", err);
-        }
-    });
-
-    // MODE: FIRST LEAVE
-    bot.action(/^GOODBYE_MODE_FIRST_(-?\d+)$/, async (ctx) => {
-        try {
-            const chatIdStr = ctx.match[1];
-            const chatId = Number(chatIdStr);
-            const userId = ctx.from.id;
-
-            const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
-            if (!ok) return;
+            const newMode = (current === "first_leave") ? "always" : "first_leave";
 
             await user_setting_module.updateOne(
                 { user_id: userId },
-                { $set: { [`settings.${chatIdStr}.goodbye.mode`]: "first_leave" } },
+                { $set: { [`settings.${chatIdStr}.goodbye.mode`]: newMode } },
                 { upsert: true }
             );
 
-            await ctx.answerCbQuery("Mode set to: send on first leave");
+            await ctx.answerCbQuery(
+                newMode === "first_leave"
+                    ? "Mode set to: send on first leave"
+                    : "Mode set to: send on every leave"
+            );
+
             await renderGoodbyeMenu(ctx, chatIdStr, userId);
         } catch (err) {
-            console.error("GOODBYE_MODE_FIRST error:", err);
+            console.error("GOODBYE_MODE_TOGGLE error:", err);
+            try { await ctx.answerCbQuery("⚠️ Error while changing mode."); } catch (_) { }
         }
     });
 
@@ -299,9 +445,13 @@ module.exports = (bot) => {
         const chatIdStr = ctx.match[1];
         const userId = ctx.from.id;
 
+        const payload = `group-help-advance:text-message-design-with-placeholders`;
+        const miniAppLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payload)}`;
+
         const textMsg =
             "✍️ <b>Send the goodbye text you want to set.</b>\n\n" +
-            `For message design options (placeholders and HTML), <a href="${process.env.WEBPAGE_URL_GROUP_HELP_ADVANCE}/text-message-design">Click Here</a>.`;
+            `For message design options (placeholders and HTML), ` +
+            `<a href="${miniAppLink}">Click Here</a>.`;
 
         const buttons = [
             [Markup.button.callback("🚫 Remove message", `REMOVE_GOODBYE_TEXT_${chatIdStr}`)],
@@ -492,12 +642,151 @@ module.exports = (bot) => {
         }
     });
 
+    // TOGGLE: send in private chat
+    bot.action(/^GOODBYE_PM_TOGGLE_(-?\d+)$/, async (ctx) => {
+        try {
+            const chatIdStr = ctx.match[1];
+            const chatId = Number(chatIdStr);
+            const userId = ctx.from.id;
+
+            const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
+            if (!ok) return;
+
+            const userSettings = await user_setting_module.findOne({ user_id: userId }).lean();
+            const current = !!userSettings?.settings?.[chatIdStr]?.goodbye?.is_pm_allowed;
+            const newVal = !current;
+
+            const res = await user_setting_module.updateOne(
+                { user_id: userId },
+                {
+                    $setOnInsert: { user_id: userId },
+                    $set: { [`settings.${chatIdStr}.goodbye.is_pm_allowed`]: newVal }
+                },
+                { upsert: true }
+            );
+
+            if (res.acknowledged) {
+                await ctx.answerCbQuery(`Send in private chat: ${newVal ? "On ✅" : "Off ❌"}`);
+            } else {
+                await ctx.answerCbQuery("⚠️ Could not save setting.");
+            }
+
+            await renderGoodbyeMenu(ctx, chatIdStr, userId);
+        } catch (err) {
+            console.error("GOODBYE_PM_TOGGLE error:", err);
+            try { await ctx.answerCbQuery("⚠️ Error while toggling setting."); } catch (_) { }
+        }
+    });
+
+    // TOGGLE: force bot start
+    bot.action(/^GOODBYE_FORCE_START_TOGGLE_(-?\d+)$/, async (ctx) => {
+        try {
+            const chatIdStr = ctx.match[1];
+            const chatId = Number(chatIdStr);
+            const userId = ctx.from.id;
+
+            const ok = await validateOwner(ctx, chatId, chatIdStr, userId);
+            if (!ok) return;
+
+            const userSettings = await user_setting_module.findOne({ user_id: userId }).lean();
+            const current = !!userSettings?.settings?.[chatIdStr]?.goodbye?.is_force_bot_start;
+            const newVal = !current;
+
+            const res = await user_setting_module.updateOne(
+                { user_id: userId },
+                {
+                    $setOnInsert: { user_id: userId },
+                    $set: { [`settings.${chatIdStr}.goodbye.is_force_bot_start`]: newVal }
+                },
+                { upsert: true }
+            );
+
+            if (res.acknowledged) {
+                await ctx.answerCbQuery(`Force bot start: ${newVal ? "On ✅" : "Off ❌"}`);
+            } else {
+                await ctx.answerCbQuery("⚠️ Could not save setting.");
+            }
+
+            await renderGoodbyeMenu(ctx, chatIdStr, userId);
+        } catch (err) {
+            console.error("GOODBYE_FORCE_START_TOGGLE error:", err);
+            try { await ctx.answerCbQuery("⚠️ Error while toggling setting."); } catch (_) { }
+        }
+    });
+
     // ===== HANDLE INCOMING TEXT SAVE =====
     bot.on("text", async (ctx, next) => {
         try {
             if (ctx.session?.awaitingGoodbyeText) {
                 let { chatIdStr, userId, message_id } = ctx.session.awaitingGoodbyeText;
                 const text = ctx.message.text;
+                const payload = `group-help-advance:text-message-design-with-placeholders`;
+                const miniAppLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payload)}`;
+
+                const invalidPh = findInvalidPlaceholders(text);
+                if (invalidPh.length) {
+                    await safeEditOrSend(
+                        ctx,
+                        "❌ Invalid placeholder(s): <code>" + escapeHtml(invalidPh.join(", ")) + "</code>\n\n" +
+                        "Please fix it and send again.\n\n" +
+                        "Need help ? " + `<a href="${miniAppLink}">Click Here</a>.`,
+                        {
+                            parse_mode: "HTML",
+                            disable_web_page_preview: true,
+                            ...Markup.inlineKeyboard([
+                                [Markup.button.callback("❌ Cancel", `CUSTOMIZE_WELCOME_${chatIdStr}`)]
+                            ])
+                        }
+                    );
+                    return;
+                }
+
+                // Strict validation: block unsupported/invalid HTML before saving
+                const strict = validateTelegramHtmlStrict(text);
+                if (!strict.ok) {
+                    const top = strict.errors.slice(0, 10).map((e, i) => `${i + 1}. ${e}`).join('\n');
+                    await safeEditOrSend(
+                        ctx,
+                        "❌ Invalid goodbye text (HTML).\n" +
+                        "Please fix it and send again.\n\n" +
+                        `Mistakes:\n${escapeHtml(top)}\n\n` +
+                        "Need help ? " + `<a href="${miniAppLink}">Click Here</a>.`,
+                        {
+                            parse_mode: "HTML",
+                            disable_web_page_preview: true,
+                            ...Markup.inlineKeyboard([
+                                [Markup.button.callback("❌ Cancel", `CUSTOMIZE_RULES_${chatIdStr}`)]
+                            ])
+                        }
+                    );
+                    // keep session so user can resend corrected text
+                    return;
+                }
+
+                // Telegram-side validation (final authority)
+                try {
+                    await _validateWithTelegramOrThrow(ctx, text);
+                } catch (err) {
+                    if (_isTelegramHtmlParseError(err)) {
+                        await safeEditOrSend(
+                            ctx,
+                            "❌ Telegram can't parse your goodbye text (invalid HTML).\n" +
+                            `Mistake: ${(err?.response?.description || err?.description || "Bad HTML").toString()}\n\n` +
+                            "Please send a valid HTML message." + "\n\nNeed help ? " + `<a href="${miniAppLink}">Click Here</a>.`,
+                            {
+                                parse_mode: "HTML",
+                                disable_web_page_preview: true,
+                                reply_markup: {
+                                    inline_keyboard: [
+                                        [Markup.button.callback("❌ Cancel", `CUSTOMIZE_WELCOME_${chatIdStr}`)]
+                                    ]
+                                }
+                            }
+                        );
+                        return;
+                    }
+                    throw err;
+                }
 
                 const chat = await validateOwner(ctx, Number(chatIdStr), chatIdStr, userId);
                 if (!chat) { delete ctx.session.awaitingGoodbyeText; return; }

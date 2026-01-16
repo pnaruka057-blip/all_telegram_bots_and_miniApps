@@ -14,7 +14,8 @@ const set_welcome_action = require('./actions/setWelcome');
 const set_welcome_Group = require('./actions/setWelcome_Group');
 const anti_flood_action = require('./actions/anti_flood');
 const anti_flood_Group = require('./actions/anti_flood_Group');
-const good_bye_action = require('./actions/good_bye');
+const set_good_bye_action = require('./actions/setGood_bye');
+const set_goodbye_Group = require('./actions/setGoodbye_Group')
 const alphabets_action = require('./actions/alphabets');
 const captcha_action = require('./actions/captcha')
 const checks_action = require('./actions/checks')
@@ -48,6 +49,7 @@ module.exports = (bot) => {
     set_welcome_Group(bot)
     button_actions(bot)
     find_groups_and_chanenls_action(bot)
+    set_goodbye_Group(bot)
 
     // Start command handler
     bot.command('start', async (ctx) => {
@@ -87,7 +89,7 @@ module.exports = (bot) => {
     anti_spam_action(bot)
     set_welcome_action(bot)
     anti_flood_action(bot)
-    good_bye_action(bot)
+    set_good_bye_action(bot)
     alphabets_action(bot)
     captcha_action(bot)
     checks_action(bot)

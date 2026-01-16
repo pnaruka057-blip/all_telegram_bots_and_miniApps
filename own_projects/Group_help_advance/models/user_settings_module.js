@@ -346,6 +346,14 @@ const welcome_and_goodbye_Schema = new mongoose.Schema({
         enum: ["always", "first"], // always send or only first join
         default: "always"
     },
+    is_pm_allowed: {
+        type: Boolean,
+        default: false
+    },
+    is_force_bot_start: {
+        type: Boolean,
+        default: false
+    },
     delete_last: {
         type: Boolean,
         default: false // delete previous welcome msg

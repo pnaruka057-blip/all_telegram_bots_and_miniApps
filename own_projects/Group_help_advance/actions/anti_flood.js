@@ -63,7 +63,7 @@ async function renderAntifloodMenu(ctx, chatIdStr, userId) {
         Markup.button.callback("⛔ Ban", `ANTIFLOOD_PUNISH_ban_${chatIdStr}`)
     ]);
     rows.push([
-        Markup.button.callback(deleteMessages ? "🗑️ Delete Messages ✅" : "🗑️ Delete Messages ❌", `ANTIFLOOD_TOGGLE_DELETE_${chatIdStr}`)
+        Markup.button.callback(deleteMessages ? "🗑️ Delete Messages ✓" : "🗑️ Delete Messages ✗", `ANTIFLOOD_TOGGLE_DELETE_${chatIdStr}`)
     ]);
 
     // Set duration button only for warn/mute/ban

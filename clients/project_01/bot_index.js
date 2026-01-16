@@ -485,15 +485,15 @@ module.exports = (bot) => {
 
             const PROJECT_01_WATCHPAY_BASE_URL = process.env.PROJECT_01_WATCHPAY_BASE_URL || "https://api.watchglb.com";
             const PROJECT_01_WATCHPAY_MCH_ID = process.env.PROJECT_01_WATCHPAY_MCH_ID;
-            const PROJECT_01_WATCHPAY_PAYMENT_KEY = process.env.PROJECT_01_WATCHPAY_PAYMENT_KEY;
+            const PROJECT_01_WATCHPAY_PAYMENT_KEY_FOR_DEPOSIT = process.env.PROJECT_01_WATCHPAY_PAYMENT_KEY_FOR_DEPOSIT;
             const PROJECT_01_WATCHPAY_PAY_TYPE = process.env.PROJECT_01_WATCHPAY_PAY_TYPE || "101";
 
             const GLOBLE_DOMAIN = process.env.GLOBLE_DOMAIN;
             const notify_url = `${GLOBLE_DOMAIN}/${process.env.PROJECT_01_TOKEN}/project-01/watchpay/notify/deposit`;
             const page_url = process.env.PROJECT_01_WATCHPAY_PAGE_URL || "https://example.com";
 
-            if (!PROJECT_01_WATCHPAY_MCH_ID || !PROJECT_01_WATCHPAY_PAYMENT_KEY || !GLOBLE_DOMAIN) {
-                await ctx.reply("Deposit is not configured. Missing env vars: PROJECT_01_WATCHPAY_MCH_ID, PROJECT_01_WATCHPAY_PAYMENT_KEY, GLOBLE_DOMAIN");
+            if (!PROJECT_01_WATCHPAY_MCH_ID || !PROJECT_01_WATCHPAY_PAYMENT_KEY_FOR_DEPOSIT || !GLOBLE_DOMAIN) {
+                await ctx.reply("Deposit is not configured. Missing env vars: PROJECT_01_WATCHPAY_MCH_ID, PROJECT_01_WATCHPAY_PAYMENT_KEY_FOR_DEPOSIT, GLOBLE_DOMAIN");
                 return;
             }
 
@@ -527,7 +527,7 @@ module.exports = (bot) => {
             const resp = await createDepositOrder({
                 baseUrl: PROJECT_01_WATCHPAY_BASE_URL,
                 mch_id: PROJECT_01_WATCHPAY_MCH_ID,
-                paymentKey: PROJECT_01_WATCHPAY_PAYMENT_KEY,
+                paymentKey: PROJECT_01_WATCHPAY_PAYMENT_KEY_FOR_DEPOSIT,
                 notify_url,
                 page_url,
                 mch_order_no,
@@ -810,12 +810,12 @@ module.exports = (bot) => {
             // env
             const PROJECT_01_WATCHPAY_BASE_URL = process.env.PROJECT_01_WATCHPAY_BASE_URL;
             const PROJECT_01_WATCHPAY_MCH_ID = process.env.PROJECT_01_WATCHPAY_MCH_ID;
-            const PROJECT_01_WATCHPAY_PAYMENT_KEY = process.env.PROJECT_01_WATCHPAY_PAYMENT_KEY;
+            const PROJECT_01_WATCHPAY_PAYMENT_KEY_FOR_WITHDRAWAL = process.env.PROJECT_01_WATCHPAY_PAYMENT_KEY_FOR_WITHDRAWAL;
             const GLOBLE_DOMAIN = process.env.GLOBLE_DOMAIN;
 
-            if (!PROJECT_01_WATCHPAY_MCH_ID || !PROJECT_01_WATCHPAY_PAYMENT_KEY || !GLOBLE_DOMAIN) {
+            if (!PROJECT_01_WATCHPAY_MCH_ID || !PROJECT_01_WATCHPAY_PAYMENT_KEY_FOR_WITHDRAWAL || !GLOBLE_DOMAIN) {
                 clearState(ctx.from.id);
-                return ctx.reply("Withdraw is not configured. Missing env vars: PROJECT_01_WATCHPAY_MCH_ID, PROJECT_01_WATCHPAY_PAYMENT_KEY, GLOBLE_DOMAIN", activeMenu());
+                return ctx.reply("Withdraw is not configured. Missing env vars: PROJECT_01_WATCHPAY_MCH_ID, PROJECT_01_WATCHPAY_PAYMENT_KEY_FOR_WITHDRAWAL, GLOBLE_DOMAIN", activeMenu());
             }
 
             const back_url = `${GLOBLE_DOMAIN}/${process.env.PROJECT_01_TOKEN}/project-01/watchpay/notify/withdraw`;
@@ -875,7 +875,7 @@ module.exports = (bot) => {
                 resp = await createWithdrawOrder({
                     baseUrl: PROJECT_01_WATCHPAY_BASE_URL,
                     mch_id: PROJECT_01_WATCHPAY_MCH_ID,
-                    paymentKey: PROJECT_01_WATCHPAY_PAYMENT_KEY,
+                    paymentKey: PROJECT_01_WATCHPAY_PAYMENT_KEY_FOR_WITHDRAWAL,
                     mch_transferId,
                     transfer_amount: String(amount - amount * withdrawal_rate / 100), // integer string
                     bank_code: b.bank_code,

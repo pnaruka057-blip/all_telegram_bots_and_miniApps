@@ -9,6 +9,26 @@ const encode_payload = require("../helpers/encode_payload");
 // Telegram HTML allows only a limited set of tags.
 // This validator blocks unsupported tags and common syntax issues BEFORE saving.
 
+// ---- Placeholder validation (ONLY allowed placeholders) ----
+const ALLOWED_PLACEHOLDERS = new Set([
+    "{ID}",
+    "{MENTION}",
+    "{NAME}",
+    "{SURNAME}",
+    "{USERNAME}",
+    "{GROUPNAME}",
+]);
+
+function findInvalidPlaceholders(input) {
+    const text = String(input || "");
+    const matches = text.match(/\{[A-Za-z0-9_]+\}/g) || [];
+    const invalid = [];
+    for (const m of matches) {
+        if (!ALLOWED_PLACEHOLDERS.has(m.toUpperCase())) invalid.push(m);
+    }
+    return [...new Set(invalid)];
+}
+
 const _WELCOME_ALLOWED_TAGS = new Set([
     'b', 'strong',
     'i', 'em',
@@ -166,7 +186,7 @@ async function renderWelcomeMenu(ctx, chatIdStr, userId) {
             Markup.button.callback("1️⃣ Send 1st join", `WELCOME_MODE_FIRST_${chatIdStr}`)
         ],
         [
-            Markup.button.callback(deleteLast ? "Delete previous message ✅" : "Delete previous message ❌", `WELCOME_DELETE_LAST_${chatIdStr}`)
+            Markup.button.callback(deleteLast ? "Delete previous message ✓" : "Delete previous message ✗", `WELCOME_DELETE_LAST_${chatIdStr}`)
         ],
         [Markup.button.callback("⬅️ Back", `GROUP_SETTINGS_${chatIdStr}`)]
     ]);
@@ -644,6 +664,24 @@ module.exports = (bot) => {
                 const text = ctx.message.text;
                 const payload = `group-help-advance:text-message-design-with-placeholders`;
                 const miniAppLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payload)}`;
+
+                const invalidPh = findInvalidPlaceholders(text);
+                if (invalidPh.length) {
+                    await safeEditOrSend(
+                        ctx,
+                        "❌ Invalid placeholder(s): <code>" + escapeHtml(invalidPh.join(", ")) + "</code>\n\n" +
+                        "Please fix it and send again.\n\n" +
+                        "Need help ? " + `<a href="${miniAppLink}">Click Here</a>.`,
+                        {
+                            parse_mode: "HTML",
+                            disable_web_page_preview: true,
+                            ...Markup.inlineKeyboard([
+                                [Markup.button.callback("❌ Cancel", `CUSTOMIZE_WELCOME_${chatIdStr}`)]
+                            ])
+                        }
+                    );
+                    return;
+                }
 
                 // Strict validation: block unsupported/invalid HTML before saving
                 const strict = validateTelegramHtmlStrict(text);

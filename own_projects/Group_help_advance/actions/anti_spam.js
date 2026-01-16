@@ -735,7 +735,7 @@ module.exports = (bot) => {
             ],
             [
                 Markup.button.callback(
-                    `${tg.delete_messages ? "🗑️ Delete Messages ✅" : "🗑️ Delete Messages ❌"}`,
+                    `${tg.delete_messages ? "🗑️ Delete Messages ✓" : "🗑️ Delete Messages ✗"}`,
                     `PUNISH_TOGGLE_DELETE_${chatIdStr}_${target}`
                 )
             ]
@@ -1382,7 +1382,7 @@ module.exports = (bot) => {
             [
                 // keep same toggle callback shape as Forwarding for consistency
                 Markup.button.callback(
-                    `${q.delete_messages ? "🗑️ Delete Messages ✅" : "🗑️ Delete Messages ❌"}`,
+                    `${q.delete_messages ? "🗑️ Delete Messages ✓" : "🗑️ Delete Messages ✗"}`,
                     `QUOTE_TOGGLE_DELETE_${chatIdStr}_${target}`
                 )
             ]
