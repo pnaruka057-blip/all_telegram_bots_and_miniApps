@@ -181,6 +181,18 @@ app.get('/', (req, res) => {
     }
 });
 
+app.get("/my-ip", async (req, res) => {
+    try {
+        const r = await fetch("https://api.ipify.org?format=json");
+        const data = await r.json();
+        res.json({
+            railway_detected_public_ip: data.ip
+        });
+    } catch (e) {
+        res.status(500).json({ error: "Unable to fetch IP" });
+    }
+});
+
 // all miniapp custom middleware
 app.use('/:token', (req, res, next) => {
     const tokenName = req.params.token;
