@@ -759,7 +759,7 @@ async function computeSummary() {
     }
 
     const total_users_first_deposit = activeUsersCount;
-    const owner_profit = Number((total_deposit - total_commission - total_withdrawn).toFixed(2));
+    const owner_profit = Number((total_deposit - total_commission).toFixed(2));
 
     return {
         total_users,
