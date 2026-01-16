@@ -28,8 +28,8 @@ module.exports = (bot) => {
             const keyboard = Markup.inlineKeyboard([
                 [Markup.button.callback("📜 Regulation", `SET_REGULATION_${chatIdStr}`), Markup.button.callback("🧯 Anti-Spam", `SET_ANTISPAM_${chatIdStr}`)],
                 [Markup.button.callback("💬 Welcome", `SET_WELCOME_${chatIdStr}`), Markup.button.callback("🌊 Anti-Flood", `SET_ANTIFLOOD_${chatIdStr}`)],
+                [Markup.button.callback("🖐️ Goodbye", `SET_GOODBYE_${chatIdStr}`), Markup.button.callback("🕉 Alphabets", `SET_ALPHABETS_${chatIdStr}`)],
                 [Markup.button.callback("✨ Coming soon", `SOON_more_${chatIdStr}`)],
-                // [Markup.button.callback("🖐️ Goodbye", `SET_GOODBYE_${chatIdStr}`), Markup.button.callback("🕉 Alphabets", `SET_ALPHABETS_${chatIdStr}`)],
                 // [Markup.button.callback("🧠 Captcha", `SET_CAPTCHA_${chatIdStr}`), Markup.button.callback("🪓 Checks", `SET_CHECKS_${chatIdStr}`)],
                 // [Markup.button.callback("🆘 @Admin", `SET_ATADMIN_${chatIdStr}`), Markup.button.callback("🔒 Blocks", `SET_BLOCKS_${chatIdStr}`)],
                 // [Markup.button.callback("🎞️ Media", `SET_MEDIA_${chatIdStr}`), Markup.button.callback("🚫 Porn", `SET_PORN_${chatIdStr}`)],

@@ -731,18 +731,31 @@ async function computeSummary() {
 
     const total_deposit = Number((activeUsersCount * DEPOSIT_PER_USER).toFixed(2));
 
-    // sum withdrawals and commissions from transactions_model
+    // ✅ Only count Withdrawals where status is P or S
+    // ✅ Income/Commission (I) will remain same (no status filter)
     const sumAgg = await transactions_model.aggregate([
-        { $match: { type: { $in: ['W', 'I'] } } },
-        { $group: { _id: '$type', total: { $sum: { $toDouble: '$amount' } } } }
+        {
+            $match: {
+                $or: [
+                    { type: "I" }, // include all commissions
+                    { type: "W", status: { $in: ["P", "S"] } } // ✅ exclude rejected withdrawals
+                ]
+            }
+        },
+        {
+            $group: {
+                _id: "$type",
+                total: { $sum: { $toDouble: "$amount" } }
+            }
+        }
     ]);
 
     let total_withdrawn = 0;
     let total_commission = 0;
 
     for (const r of (sumAgg || [])) {
-        if (r._id === 'W') total_withdrawn = Number((r.total || 0).toFixed(2));
-        if (r._id === 'I') total_commission = Number((r.total || 0).toFixed(2));
+        if (r._id === "W") total_withdrawn = Number((r.total || 0).toFixed(2));
+        if (r._id === "I") total_commission = Number((r.total || 0).toFixed(2));
     }
 
     const total_users_first_deposit = activeUsersCount;
