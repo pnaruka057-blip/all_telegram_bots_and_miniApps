@@ -92,6 +92,7 @@ const anti_spamSchema = new mongoose.Schema({
                 type: [{
                     user_id: { type: Number, required: true },
                     count: { type: Number, default: 1, min: 1, max: 3 },
+                    until_ms: { type: Number, required: true }  // Telegram until_date * 1000
                 }],
                 default: []
             },
@@ -206,6 +207,7 @@ const anti_spamSchema = new mongoose.Schema({
                 type: [{
                     user_id: { type: Number, required: true },
                     count: { type: Number, default: 1, min: 1, max: 3 },
+                    until_ms: { type: Number, required: true }  // Telegram until_date * 1000
                 }],
                 default: []
             },
@@ -317,6 +319,7 @@ const anti_spamSchema = new mongoose.Schema({
             type: [{
                 user_id: { type: Number, required: true },
                 count: { type: Number, default: 1, min: 1, max: 3 },
+                until_ms: { type: Number, required: true }  // Telegram until_date * 1000
             }],
             default: []
         },
