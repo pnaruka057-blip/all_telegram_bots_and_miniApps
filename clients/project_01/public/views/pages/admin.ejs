@@ -597,22 +597,34 @@ function formatCompactMoney(num) {
         // API FUNCTIONS
         // ====================
         
-        async function loadSummary() {
-            try {
-                const res = await axios.get(apiSummaryUrl, { timeout: 8000 });
-                if (res.data && res.data.ok && res.data.summary) {
-                    const s = res.data.summary;
-                    document.getElementById('k_total_users').textContent = s.total_users;
-                    document.getElementById('k_total_deposit_users').textContent = s.total_users_first_deposit;
-                    document.getElementById('k_total_deposit').textContent = '₹' + (s.total_deposit || 0);
-                    document.getElementById('k_total_withdrawn').textContent = '₹' + (s.total_withdrawn || 0);
-                    document.getElementById('k_total_commission').textContent = '₹' + (s.total_commission || 0);
-                    document.getElementById('k_owner_profit').textContent = '₹' + (s.owner_profit || 0);
-                }
-            } catch (err) {
-                console.error('summary load error', err);
-            }
-        }
+        function setKpi(id, value, formatter, prefix = "") {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const v = Number(value || 0);
+  el.textContent = prefix + (formatter ? formatter(v) : String(v));
+}
+
+async function loadSummary() {
+  try {
+    const res = await axios.get(apiSummaryUrl, { timeout: 8000 });
+    if (res.data && res.data.ok && res.data.summary) {
+      const s = res.data.summary;
+
+      // numbers
+      setKpi("k_total_users", s.total_users, formatCompact);
+      setKpi("k_total_deposit_users", s.total_users_first_deposit, formatCompact);
+
+      // money (keep ₹)
+      setKpi("k_total_deposit", s.total_deposit, formatCompactMoney, "₹");
+      setKpi("k_total_withdrawn", s.total_withdrawn, formatCompactMoney, "₹");
+      setKpi("k_total_commission", s.total_commission, formatCompactMoney, "₹");
+      setKpi("k_owner_profit", s.owner_profit, formatCompactMoney, "₹");
+    }
+  } catch (err) {
+    console.error("summary load error", err);
+  }
+}
+
 
         // ====================
         // WITHDRAWALS RENDER
