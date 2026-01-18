@@ -16,7 +16,8 @@ const anti_flood_action = require('./actions/anti_flood');
 const anti_flood_Group = require('./actions/anti_flood_Group');
 const set_good_bye_action = require('./actions/setGood_bye');
 const set_goodbye_Group = require('./actions/setGoodbye_Group')
-const alphabets_action = require('./actions/alphabets');
+const alphabets_Group = require('./actions/alphabets');
+const alphabets_action = require('./actions/alphabets_Group');
 const captcha_action = require('./actions/captcha')
 const checks_action = require('./actions/checks')
 const admin_sos_action = require('./actions/admin_sos')
@@ -35,11 +36,13 @@ const members_management_action = require('./actions/members_management');
 const message_length_action = require('./actions/message_length');
 const masked_users_action = require('./actions/masked_users');
 const personal_commands_action = require('./actions/personal_commands');
-const auto_message_delete_cron = require('./cron/auto_message_delete')
 const find_groups_and_chanenls_action = require('./actions/find_groups_and_chanenls');
+const auto_message_delete_cron = require('./cron/auto_message_delete')
+const cleanup_panaltyed_users_cron = require('./cron/cleanup_panaltyed_users')
 
 module.exports = (bot) => {
-    auto_message_delete_cron(bot, { intervalMs: 1 }) // start the cron job for auto deleting messages
+    auto_message_delete_cron(bot, { intervalMs: 60 * 1000 }) // start the cron job for auto deleting messages
+    cleanup_panaltyed_users_cron(bot, { intervalMs: 60 * 1000 }) // start the cron job for auto deleting messages
 
     // Middleware to handle sessions and scenes
     bot.use(session());
@@ -50,6 +53,7 @@ module.exports = (bot) => {
     button_actions(bot)
     find_groups_and_chanenls_action(bot)
     set_goodbye_Group(bot)
+    alphabets_Group(bot)
 
     // Start command handler
     bot.command('start', async (ctx) => {

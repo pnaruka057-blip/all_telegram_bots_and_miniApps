@@ -1,7 +1,7 @@
 const { Markup } = require("telegraf");
 const safeEditOrSend = require("../helpers/safeEditOrSend");
 const encode_payload = require("../helpers/encode_payload");
-const sendAdsgramAd = require("../helpers/adsgram_bot");
+const user_setting_module = require("../models/user_settings_module");
 
 // simple HTML escaper for user-provided text
 function escapeHTML(input) {
@@ -14,6 +14,23 @@ function escapeHTML(input) {
 
 module.exports = async (ctx) => {
     const nameSafe = escapeHTML(ctx.from?.first_name || ctx.from?.username || "there");
+
+    try {
+        const userId = ctx.from?.id;
+        if (userId && user_setting_module) {
+            await user_setting_module.findOneAndUpdate(
+                { user_id: Number(userId) },
+                {
+                    $setOnInsert: {
+                        user_id: Number(userId),
+                    },
+                },
+                { upsert: true, new: true }
+            );
+        }
+    } catch (e) {
+        console.error("Failed to upsert user on /start:", e);
+    }
 
     const payloadPrivacy = `group-help-advance:privacy-policy`;
     const privacyLink = `https://t.me/${process.env.BOT_USERNAME_GROUP_HELP_ADVANCE}/${process.env.MINI_APP_NAME_GROUP_HELP_ADVANCE}?startapp=${encode_payload(payloadPrivacy)}`;

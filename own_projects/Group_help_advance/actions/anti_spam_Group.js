@@ -134,8 +134,6 @@ module.exports = (bot) => {
         return [];
     };
 
-    const toLowerSet = (arrOrStr) => new Set(normalizeWhitelist(arrOrStr).map((x) => normalizeLower(x)));
-
     // Local validator (no helper dependency)
     // Returns normalized "@username" OR "https://t.me/...." OR "tg://user?id=..."
     const validateTelegramLinkOrUsername = (raw) => {
@@ -292,24 +290,6 @@ module.exports = (bot) => {
         return uniq;
     };
 
-    const normalizeTgWhitelist = (whitelist) =>
-        normalizeWhitelist(whitelist)
-            .map((x) => validateTelegramLinkOrUsername(String(x || "")))
-            .filter(Boolean);
-
-    const toLowerSetTg = (whitelist) =>
-        new Set(normalizeTgWhitelist(whitelist).map((x) => normalizeLower(x)));
-
-    // extract @username from https://t.me/username or https://t.me/username/123 etc.
-    const extractUsernameFromTgLink = (norm) => {
-        const s = String(norm || "").trim();
-        const m = s.match(/^https:\/\/(?:t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_]{5,32})(?:\/.*)?$/i);
-        if (!m) return null;
-        // skip joinchat/+ links & t.me/c/ links (private channels)
-        if (/^joinchat$/i.test(m[1]) || m[1] === "c") return null;
-        return "@" + m[1];
-    };
-
     // --- Replace these TG whitelist helpers with strict versions ---
 
     const TG_HOSTS = new Set(["t.me", "telegram.me", "telegram.dog"]);
@@ -429,7 +409,6 @@ module.exports = (bot) => {
         const nextCount = Math.min(3, Number(arr[idx].count || 1) + 1);
         arr[idx].count = nextCount;
 
-        // refresh warning expiry on each warn (cron will decrement later)
         arr[idx].until_ms = untilMs;
 
         await ownerDoc.save().catch(() => { });

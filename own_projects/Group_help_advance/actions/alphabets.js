@@ -165,7 +165,7 @@ async function renderAlphabetLangMenu(ctx, chatIdStr, userId, langKey) {
         text += `If the Penalty duration is <b>None</b>, the penalty will be applied permanently to the user.\n\n`;
     }
 
-    const deleteButtonLabel = deleteMsgFlag ? `Delete previous message ${ok}` : `Delete previous message ${no}`;
+    const deleteButtonLabel = deleteMsgFlag ? `Delete message ✓` : `Delete message ✗`;
 
     const buttons = [
         [

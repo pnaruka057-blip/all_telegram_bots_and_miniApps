@@ -52,6 +52,7 @@ const anti_spamSchema = new mongoose.Schema({
             type: [{
                 user_id: { type: Number, required: true },
                 count: { type: Number, default: 1, min: 1, max: 3 },
+                until_ms: { type: Number, required: true }  // Telegram until_date * 1000
             }],
             default: []
         },
@@ -345,6 +346,11 @@ const welcome_and_goodbye_Schema = new mongoose.Schema({
         type: String,
         enum: ["always", "first"], // always send or only first join
         default: "always"
+    },
+    first_join: {
+        type: [Number],
+        default: [],
+        set: (arr) => [...new Set(arr)]
     },
     is_pm_allowed: {
         type: Boolean,
@@ -1139,6 +1145,11 @@ const settingsSchema = new mongoose.Schema(
         msglen: msglenInline,
         masked_users: maskedUsersInline,
         personal_commands: personalCommandsInline,
+        members_ids: {
+            type: [Number],
+            default: [],
+            set: (arr) => [...new Set(arr)]
+        },
     },
     { _id: false }
 );
@@ -1157,17 +1168,15 @@ const telegramLoginSchema = new mongoose.Schema({
 const userSchema = new mongoose.Schema(
     {
         user_id: { type: Number, required: true },
-        groups_chat_ids: { type: [String], default: [] },
-        channels_chat_ids: { type: [String], default: [] },
+        groups_chat_ids: { type: [String] },
+        channels_chat_ids: { type: [String] },
 
-        // 👇 dynamic chatId keys stored here
         settings: {
             type: Map,
             of: settingsSchema,
-            default: {},
         },
 
-        user_session_string: { type: String, default: "" },
+        user_session_string: { type: String },
         telegram_login: telegramLoginSchema
     },
     { timestamps: true, versionKey: false }

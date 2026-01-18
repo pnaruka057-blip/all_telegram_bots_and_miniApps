@@ -1,123 +1,171 @@
 // helpers/parseButtonsSyntax.js
 module.exports = async function parseButtonsSyntax(ctx, rawText) {
-    // returns { match: boolean, buttons?: Array, error?: string }
+    // returns { match: boolean, buttons?: Array<Array<{text,content}>>, error?: string }
+
+    async function safeNotify(_ctx, message) {
+        try {
+            // If callback query, try edit
+            if (_ctx?.callbackQuery?.message) {
+                try {
+                    await _ctx.editMessageText(message, { parse_mode: "Markdown" });
+                    return;
+                } catch (_) {
+                    // ignore, fallback to reply
+                }
+            }
+        } catch (_) { }
+
+        try {
+            if (typeof _ctx?.replyWithMarkdown === "function") {
+                await _ctx.replyWithMarkdown(message);
+                return;
+            }
+        } catch (_) { }
+
+        try {
+            await _ctx.reply(message);
+        } catch (_) { }
+    }
+
+    function hasBalancedPairs(str, openCh, closeCh) {
+        let c = 0;
+        for (const ch of String(str || "")) {
+            if (ch === openCh) c++;
+            else if (ch === closeCh) c--;
+            if (c < 0) return false;
+        }
+        return c === 0;
+    }
+
     try {
-        const s = (rawText || "").trim();
+        const s = String(rawText || "").trim();
+
         if (!s) {
-            await safeNotify(ctx, "❌ Empty input. Please send buttons using the required syntax, e.g. `{[Title - t.me/Link]}`.");
+            await safeNotify(
+                ctx,
+                "❌ Empty input.\n\nSend buttons like:\n`{[Title - t.me/Link]}`\n`{[Btn1 - link][Btn2 - link]}{[Row2Btn - link]}`"
+            );
             return { match: false, error: "empty" };
         }
 
-        // notify helper: try edit if callback, otherwise reply
-        async function safeNotify(ctx, message) {
-            try {
-                if (ctx?.callbackQuery?.message) {
-                    // try edit first (may fail silently)
-                    try {
-                        await ctx.editMessageText(message, { parse_mode: "Markdown" });
-                        return;
-                    } catch (_) {
-                        // fallback to reply
-                    }
-                }
-            } catch (_) { }
-            try {
-                await ctx.replyWithMarkdown(message);
-            } catch (_) {
-                try { await ctx.reply(message); } catch (_) { }
-            }
+        // Strict: braces and brackets must be balanced, otherwise don't try to parse partially
+        if (!hasBalancedPairs(s, "{", "}")) {
+            await safeNotify(ctx, "❌ Invalid format: missing `{` or `}` (unbalanced curly braces).");
+            return { match: false, error: "unbalanced_curly" };
+        }
+        if (!hasBalancedPairs(s, "[", "]")) {
+            await safeNotify(ctx, "❌ Invalid format: missing `[` or `]` (unbalanced square brackets).");
+            return { match: false, error: "unbalanced_square" };
         }
 
-        // find all {...} groups — each corresponds to a row (per your spec)
-        // We'll accept both { ... } and {[ ... ] ... } forms: we parse contents inside each outer {}
-        const curlys = [];
+        // Extract rows from {...}
+        const rowMatches = [];
         const reCurly = /\{([\s\S]*?)\}/g;
         let m;
         while ((m = reCurly.exec(s)) !== null) {
-            curlys.push(m[1].trim());
+            rowMatches.push(m[1]);
         }
 
-        if (!curlys.length) {
-            await safeNotify(ctx, "❌ Invalid format — no `{...}` groups found. Use `{[Button title - action]}` per row.");
+        if (!rowMatches.length) {
+            await safeNotify(ctx, "❌ Invalid format: no `{...}` rows found. Use `{[Button title - action]}` per row.");
             return { match: false, error: "no_groups" };
+        }
+
+        // Reject extra text outside of curly groups
+        const outside = s.replace(reCurly, "").trim();
+        if (outside.length) {
+            await safeNotify(
+                ctx,
+                "❌ Invalid format: extra text found outside `{...}` blocks.\n\nOnly send rows like:\n`{[Title - action]}`"
+            );
+            return { match: false, error: "outside_text" };
         }
 
         const parsedRows = [];
 
-        for (const groupInner of curlys) {
-            // groupInner could contain multiple [ ... ] blocks OR plain content separated by ][
-            // We'll extract all [ ... ] occurrences. If none, treat the whole groupInner as single token (legacy).
-            const btns = [];
+        for (const groupInnerRaw of rowMatches) {
+            const groupInner = String(groupInnerRaw || "").trim();
+
+            // Extract [ ... ] blocks (buttons)
+            const tokens = [];
             const reSquare = /\[([^\]]+?)\]/g;
-            let foundSquare = false;
             let sq;
             while ((sq = reSquare.exec(groupInner)) !== null) {
-                foundSquare = true;
-                btns.push(sq[1].trim());
+                tokens.push(sq[1].trim());
             }
 
-            // if no square brackets found, maybe user wrote like "{[A - x]}" without []? but examples always have []
-            // fallback: split by '&&' on groupInner
-            let tokens = [];
-            if (foundSquare) {
-                tokens = btns;
-            } else {
-                // try to split by && and treat each as token
-                tokens = groupInner.split("&&").map(t => t.trim()).filter(Boolean);
+            if (!tokens.length) {
+                await safeNotify(
+                    ctx,
+                    "❌ Invalid row: no `[ ... ]` buttons found inside `{...}`.\n\nExample:\n`{[Title - t.me/Link]}`"
+                );
+                return { match: false, error: "row_no_buttons" };
+            }
+
+            // Reject garbage inside row besides [..] and whitespace
+            const leftover = groupInner.replace(reSquare, "").replace(/\s+/g, "").trim();
+            if (leftover.length) {
+                await safeNotify(
+                    ctx,
+                    "❌ Invalid row: found extra characters outside `[ ... ]` blocks inside `{...}`.\n\nCorrect:\n`{[Btn1 - link][Btn2 - link]}`"
+                );
+                return { match: false, error: "row_garbage" };
             }
 
             const parsedRow = [];
 
             for (const rawToken of tokens) {
-                // token may look like: Button title - action (and user may have escaped hyphens in title: Button\-title)
-                const token = rawToken.trim();
+                const token = String(rawToken || "").trim();
 
-                // validation: require the delimiter ' - ' (space-dash-space)
-                if (!token.includes(" - ")) {
-                    // if token contains only escaped hyphens (like 'Button\-title - ...') then " - " still required
-                    await safeNotify(ctx,
-                        "❌ Invalid button syntax: `" + token + "`\n\n" +
-                        "Every button must use the ` - ` separator (space, dash, space) between the title and the action.\n" +
-                        "Example: `{[Button title - t.me/Link]}` or `{[Share - share:Text to share]}`\n\n" +
-                        "If your button title needs a literal hyphen, escape it like `\\-` (e.g. `Button\\-title`).\n\nPlease fix and send again."
+                // Must contain delimiter ' - ' (space-dash-space)
+                const splitIndex = token.indexOf(" - ");
+                if (splitIndex === -1) {
+                    await safeNotify(
+                        ctx,
+                        "❌ Invalid button syntax: `" +
+                        token +
+                        "`\n\nEvery button must use ` - ` (space, dash, space) between title and action.\nExample: `{[Button title - t.me/Link]}`\n\nIf title needs a hyphen, escape it: `Button\\-title`."
                     );
                     return { match: false, error: "missing_separator" };
                 }
 
-                // split on the first ' - '
-                const splitIndex = token.indexOf(" - ");
                 const rawTitle = token.slice(0, splitIndex).trim();
-                const rawAction = token.slice(splitIndex + 3).trim(); // after ' - '
+                const rawAction = token.slice(splitIndex + 3).trim();
 
                 if (!rawTitle || !rawAction) {
-                    await safeNotify(ctx, "❌ Invalid button entry: `" + token + "` — missing title or action. Example: `{[Title - action]}`");
+                    await safeNotify(
+                        ctx,
+                        "❌ Invalid button entry: `" + token + "` — missing title or action.\nExample: `{[Title - action]}`"
+                    );
                     return { match: false, error: "missing_parts" };
                 }
 
-                // unescape \- in title
+                // Unescape \- in title
                 const title = rawTitle.replace(/\\-/g, "-");
+                const content = rawAction; // keep exactly (trimmed) as provided
 
-                // store content exactly as provided (action part) — as you requested
-                const content = rawAction;
-
-                // push into parsedRow as { text, content }
                 parsedRow.push({ text: title, content });
             }
 
-            if (parsedRow.length) parsedRows.push(parsedRow);
-        } // end groups loop
+            if (!parsedRow.length) {
+                await safeNotify(ctx, "❌ Invalid row: no valid buttons parsed.");
+                return { match: false, error: "row_empty" };
+            }
+
+            parsedRows.push(parsedRow);
+        }
 
         if (!parsedRows.length) {
             await safeNotify(ctx, "❌ No valid buttons parsed. Please follow the syntax and try again.");
             return { match: false, error: "no_buttons" };
         }
 
-        // success
         return { match: true, buttons: parsedRows };
-
     } catch (err) {
         console.error("parseButtonsSyntax error:", err);
-        try { await ctx.reply("⚠️ Something went wrong while parsing buttons."); } catch (_) { }
+        try {
+            await ctx.reply("⚠️ Something went wrong while parsing buttons.");
+        } catch (_) { }
         return { match: false, error: "exception" };
     }
 };

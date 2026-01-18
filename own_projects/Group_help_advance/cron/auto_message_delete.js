@@ -29,7 +29,7 @@ function isIgnorableDeleteError(err) {
     );
 }
 
-module.exports = function startAutoMessageDeleteCron(bot, opts = {}) {
+module.exports = (bot, opts = {}) => {
     const intervalMs = Number(opts.intervalMs || 60 * 1000); // 1 min
 
     let timer = null;

@@ -69,7 +69,7 @@ const autoDeleteMessageSchema = new mongoose.Schema({
         default: "pending",
         index: true
     },
-});
+}, { versionKey: false });
 
 autoDeleteMessageSchema.index({ group_id: 1, message_id: 1 }, { unique: true });
 

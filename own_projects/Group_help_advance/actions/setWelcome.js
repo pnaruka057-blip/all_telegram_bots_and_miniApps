@@ -4,20 +4,11 @@ const user_setting_module = require("../models/user_settings_module");
 const safeEditOrSend = require("../helpers/safeEditOrSend");
 const parseButtonsSyntax = require("../helpers/parseButtonsSyntax");
 const encode_payload = require("../helpers/encode_payload");
+const { ALLOWED_PLACEHOLDERS } = require("../helpers/const")
 
 // ------------------------- Strict HTML guard (Telegram) -------------------------
 // Telegram HTML allows only a limited set of tags.
 // This validator blocks unsupported tags and common syntax issues BEFORE saving.
-
-// ---- Placeholder validation (ONLY allowed placeholders) ----
-const ALLOWED_PLACEHOLDERS = new Set([
-    "{ID}",
-    "{MENTION}",
-    "{NAME}",
-    "{SURNAME}",
-    "{USERNAME}",
-    "{GROUPNAME}",
-]);
 
 function findInvalidPlaceholders(input) {
     const text = String(input || "");
@@ -159,7 +150,7 @@ async function renderWelcomeMenu(ctx, chatIdStr, userId) {
     const welcome = userSettings?.settings?.get(chatIdStr)?.welcome || {};
 
     const enabled = !!welcome.enabled;
-    const mode = welcome.mode === "first_join" ? "1️⃣ Send 1st join" : "🔔 Send at every join";
+    const mode = welcome.mode === "first" ? "1️⃣ Send 1st join" : "🔔 Send at every join";
 
     // new: delete previous welcome message flag
     const deleteLast = !!welcome.delete_last;
@@ -325,7 +316,7 @@ module.exports = (bot) => {
 
             await user_setting_module.updateOne(
                 { user_id: userId },
-                { $set: { [`settings.${chatIdStr}.welcome.mode`]: "first_join" } },
+                { $set: { [`settings.${chatIdStr}.welcome.mode`]: "first" } },
                 { upsert: true }
             );
 
