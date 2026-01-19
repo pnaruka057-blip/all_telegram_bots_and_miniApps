@@ -464,7 +464,6 @@ app.get('/project-01/team-report', async (req, res) => {
 
         const user = await fetchUser(userDB_id);
         const team = await fetchTeamReport(userDB_id);
-
         return res.render(
             'pages/team_report',
             baseTemplateData({
