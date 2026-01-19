@@ -14,6 +14,7 @@ if (process.env.PROMOX_NODE_ENV && process.env.PROMOX_NODE_ENV !== 'development'
   });
   promoX_connection.on("error", (err) => {
     console.error(`❌ PromoX MongoDB connection error: ${err}`);
+    LOG(`❌ PromoX MongoDB connection error: ${err}`);
   });
 }
 
@@ -30,6 +31,7 @@ if (process.env.MOVIES_HUB_NODE_ENV && process.env.MOVIES_HUB_NODE_ENV !== 'deve
   });
   Movies_hub_connection.on("error", (err) => {
     console.error(`❌ moviesHub MongoDB connection error: ${err}`);
+    LOG(`❌ moviesHub MongoDB connection error: ${err}`);
   });
 }
 
@@ -46,6 +48,7 @@ if (process.env.GROUP_HELP_ADVANCE_NODE_ENV && process.env.GROUP_HELP_ADVANCE_NO
   });
   group_help_advance_connection.on("error", (err) => {
     console.error(`❌ Group Help Advance MongoDB connection error: ${err}`);
+    LOG(`❌ Group Help Advance MongoDB connection error: ${err}`);
   });
 }
 
@@ -62,6 +65,7 @@ if (process.env.PROJECT_01_NODE_ENV && process.env.PROJECT_01_NODE_ENV !== 'deve
   });
   project_01_connection.on("error", (err) => {
     console.error(`❌ Project 01 MongoDB connection error: ${err}`);
+    LOG(`❌ Project 01 MongoDB connection error: ${err}`);
   });
 }
 
@@ -78,6 +82,7 @@ if (process.env.PROJECT_02_NODE_ENV && process.env.PROJECT_02_NODE_ENV !== 'deve
   });
   project_02_connection.on("error", (err) => {
     console.error(`❌ Project 02 MongoDB connection error: ${err}`);
+    LOG(`❌ Project 02 MongoDB connection error: ${err}`);
   });
 }
 
@@ -94,6 +99,7 @@ if (process.env.TECHBOOST_IT_SERVICES_NODE_ENV && process.env.TECHBOOST_IT_SERVI
   });
   TechBoost_it_services_connection.on("error", (err) => {
     console.error(`❌ TechBoost IT Services MongoDB connection error: ${err}`);
+    LOG(`❌ TechBoost IT Services MongoDB connection error: ${err}`);
   });
 }
 

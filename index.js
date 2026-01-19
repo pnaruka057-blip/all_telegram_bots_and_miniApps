@@ -225,8 +225,10 @@ app.listen(PORT, "0.0.0.0", () => {
 // Global Error Handlers (So one bot’s error doesn't crash others)
 process.on('uncaughtException', (err) => {
     console.error('🔥 Uncaught Exception:', err);
+    LOG('🔥 Uncaught Exception:', err);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('⚠ Unhandled Rejection:', reason);
+    LOG('⚠ Unhandled Rejection:', reason);
 });
