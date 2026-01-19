@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const LOG = require('./logger')
 
 let promoX_connection;
 // promoX
@@ -9,6 +10,7 @@ if (process.env.PROMOX_NODE_ENV && process.env.PROMOX_NODE_ENV !== 'development'
   });
   promoX_connection.on("connected", () => {
     console.log(`📦 PromoX Connected to MongoDB: ${process.env.MONGO_URL_PROMOX}`);
+    LOG(`📦 PromoX Connected to MongoDB: ${process.env.MONGO_URL_PROMOX}`);
   });
   promoX_connection.on("error", (err) => {
     console.error(`❌ PromoX MongoDB connection error: ${err}`);
@@ -24,6 +26,7 @@ if (process.env.MOVIES_HUB_NODE_ENV && process.env.MOVIES_HUB_NODE_ENV !== 'deve
   });
   Movies_hub_connection.on("connected", () => {
     console.log(`📦 moviesHub Connected to MongoDB: ${process.env.MONGO_URL_MOVIEHUB}`);
+    LOG(`📦 moviesHub Connected to MongoDB: ${process.env.MONGO_URL_MOVIEHUB}`);
   });
   Movies_hub_connection.on("error", (err) => {
     console.error(`❌ moviesHub MongoDB connection error: ${err}`);
@@ -39,6 +42,7 @@ if (process.env.GROUP_HELP_ADVANCE_NODE_ENV && process.env.GROUP_HELP_ADVANCE_NO
   });
   group_help_advance_connection.on("connected", () => {
     console.log(`📦 Group Help Advance Connected to MongoDB: ${process.env.MONGO_URL_GROUP_HELP_ADVANCE}`);
+    LOG(`📦 Group Help Advance Connected to MongoDB: ${process.env.MONGO_URL_GROUP_HELP_ADVANCE}`);
   });
   group_help_advance_connection.on("error", (err) => {
     console.error(`❌ Group Help Advance MongoDB connection error: ${err}`);
@@ -54,6 +58,7 @@ if (process.env.PROJECT_01_NODE_ENV && process.env.PROJECT_01_NODE_ENV !== 'deve
   });
   project_01_connection.on("connected", () => {
     console.log(`📦 Project 01 Connected to MongoDB: ${process.env.MONGO_URL_PROJECT_01}`);
+    LOG(`📦 Project 01 Connected to MongoDB: ${process.env.MONGO_URL_PROJECT_01}`);
   });
   project_01_connection.on("error", (err) => {
     console.error(`❌ Project 01 MongoDB connection error: ${err}`);
@@ -69,6 +74,7 @@ if (process.env.PROJECT_02_NODE_ENV && process.env.PROJECT_02_NODE_ENV !== 'deve
   });
   project_02_connection.on("connected", () => {
     console.log(`📦 Project 02 Connected to MongoDB: ${process.env.MONGO_URL_PROJECT_02}`);
+    LOG(`📦 Project 02 Connected to MongoDB: ${process.env.MONGO_URL_PROJECT_02}`);
   });
   project_02_connection.on("error", (err) => {
     console.error(`❌ Project 02 MongoDB connection error: ${err}`);
@@ -84,6 +90,7 @@ if (process.env.TECHBOOST_IT_SERVICES_NODE_ENV && process.env.TECHBOOST_IT_SERVI
   });
   TechBoost_it_services_connection.on("connected", () => {
     console.log(`📦 TechBoost IT Services Connected to MongoDB: ${process.env.MONGO_URL_TECHBOOST_IT_SERVICES}`);
+    LOG(`📦 TechBoost IT Services Connected to MongoDB: ${process.env.MONGO_URL_TECHBOOST_IT_SERVICES}`);
   });
   TechBoost_it_services_connection.on("error", (err) => {
     console.error(`❌ TechBoost IT Services MongoDB connection error: ${err}`);

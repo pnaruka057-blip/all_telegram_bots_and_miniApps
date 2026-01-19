@@ -147,8 +147,6 @@ async function queryTransferOrder({
 
     payload.sign = signRequest(payload, paymentKey);
 
-    console.log(payload);
-
     const form = new URLSearchParams();
     Object.entries(payload).forEach(([k, v]) => {
         if (v !== undefined && v !== null && String(v) !== "") form.append(k, String(v));
@@ -158,8 +156,6 @@ async function queryTransferOrder({
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         timeout: 30000,
     });
-
-    console.log(data);
 
     return data;
 }
