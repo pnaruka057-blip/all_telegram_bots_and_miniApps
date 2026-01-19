@@ -1,4 +1,4 @@
-import fs from "fs";
+const fs = require("fs");
 
 function LOG(...args) {
     const msg = args.map(a => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
