@@ -5,7 +5,7 @@ function LOG(...args) {
     const line = `[${new Date().toISOString()}] ${msg}`;
 
     console.log(line);
-    fs.appendFileSync("../app.log", line + "\n");
+    fs.appendFileSync("app.log", line + "\n");
 }
 
 module.exports = LOG;
